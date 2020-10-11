@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+
 using Microsoft.Xna.Framework;
 
 namespace SharpCraft
@@ -9,6 +11,10 @@ namespace SharpCraft
         Player player;
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
+        SaveHandler saveHandler;
+
+        Thread saveWriter;
+
         int size;
         int x, y, z, index;
         Vector3 position;
@@ -16,11 +22,13 @@ namespace SharpCraft
 
 
         public BlockHanlder(Player _player, Dictionary<Vector3, Chunk> _region, 
-            GameMenu _gameMenu, int _size, Dictionary<string, ushort> blockNames)
+            GameMenu _gameMenu, SaveHandler _saveHandler, int _size, Dictionary<string, ushort> blockNames)
         {
             player = _player;
             region = _region;
             gameMenu = _gameMenu;
+            saveHandler = _saveHandler;
+
             size = _size;
             bedrock = blockNames["Bedrock"];
             water = blockNames["Water"];
@@ -68,8 +76,7 @@ namespace SharpCraft
 
         bool RemoveBlock()
         {
-            if (//region[position].Blocks[y][x][z] == water ||
-                region[position].Blocks[y][x][z] == bedrock)
+            if (region[position].Blocks[y][x][z] == bedrock)
             {
                 return false;
             }
@@ -79,6 +86,9 @@ namespace SharpCraft
             region[position].ActiveY.RemoveAt(index);
             region[position].ActiveX.RemoveAt(index);
             region[position].ActiveZ.RemoveAt(index);
+
+            saveWriter = new Thread(() => saveHandler.AddDelta(position, x, y, z, null));
+            saveWriter.Start();
 
             UpdateAdjacentBlocks(region[position]);
 
@@ -101,12 +111,13 @@ namespace SharpCraft
                 return false;
             }
 
-            Console.WriteLine(new Vector3(x, y, z));
-
             if (region[position].Blocks[y][x][z] is null && gameMenu.ActiveTool != null)
             {
                 region[position].Blocks[y][x][z] = gameMenu.ActiveTool;
             }
+
+            saveWriter = new Thread(() => saveHandler.AddDelta(position, x, y, z, region[position].Blocks[y][x][z]));
+            saveWriter.Start();
 
             UpdateAdjacentBlocks(region[position]);
 
@@ -117,7 +128,7 @@ namespace SharpCraft
         {
             Vector3 position = chunk.Position;
 
-            chunk.UpdateMesh = true;
+            chunk.GenerateMesh = true;
 
             if (!(chunk.Blocks[y][x][z] is null))
             {
@@ -204,7 +215,7 @@ namespace SharpCraft
                 chunk.ActiveZ.Add((byte)z);
             }
 
-            chunk.UpdateMesh = true;
+            chunk.GenerateMesh = true;
         }
 
         void AdjustIndices(char side, Vector3 vector)

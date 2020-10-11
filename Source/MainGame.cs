@@ -21,6 +21,7 @@ namespace SharpCraft
         World world;
         GameMenu gameMenu;
         Renderer renderer;
+        SaveHandler saveHandler;
 
         Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
         Dictionary<ushort, string> blockIndices = new Dictionary<ushort, string>();
@@ -56,8 +57,10 @@ namespace SharpCraft
             int renderDistance = 8;
             effect = new BasicEffect(graphics.GraphicsDevice);
 
+            saveHandler = new SaveHandler();
             gameMenu = new GameMenu(this, graphics, textures, blockTextures, blockIndices, fonts);
-            world = new World(size, renderDistance, blockTextures.Length, gameMenu, blockNames, multifaceBlocks, transparentBlocks);
+            world = new World(size, renderDistance, blockTextures.Length, gameMenu, saveHandler,
+                              blockNames, multifaceBlocks, transparentBlocks);
             player = new Player(graphics, new Vector3(0f, 0f, 0f), new Vector3(0f, -0.5f, -1f));
             renderer = new Renderer(graphics, effect, size, world.Region, blockTextures);
 

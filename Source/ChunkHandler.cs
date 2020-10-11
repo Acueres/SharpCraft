@@ -51,10 +51,10 @@ namespace SharpCraft
                     eastPosition = position + new Vector3(-size, 0, 0),
                     westPosition = position + new Vector3(size, 0, 0);
 
-            bool northChunkExists = region.ContainsKey(northPosition),
-                 southChunkExists = region.ContainsKey(southPosition),
-                 eastChunkExists = region.ContainsKey(eastPosition),
-                 westChunkExists = region.ContainsKey(westPosition);
+            bool northChunkExists = region.ContainsKey(northPosition) && region[northPosition] != null,
+                 southChunkExists = region.ContainsKey(southPosition) && region[southPosition] != null,
+                 eastChunkExists = region.ContainsKey(eastPosition) && region[eastPosition] != null,
+                 westChunkExists = region.ContainsKey(westPosition) && region[westPosition] != null;
 
             chunk.ActiveY.Clear();
             chunk.ActiveX.Clear();
@@ -207,7 +207,7 @@ namespace SharpCraft
                     }
                 }
             }
-            chunk.Update = false;
+            chunk.Initialize = false;
         }
 
         public void GenerateMesh(Chunk chunk)
@@ -235,7 +235,7 @@ namespace SharpCraft
             }
 
             Clear(chunk);
-            chunk.UpdateMesh = false;
+            chunk.GenerateMesh = false;
         }
 
         public void GetVisibleSides(bool[] sideVisible, Chunk chunk, int y, int x, int z)
@@ -254,10 +254,10 @@ namespace SharpCraft
                     eastPosition = position + new Vector3(-size, 0, 0),
                     westPosition = position + new Vector3(size, 0, 0);
 
-            bool northChunkExists = region.ContainsKey(northPosition),
-                 southChunkExists = region.ContainsKey(southPosition),
-                 eastChunkExists = region.ContainsKey(eastPosition),
-                 westChunkExists = region.ContainsKey(westPosition);
+            bool northChunkExists = region.ContainsKey(northPosition) && region[northPosition] != null,
+                 southChunkExists = region.ContainsKey(southPosition) && region[southPosition] != null,
+                 eastChunkExists = region.ContainsKey(eastPosition) && region[eastPosition] != null,
+                 westChunkExists = region.ContainsKey(westPosition) && region[westPosition] != null;
 
             bool isCurrentOpaque = !transparentBlocks[(int)chunk.Blocks[y][x][z]];
 

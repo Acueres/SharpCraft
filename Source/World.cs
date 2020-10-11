@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
+
 namespace SharpCraft
 {
     class World
@@ -18,6 +19,10 @@ namespace SharpCraft
         BlockHanlder blockHanlder;
         WorldGenerator worldGenerator;
         ChunkHandler chunkHandler;
+        SaveHandler saveHandler;
+
+        Vector3[] loadedChunks;
+        List<Vector3> inactiveChunks;
 
         int size;
         int renderDistance;
@@ -27,11 +32,12 @@ namespace SharpCraft
         bool[] transparentBlocks;
 
 
-        public World(int _size, int _renderDistance, int textureCount, GameMenu _gameMenu, 
+        public World(int _size, int _renderDistance, int textureCount, GameMenu _gameMenu, SaveHandler _saveHandler,
             Dictionary<string, ushort> blockNames, Dictionary<ushort, ushort[]> multifaceBlocks,
             bool[] _transparentBlocks)
         {
             gameMenu = _gameMenu;
+            saveHandler = _saveHandler;
 
             size = _size;
             renderDistance = _renderDistance;
@@ -48,18 +54,22 @@ namespace SharpCraft
             UpdateOccured = true;
 
             ActiveChunks = new Vector3[(2 * renderDistance + 1) * (2 * renderDistance + 1)];
+
+            inactiveChunks = new List<Vector3>((2 * (renderDistance + 2) + 1) * (2 * (renderDistance + 2) + 1));
+
+            loadedChunks = new Vector3[(2 * (renderDistance + 2) + 1) * (2 * (renderDistance + 2) + 1)];
         }
 
         public void SetPlayer(Player _player, Dictionary<string, ushort> blockNames)
         {
             player = _player;
 
-            blockHanlder = new BlockHanlder(player, Region, gameMenu, size, blockNames);
+            blockHanlder = new BlockHanlder(player, Region, gameMenu, saveHandler, size, blockNames);
 
             GetActiveChunks();
 
             player.Position = new Vector3(Region[ActiveChunks[0]].ActiveX[0],
-                Region[ActiveChunks[0]].ActiveY[0] + 50, Region[ActiveChunks[0]].ActiveZ[0]);
+                Region[ActiveChunks[0]].ActiveY[0] + 20, Region[ActiveChunks[0]].ActiveZ[0]);
         }
 
         public void Update()
@@ -67,6 +77,7 @@ namespace SharpCraft
             if (UpdateOccured || player.UpdateOccured)
             {
                 GetActiveChunks();
+                UnloadChunks();
                 UpdatePlayerActions();
             }
         }
@@ -85,18 +96,20 @@ namespace SharpCraft
 
         void GetActiveChunks()
         {
-            float x, z;
-
-            x = GetChunkIndex(player.Position.X);
-            z = GetChunkIndex(player.Position.Z);
+            float x = GetChunkIndex(player.Position.X);
+            float z = GetChunkIndex(player.Position.Z);
 
             Vector3 center = new Vector3(x, 0, z);
+
+            inactiveChunks = loadedChunks.ToList();
+
+            LoadRegion(center);
 
             GenerateRegion(center);
 
             for (int i = 0; i < ActiveChunks.Length; i++)
             {
-                if (Region[ActiveChunks[i]].Update)
+                if (Region[ActiveChunks[i]].Initialize)
                 {
                     chunkHandler.Initialize(Region[ActiveChunks[i]]);
                 }
@@ -104,13 +117,34 @@ namespace SharpCraft
 
             for (int i = 0; i < ActiveChunks.Length; i++)
             {
-                if (Region[ActiveChunks[i]].UpdateMesh)
+                if (Region[ActiveChunks[i]].GenerateMesh)
                 {
                     chunkHandler.GenerateMesh(Region[ActiveChunks[i]]);
                 }
             }
 
             ActiveChunks.OrderByDescending(v => (v - player.Position).Length());
+        }
+
+        void LoadRegion(Vector3 center)
+        {
+            int count = 0;
+            int n = size * (renderDistance + 2);
+
+            for (int i = -n; i <= n; i += size)
+            {
+                for (int j = -n; j <= n; j += size)
+                {
+                    Vector3 position = center - new Vector3(i, 0, j);
+                    if (!Region.ContainsKey(position))
+                    {
+                        Region.Add(position, null);
+                    }
+
+                    loadedChunks[count] = position;
+                    count++;
+                }
+            }
         }
 
         void GenerateRegion(Vector3 center)
@@ -122,15 +156,39 @@ namespace SharpCraft
             {
                 for (int j = -n; j <= n; j += size)
                 {
-                    Vector3 vector = center - new Vector3(i, 0, j);
-                    if (!Region.ContainsKey(vector))
+                    Vector3 position = center - new Vector3(i, 0, j);
+                    if (Region[position] is null)
                     {
-                        Region.Add(vector, worldGenerator.GenerateChunk(vector));
+                        Region[position] = worldGenerator.GenerateChunk(position);
+                        saveHandler.ApplyDelta(Region[position]);
                     }
-                    ActiveChunks[count] = vector;
+
+                    ActiveChunks[count] = position;
                     count++;
                 }
             }
+        }
+
+        void UnloadChunks()
+        {
+            for (int i = 0; i < inactiveChunks.Count; i++)
+            {
+                if (loadedChunks.Contains(inactiveChunks[i]))
+                {
+                    inactiveChunks.RemoveAt(i);
+                    i--;
+                }
+            }
+
+            for (int i = 0; i < inactiveChunks.Count; i++)
+            {
+                if (Region[inactiveChunks[i]] != null)
+                    Region[inactiveChunks[i]].Dispose();
+
+                Region[inactiveChunks[i]] = null;
+            }
+
+            inactiveChunks.Clear();
         }
 
         void UpdatePlayerActions()
@@ -203,7 +261,6 @@ namespace SharpCraft
                             minDistance = (float)rayBlockDistance;
                             blockHanlder.Set(x, y, z, j, position);
                         }
-
                     }
                 }
             }

@@ -3,16 +3,18 @@ using Microsoft.Xna.Framework.Graphics;
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Win32.SafeHandles;
+using System.Runtime.InteropServices;
 
 
 namespace SharpCraft
 {
-    public class Chunk
+    public class Chunk : IDisposable
     {
         public Vector3 Position;
 
-        public bool UpdateMesh;
-        public bool Update;
+        public bool GenerateMesh;
+        public bool Initialize;
 
         public ushort?[][][] Blocks;
 
@@ -31,13 +33,17 @@ namespace SharpCraft
         public int VertexCount;
         public int TransparentVertexCount;
 
+        public void Dispose() => Dispose(true);
+        SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
+        bool disposed = false;
+
 
         public Chunk(Vector3 position, int size = 16, int height = 128)
         {
             Position = position;
 
-            UpdateMesh = true;
-            Update = true;
+            GenerateMesh = true;
+            Initialize = true;
 
             Blocks = new ushort?[height][][];
             for (int y = 0; y < height; y++)
@@ -65,6 +71,21 @@ namespace SharpCraft
 
             VertexList = new List<VertexPositionNormalTexture>(6 * total);
             TransparentVertexList = new List<VertexPositionNormalTexture>(3 * total);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                safeHandle?.Dispose();
+            }
+
+            disposed = true;
         }
     }
 }
