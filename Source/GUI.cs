@@ -1,34 +1,100 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 
 namespace SharpCraft
 {
-    public class Button
+    class Button
     {
-        public string Texture { get; set; }
-        public string Selector { get; set; }
+        public bool Selected;
+        public bool Inactive;
 
-        public Rectangle Rect { get; set; }
+        Texture2D texture;
+        Texture2D selector;
+        Texture2D shading;
 
-        public string Text { get; set; }
+        SpriteFont font;
 
-        public Vector2 TextPosition { get; set; }
+        Rectangle rect;
 
-        public bool IsSelected { get; set; }
+        string text;
+
+        Vector2 textPosition;
 
 
-        public Button(int x, int y, int width, int height, string texture, string selector, string text)
+        public Button(int x, int y, int width, int height, Texture2D _texture, Texture2D _selector, SpriteFont _font, string _text)
         {
-            Texture = texture;
-            Selector = selector;
+            texture = _texture;
+            selector = _selector;
+            font = _font;
 
-            Rect = new Rectangle(x, y, width, height);
+            rect = new Rectangle(x, y, width, height);
 
-            Text = text;
+            text = _text;
 
-            TextPosition = new Vector2(1.4f * x, y + 0.25f * height);
+            textPosition = new Vector2(x + width / 2, y + height / 4);
 
-            IsSelected = false;
+            Selected = false;
+            Inactive = false;
+        }
+
+        public void SetShading(GraphicsDeviceManager graphics)
+        {
+            shading = new Texture2D(graphics.GraphicsDevice, rect.Width, rect.Height);
+
+            Color[] shadingColor = new Color[rect.Width * rect.Height];
+            for (int i = 0; i < shadingColor.Length; i++)
+                shadingColor[i] = new Color(Color.Black, 0.5f);
+
+            shading.SetData(shadingColor);
+        }
+
+        public void Draw(SpriteBatch spriteBatch)
+        {
+            Vector2 textSize = font.MeasureString(text) / 2;
+            textSize.Y = 0;
+
+            spriteBatch.Draw(texture, rect, Color.White);
+            spriteBatch.DrawString(font, text, textPosition - textSize, Color.White);
+
+            if (Inactive)
+            {
+                spriteBatch.Draw(shading, rect, Color.White);
+            }
+
+            if (Selected)
+            {
+                spriteBatch.Draw(selector, rect, Color.White);
+            }
+
+            Selected = false;
+        }
+
+        public void Draw(SpriteBatch spriteBatch, object data)
+        {
+            string newText = text + $": {data}";
+            Vector2 textSize = font.MeasureString(newText) / 2;
+            textSize.Y = 0;
+
+            spriteBatch.Draw(texture, rect, Color.White);
+            spriteBatch.DrawString(font, newText, textPosition - textSize, Color.White);
+
+            if (Inactive)
+            {
+                spriteBatch.Draw(shading, rect, Color.White);
+            }
+
+            if (Selected)
+            {
+                spriteBatch.Draw(selector, rect, Color.White);
+            }
+
+            Selected = false;
+        }
+
+        public bool Contains(Point point)
+        {
+            return !Inactive && rect.Contains(point);
         }
     }
 }

@@ -32,21 +32,21 @@ namespace SharpCraft
         bool[] transparentBlocks;
 
 
-        public World(int _size, int _renderDistance, int textureCount, GameMenu _gameMenu, SaveHandler _saveHandler,
-            Dictionary<string, ushort> blockNames, Dictionary<ushort, ushort[]> multifaceBlocks,
+        public World(int textureCount, GameMenu _gameMenu, SaveHandler _saveHandler,
+            Dictionary<string, ushort> blockIndices, Dictionary<ushort, ushort[]> multifaceBlocks,
             bool[] _transparentBlocks)
         {
             gameMenu = _gameMenu;
             saveHandler = _saveHandler;
 
-            size = _size;
-            renderDistance = _renderDistance;
+            size = Parameters.ChunkSize;
+            renderDistance = Parameters.RenderDistance;
 
-            water = blockNames["Water"];
+            water = blockIndices["Water"];
 
             transparentBlocks = _transparentBlocks;
 
-            worldGenerator = new WorldGenerator(blockNames, type: "", seed: 42, size: size);
+            worldGenerator = new WorldGenerator(blockIndices, type: Parameters.WorldType, seed: Parameters.Seed, size: size);
             Region = new Dictionary<Vector3, Chunk>();
 
             chunkHandler = new ChunkHandler(worldGenerator, Region, multifaceBlocks, transparentBlocks, size, textureCount);
@@ -60,16 +60,25 @@ namespace SharpCraft
             loadedChunks = new Vector3[(2 * (renderDistance + 2) + 1) * (2 * (renderDistance + 2) + 1)];
         }
 
-        public void SetPlayer(Player _player, Dictionary<string, ushort> blockNames)
+        public void SetPlayer(Player _player, Dictionary<string, ushort> blockIndices)
         {
             player = _player;
 
-            blockHanlder = new BlockHanlder(player, Region, gameMenu, saveHandler, size, blockNames);
+            blockHanlder = new BlockHanlder(player, Region, gameMenu, saveHandler, size);
 
             GetActiveChunks();
 
-            player.Position = new Vector3(Region[ActiveChunks[0]].ActiveX[0],
-                Region[ActiveChunks[0]].ActiveY[0] + 20, Region[ActiveChunks[0]].ActiveZ[0]);
+            int centerIndex = (ActiveChunks.Length - 1) / 2;
+
+            if (Parameters.Position == Vector3.Zero)
+            {
+                player.Position = new Vector3(Region[ActiveChunks[centerIndex]].ActiveX[0],
+                Region[ActiveChunks[centerIndex]].ActiveY[0] + 2f, Region[ActiveChunks[centerIndex]].ActiveZ[0]);
+            }
+            else
+            {
+                player.Position = Parameters.Position;
+            }
         }
 
         public void Update()
@@ -243,7 +252,7 @@ namespace SharpCraft
                     {
                         if (Region[position].Blocks[y][x][z] == water)
                         {
-                            player.InWater = true;
+                            player.Swimming = true;
                         }
                         else
                         {

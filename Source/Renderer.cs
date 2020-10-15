@@ -20,12 +20,12 @@ namespace SharpCraft
         DynamicVertexBuffer buffer;
 
 
-        public Renderer(GraphicsDeviceManager _graphics, BasicEffect _effect, int _size,
+        public Renderer(GraphicsDeviceManager _graphics, BasicEffect _effect,
             Dictionary<Vector3, Chunk> _region, Texture2D[] _blockTextures)
         {
             graphics = _graphics;
             effect = _effect;
-            size = _size;
+            size = Parameters.ChunkSize;
             region = _region;
             blockTextures = _blockTextures;
 

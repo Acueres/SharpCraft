@@ -73,7 +73,7 @@ namespace SharpCraft
             //Side collision
             if (deltaY < 0.5f)
             {
-                if (visibleSides[faceNormals[normal]])
+                if (faceNormals.ContainsKey(normal) && visibleSides[faceNormals[normal]])
                 {
                     collisionNormals.Add(normal);
 
@@ -195,7 +195,7 @@ namespace SharpCraft
                 positionDelta.Y += Velocity.Y;
             }
             //Move up in water
-            else if (!ceilingCollision && player.InWater
+            else if (!ceilingCollision && player.Swimming
                 && currentKeyboardState.IsKeyDown(Keys.Space))
             {
                 positionDelta.Y += 0.2f;
@@ -226,7 +226,7 @@ namespace SharpCraft
 
             positionDelta += delta * Velocity.X * player.Camera.HorizontalDirection;
 
-            if (player.Sprint && !player.InWater)
+            if (player.Sprint && !player.Swimming)
             {
                 positionDelta.X *= 2;
                 positionDelta.Z *= 2;
@@ -244,7 +244,7 @@ namespace SharpCraft
                 }
             }
 
-            if (player.InWater)
+            if (player.Swimming)
             {
                 positionDelta *= 0.3f;
             }
@@ -254,7 +254,7 @@ namespace SharpCraft
             collisionNormals.Clear();
 
             player.OnGround = false;
-            player.InWater = false;
+            player.Swimming = false;
 
             ceilingCollision = false;
         }

@@ -28,7 +28,7 @@ namespace SharpCraft
                sand, sandstone;
 
 
-        public WorldGenerator(Dictionary<string, ushort> blockNames, string type = "flat", int size = 16, int seed = 0)
+        public WorldGenerator(Dictionary<string, ushort> blockIndices, string type = "Flat", int size = 16, int seed = 0)
         {
             Seed = seed;
             Size = size;
@@ -36,28 +36,20 @@ namespace SharpCraft
 
             waterLevel = 35;
 
-            bedrock = blockNames["Bedrock"];
-            grass = blockNames["Grass"];
-            stone = blockNames["Stone"];
-            dirt = blockNames["Dirt"];
-            snow = blockNames["Snow Block"];
-            granite = blockNames["Granite"];
-            leaves = blockNames["Leaves"];
-            birch = blockNames["Birch Log"];
-            oak = blockNames["Oak Log"];
-            water = blockNames["Water"];
-            sand = blockNames["Sand"];
-            sandstone = blockNames["Sandstone"];
+            bedrock = blockIndices["Bedrock"];
+            grass = blockIndices["Grass"];
+            stone = blockIndices["Stone"];
+            dirt = blockIndices["Dirt"];
+            snow = blockIndices["Snow Block"];
+            granite = blockIndices["Granite"];
+            leaves = blockIndices["Leaves"];
+            birch = blockIndices["Birch Log"];
+            oak = blockIndices["Oak Log"];
+            water = blockIndices["Water"];
+            sand = blockIndices["Sand"];
+            sandstone = blockIndices["Sandstone"];
 
-            if (Seed == 0)
-            {
-                rnd = new Random();
-                Seed = rnd.Next();
-            }
-            else
-            {
-                rnd = new Random(Seed);
-            }
+            rnd = new Random(Seed);
 
             terrain = new FastNoiseLite(Seed);
             terrain.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
@@ -84,7 +76,7 @@ namespace SharpCraft
         {
             switch (Type)
             {
-                case "flat":
+                case "Flat":
                     return Flat(position);
 
                 default:

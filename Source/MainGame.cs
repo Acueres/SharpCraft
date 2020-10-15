@@ -13,19 +13,18 @@ namespace SharpCraft
     public class MainGame : Game
     {
         GraphicsDeviceManager graphics;
-
-        int size;
         BasicEffect effect;
 
         Player player;
         World world;
         GameMenu gameMenu;
+        MainMenu mainMenu;
         Renderer renderer;
         SaveHandler saveHandler;
 
-        Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
-        Dictionary<ushort, string> blockIndices = new Dictionary<ushort, string>();
-        Dictionary<string, ushort> blockNames = new Dictionary<string, ushort>();
+        Dictionary<string, Texture2D> menuTextures = new Dictionary<string, Texture2D>();
+        Dictionary<ushort, string> blockNames = new Dictionary<ushort, string>();
+        Dictionary<string, ushort> blockIndices = new Dictionary<string, ushort>();
         Dictionary<ushort, ushort[]> multifaceBlocks = new Dictionary<ushort, ushort[]>();
         bool[] transparentBlocks;
         Texture2D[] blockTextures;
@@ -44,8 +43,6 @@ namespace SharpCraft
             IsFixedTimeStep = true;
             TargetElapsedTime = TimeSpan.FromMilliseconds(16);
 
-            //graphics.GraphicsProfile = GraphicsProfile.Reach;
-
             Content.RootDirectory = "Assets";
         }
 
@@ -53,60 +50,11 @@ namespace SharpCraft
         {
             LoadAssets();
 
-            size = 16;
-            int renderDistance = 8;
-            effect = new BasicEffect(graphics.GraphicsDevice);
-
-            saveHandler = new SaveHandler();
-            gameMenu = new GameMenu(this, graphics, textures, blockTextures, blockIndices, fonts);
-            world = new World(size, renderDistance, blockTextures.Length, gameMenu, saveHandler,
-                              blockNames, multifaceBlocks, transparentBlocks);
-            player = new Player(graphics, new Vector3(0f, 0f, 0f), new Vector3(0f, -0.5f, -1f));
-            renderer = new Renderer(graphics, effect, size, world.Region, blockTextures);
-
-            world.SetPlayer(player, blockNames);
+            mainMenu = new MainMenu(this, graphics, menuTextures, fonts);
 
             base.Initialize();
         }
 
-        protected override void LoadContent()
-        {
-
-        }
-
-        protected override void UnloadContent()
-        {
-            Content.Unload();
-        }
-
-        protected override void Update(GameTime gameTime)
-        {
-            if (IsActive)
-            {
-                if (!Parameters.GamePaused)
-                {
-                    player.Update(gameTime);
-                    world.Update();
-                }
-
-                gameMenu.Update();
-
-                base.Update(gameTime);
-            }
-        }
-
-        protected override void Draw(GameTime gameTime)
-        {
-            graphics.GraphicsDevice.Clear(Color.SkyBlue);
-
-            renderer.Draw(world.ActiveChunks, player);
-            gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
-
-            base.Draw(gameTime);
-        }
-
-
-        //Utility methods
         void LoadAssets()
         {
             LoadBlocks();
@@ -117,7 +65,7 @@ namespace SharpCraft
             for (int i = 0; i < textureNames.Length; i++)
             {
                 var t = textureNames[i].Split('\\')[1].Split('.')[0];
-                textures.Add(t, Content.Load<Texture2D>("Textures/Menu/" + t));
+                menuTextures.Add(t, Content.Load<Texture2D>("Textures/Menu/" + t));
             }
 
             fonts = new SpriteFont[2];
@@ -126,17 +74,128 @@ namespace SharpCraft
             fonts[1] = Content.Load<SpriteFont>("Fonts/font24");
         }
 
+        protected override void UnloadContent()
+        {
+            Content.Unload();
+
+            SaveSettings();
+        }
+
+        protected override void Update(GameTime gameTime)
+        {
+            if (IsActive)
+            {
+                if (Parameters.GameStarted)
+                {
+                    if (!Parameters.GamePaused)
+                    {
+                        player.Update(gameTime);
+                        world.Update();
+                    }
+
+                    gameMenu.Update();
+                }
+                else if (Parameters.GameLoading)
+                {
+                    NewGame();
+                }
+                else if (Parameters.ExitedToMainMenu)
+                {
+                    SaveSettings();
+                    player = null;
+                    world = null;
+                    saveHandler = null;
+                    gameMenu = null;
+                    renderer = null;
+                    GC.Collect();
+
+                    IsMouseVisible = true;
+                    Parameters.ExitedToMainMenu = false;
+                }
+                else
+                {
+                    mainMenu.Update();
+                }
+            }
+
+            base.Update(gameTime);
+        }
+
+        protected override void Draw(GameTime gameTime)
+        {
+            if (Parameters.GameStarted)
+            {
+                graphics.GraphicsDevice.Clear(Color.SkyBlue);
+
+                renderer.Draw(world.ActiveChunks, player);
+                gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
+            }
+            else if (Parameters.GameLoading)
+            {
+                mainMenu.DrawLoadingScreen();
+            }
+            else
+            {
+                mainMenu.Draw();
+            }
+
+            base.Draw(gameTime);
+        }
+
+        void NewGame()
+        {
+            effect = new BasicEffect(graphics.GraphicsDevice);
+
+            saveHandler = new SaveHandler();
+            gameMenu = new GameMenu(this, graphics, menuTextures, blockTextures, blockNames, fonts);
+            world = new World(blockTextures.Length, gameMenu, saveHandler,
+                              blockIndices, multifaceBlocks, transparentBlocks);
+            player = new Player(graphics, Parameters.Position, Parameters.Direction);
+            renderer = new Renderer(graphics, effect, world.Region, blockTextures);
+
+            world.SetPlayer(player, blockIndices);
+
+            Parameters.GameLoading = false;
+            Parameters.GameStarted = true;
+        }
+
+        void SaveSettings()
+        {
+            if (player != null)
+            {
+                List<SaveParameters> data = new List<SaveParameters>(1);
+                data.Add(new SaveParameters()
+                {
+                    seed = Parameters.Seed,
+                    isFlying = player.IsFlying,
+                    X = player.Position.X,
+                    Y = player.Position.Y,
+                    Z = player.Position.Z,
+                    dirX = player.Camera.Direction.X,
+                    dirY = player.Camera.Direction.Y,
+                    dirZ = player.Camera.Direction.Z,
+                    inventory = Parameters.Inventory,
+                    worldType = Parameters.WorldType
+                });
+
+                string json = JsonConvert.SerializeObject(data);
+                string path = Directory.GetCurrentDirectory() + @"\Save\parameters.json";
+
+                File.WriteAllText(path, json);
+            }
+        }
+
         void LoadBlocks()
         {
             List<BlockData> blockData;
-            using (StreamReader r = new StreamReader("Assets/block_data.json"))
+            using (StreamReader r = new StreamReader("Assets/multiface_blocks.json"))
             {
                 string json = r.ReadToEnd();
                 blockData = JsonConvert.DeserializeObject<List<BlockData>>(json);
             }
 
             List<BlockName> blockNameData;
-            using (StreamReader r = new StreamReader("Assets/block_names.json"))
+            using (StreamReader r = new StreamReader("Assets/blocks.json"))
             {
                 string json = r.ReadToEnd();
                 blockNameData = JsonConvert.DeserializeObject<List<BlockName>>(json);
@@ -149,7 +208,7 @@ namespace SharpCraft
             {
                 var t = blockTextureNames[i].Split('\\')[1].Split('.')[0];
                 blockTextures[i] = Content.Load<Texture2D>("Textures/Blocks/" + t);
-                blockNames.Add(t, i);
+                blockIndices.Add(t, i);
             }
 
             string[] sides = new string[] { "front", "back", "top", "bottom", "right", "left" };
@@ -160,7 +219,7 @@ namespace SharpCraft
                     continue;
 
                 var sideData = entry.GetType().GetFields().
-                    ToDictionary(prop => prop.Name, prop => prop.GetValue(entry));
+                    ToDictionary(x => x.Name, x => x.GetValue(entry));
 
                 ushort[] arr = new ushort[6];
 
@@ -168,51 +227,35 @@ namespace SharpCraft
                 {
                     if (sideData[sides[i]] is null)
                     {
-                        arr[i] = blockNames[sideData["type"].ToString()];
+                        arr[i] = blockIndices[sideData["type"].ToString()];
                     }
                     else
                     {
-                        arr[i] = blockNames[sideData[sides[i]].ToString()];
+                        arr[i] = blockIndices[sideData[sides[i]].ToString()];
                     }
                 }
 
-                multifaceBlocks.Add(blockNames[entry.type], arr);
+                multifaceBlocks.Add(blockIndices[entry.type], arr);
             }
 
             foreach (var entry in blockNameData)
             {
                 string name = entry.name is null ? Util.Title(entry.type) : entry.name;
 
-                blockIndices.Add(blockNames[entry.type], name);
+                blockNames.Add(blockIndices[entry.type], name);
             }
 
-            blockNames = blockIndices.ToDictionary(x => x.Value, x => x.Key);
+            blockIndices = blockNames.ToDictionary(x => x.Value, x => x.Key);
 
             transparentBlocks = new bool[blockTextures.Length];
 
             for (int i = 0; i < transparentBlocks.Length; i++)
             {
-                if (blockNames["Glass"] == i)
+                if (blockIndices["Glass"] == i)
                     transparentBlocks[i] = true;
-                else if (blockNames["Water"] == i)
+                else if (blockIndices["Water"] == i)
                     transparentBlocks[i] = true;
             }
         }
-    }
-
-    static class Parameters
-    {
-        public static bool GamePaused = false;
-        public static bool ExitedMenu = false;
-    }
-
-    class BlockData
-    {
-        public string type, front, back, top, bottom, right, left;
-    }
-
-    class BlockName
-    {
-        public string name, type;
     }
 }

@@ -17,7 +17,7 @@ namespace SharpCraft
         public bool OnGround;
         public bool Sprint;
         public bool UpdateOccured;
-        public bool InWater;
+        public bool Swimming;
 
         public MouseState CurrentMouseState;
         public MouseState PreviousMouseState;
@@ -46,10 +46,10 @@ namespace SharpCraft
 
             Position = position;
 
-            IsFlying = false;
+            IsFlying = Parameters.IsFlying;
             Sprint = false;
             UpdateOccured = true;
-            InWater = false;
+            Swimming = false;
 
             CurrentKeyboardState = Keyboard.GetState();
 
@@ -80,8 +80,8 @@ namespace SharpCraft
             Physics.Update();
 
             UpdateOccured = Camera.cameraDelta.Length() > 0 || Physics.Velocity.Length() > 0 ||
-                Util.IsLeftButtonClicked(CurrentMouseState, PreviousMouseState) ||
-                Util.IsRightButtonClicked(CurrentMouseState, PreviousMouseState);
+                Util.LeftButtonClicked(CurrentMouseState, PreviousMouseState) ||
+                Util.RightButtonClicked(CurrentMouseState, PreviousMouseState);
 
             Ray.Position = Position;
             Ray.Direction = Camera.Direction;
@@ -96,7 +96,7 @@ namespace SharpCraft
         void UpdateState()
         {
             //State change
-            if (Util.IsKeyPressed(Keys.Space, CurrentKeyboardState, PreviousKeyboardState) &&
+            if (Util.KeyPressed(Keys.Space, CurrentKeyboardState, PreviousKeyboardState) &&
                 lastKeyPressed == Keys.Space && GameTime.TotalGameTime.TotalMilliseconds - lastPressTime < 225)
             {
                 IsFlying ^= true;
@@ -117,17 +117,17 @@ namespace SharpCraft
                 }
             }
 
-            if (Util.IsKeyReleased(Keys.W, CurrentKeyboardState, PreviousKeyboardState))
+            if (Util.KeyReleased(Keys.W, CurrentKeyboardState, PreviousKeyboardState))
             {
                 Sprint = false;
             }
 
-            if (Util.IsKeyPressed(Keys.W, CurrentKeyboardState, PreviousKeyboardState) && lastKeyPressed == Keys.W && GameTime.TotalGameTime.TotalMilliseconds - lastPressTime < 225)
+            if (Util.KeyPressed(Keys.W, CurrentKeyboardState, PreviousKeyboardState) && lastKeyPressed == Keys.W && GameTime.TotalGameTime.TotalMilliseconds - lastPressTime < 225)
             {
                 Sprint = true;
             }
 
-            if (Util.IsKeyPressed(Keys.W, CurrentKeyboardState, PreviousKeyboardState))
+            if (Util.KeyPressed(Keys.W, CurrentKeyboardState, PreviousKeyboardState))
             {
                 lastPressTime = GameTime.TotalGameTime.TotalMilliseconds;
                 lastKeyPressed = Keys.W;

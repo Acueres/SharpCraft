@@ -1,8 +1,9 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System;
+using System.Collections.Generic;
+
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using System.Collections.Generic;
-using System;
 
 
 namespace SharpCraft
@@ -16,14 +17,17 @@ namespace SharpCraft
         SpriteBatch spriteBatch;
 
         Rectangle crosshair,
-                          selector,
-                          inventory,
-                          toolbar,
-                          tool;
-        Rectangle darkBackground;
-        Texture2D darkBackgroundTexture;
+                  selector,
+                  inventory,
+                  toolbar,
+                  tool;
 
-        Button back, quit;
+        Rectangle screenShading;
+        Texture2D screenShadingTexture;
+
+        Texture2D blackTexture;
+
+        Button back, toMain, quit;
 
         SpriteFont font14, font24;
 
@@ -42,23 +46,22 @@ namespace SharpCraft
         KeyboardState previousKeyboardState;
         MouseState previousMouseState;
 
-        Dictionary<string, Texture2D> textures;
+        Dictionary<string, Texture2D> menuTextures;
         Texture2D[] blockTextures;
-        Dictionary<ushort, string> blockIndices;
+        Dictionary<ushort, string> blockNames;
 
 
         public GameMenu(MainGame _game, GraphicsDeviceManager _graphics,
                         Dictionary<string, Texture2D> _textures, Texture2D[] _blockTextures,
-                        Dictionary<ushort, string> _blockIndices, SpriteFont[] fonts)
+                        Dictionary<ushort, string> _blockNames, SpriteFont[] fonts)
         {
             game = _game;
-
             graphics = _graphics;
 
             spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
 
-            textures = _textures;
-            blockIndices = _blockIndices;
+            menuTextures = _textures;
+            blockNames = _blockNames;
 
             blockTextures = _blockTextures;
 
@@ -69,6 +72,15 @@ namespace SharpCraft
 
             tools = new ushort?[9];
 
+            foreach (var i in Parameters.Inventory)
+            {
+                if (i != null)
+                {
+                    tools = Parameters.Inventory;
+                    break;
+                }
+            }
+
             items = new ushort?[5][];
 
             for (int i = 0; i < items.Length; i++)
@@ -77,7 +89,7 @@ namespace SharpCraft
             }
 
             int row = 0, col = 0;
-            foreach (var blockName in blockIndices)
+            foreach (var blockName in blockNames)
             {
                 items[col][row] = blockName.Key;
                 row++;
@@ -102,9 +114,11 @@ namespace SharpCraft
             font24 = fonts[1];
 
             back = new Button((game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70, 
-                "button", "button_selector", "Back to game");
-            quit = new Button((game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70, 
-                "button", "button_selector", "Quit the game");
+                menuTextures["button"], menuTextures["button_selector"], font24, "Back to game");
+            toMain = new Button((game.Window.ClientBounds.Width / 2) - 200, 3 * 70, 400, 70,
+                menuTextures["button"], menuTextures["button_selector"], font24, "Main Menu");
+            quit = new Button((game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
+                menuTextures["button"], menuTextures["button_selector"], font24, "Quit Game");
 
             crosshair = new Rectangle((game.Window.ClientBounds.Width / 2) - 15, 
                 (game.Window.ClientBounds.Height / 2) - 15, 30, 30);
@@ -120,15 +134,23 @@ namespace SharpCraft
             tool = new Rectangle((game.Window.ClientBounds.Width / 2) - 220, 
                 game.Window.ClientBounds.Height - 45, 40, 40);
 
-            darkBackground = new Rectangle(0, 0, game.Window.ClientBounds.Width, 
+            screenShading = new Rectangle(0, 0, game.Window.ClientBounds.Width, 
                 game.Window.ClientBounds.Height);
-            darkBackgroundTexture = new Texture2D(graphics.GraphicsDevice, 
+            screenShadingTexture = new Texture2D(graphics.GraphicsDevice, 
                 game.Window.ClientBounds.Width, game.Window.ClientBounds.Height);
 
             Color[] darkBackGroundColor = new Color[game.Window.ClientBounds.Width * game.Window.ClientBounds.Height];
-            for (int i = 0; i < darkBackGroundColor.Length; i++) darkBackGroundColor[i] = new Color(Color.Black, 0.5f);
+            for (int i = 0; i < darkBackGroundColor.Length; i++)
+                darkBackGroundColor[i] = new Color(Color.Black, 0.5f);
 
-            darkBackgroundTexture.SetData(darkBackGroundColor);
+            screenShadingTexture.SetData(darkBackGroundColor);
+
+            blackTexture = new Texture2D(graphics.GraphicsDevice, 20, 10);
+            Color[] blackTextureColor = new Color[200];
+            for (int i = 0; i < blackTextureColor.Length; i++)
+                blackTextureColor[i] = Color.Black;
+
+            blackTexture.SetData(blackTextureColor);
         }
 
         public void Update()
@@ -136,20 +158,20 @@ namespace SharpCraft
             MouseState currentMouseState = Mouse.GetState();
             KeyboardState currentKeyboardState = Keyboard.GetState();
 
-            Parameters.ExitedMenu = false;
+            Parameters.ExitedGameMenu = false;
 
-            if (!inventoryActive && Util.IsKeyPressed(Keys.Escape, currentKeyboardState, previousKeyboardState))
+            if (!inventoryActive && Util.KeyPressed(Keys.Escape, currentKeyboardState, previousKeyboardState))
             {
                 MenuSwitch();
             }
 
-            if (!menuActive && Util.IsKeyPressed(Keys.E, currentKeyboardState, previousKeyboardState))
+            if (!menuActive && Util.KeyPressed(Keys.E, currentKeyboardState, previousKeyboardState))
             {
                 InventorySwitch();
             }
 
-            else if (inventoryActive && (Util.IsKeyPressed(Keys.E, currentKeyboardState, previousKeyboardState) ||
-                Util.IsKeyPressed(Keys.Escape, currentKeyboardState, previousKeyboardState)))
+            else if (inventoryActive && (Util.KeyPressed(Keys.E, currentKeyboardState, previousKeyboardState) ||
+                Util.KeyPressed(Keys.Escape, currentKeyboardState, previousKeyboardState)))
             {
                 InventorySwitch();
             }
@@ -183,7 +205,7 @@ namespace SharpCraft
         {
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
 
-            spriteBatch.Draw(textures["toolbar"], toolbar, new Color(Color.DarkGray, 0.8f));
+            spriteBatch.Draw(menuTextures["toolbar"], toolbar, new Color(Color.DarkGray, 0.8f));
 
             //Drawing active tools
             for (int i = 0; i < tools.Length; i++)
@@ -199,43 +221,39 @@ namespace SharpCraft
             //Draw selected tool name
             if (tools[activeToolIndex] != null)
             {
-                spriteBatch.DrawString(font14, blockIndices[(ushort)tools[activeToolIndex]], new Vector2(toolbar.X, toolbar.Y - 20f), Color.White);
+                Vector2 textSize = font14.MeasureString(blockNames[(ushort)tools[activeToolIndex]]);
+
+                spriteBatch.Draw(blackTexture,
+                    new Rectangle(toolbar.X, toolbar.Y - 20, (int)textSize.X, (int)textSize.Y), Color.Black);
+
+                spriteBatch.DrawString(font14, blockNames[(ushort)tools[activeToolIndex]],
+                    new Vector2(toolbar.X, toolbar.Y - 20f), Color.White);
             }
 
-            spriteBatch.Draw(textures["selector"], selector, Color.White);
+            spriteBatch.Draw(menuTextures["selector"], selector, Color.White);
 
             //Dim the background when menu is open
             if (Parameters.GamePaused)
             {
-                spriteBatch.Draw(darkBackgroundTexture, darkBackground, Color.White);
+                spriteBatch.Draw(screenShadingTexture, screenShading, Color.White);
             }
 
 
             if (!menuActive && !inventoryActive)
-                spriteBatch.Draw(textures["crosshair"], crosshair, Color.White);
-            //Draw in-game menu
+                spriteBatch.Draw(menuTextures["crosshair"], crosshair, Color.White);
+            //Draw buttons
             else if (menuActive)
             {
-                spriteBatch.Draw(textures[back.Texture], back.Rect, Color.White);
-                spriteBatch.DrawString(font24, back.Text, back.TextPosition, Color.White);
-                if (back.IsSelected)
-                    spriteBatch.Draw(textures[back.Selector], back.Rect, Color.White);
-
-                back.IsSelected = false;
-
-                spriteBatch.Draw(textures[quit.Texture], quit.Rect, Color.White);
-                spriteBatch.DrawString(font24, quit.Text, quit.TextPosition, Color.White);
-                if (quit.IsSelected)
-                    spriteBatch.Draw(textures[quit.Selector], quit.Rect, Color.White);
-
-                quit.IsSelected = false;
+                back.Draw(spriteBatch);
+                toMain.Draw(spriteBatch);
+                quit.Draw(spriteBatch);
             }
             //Draw creative inventory
             else if (inventoryActive)
             {
                 MouseState currentMouseState = Mouse.GetState();
 
-                spriteBatch.Draw(textures["inventory"], inventory, Color.White);
+                spriteBatch.Draw(menuTextures["inventory"], inventory, Color.White);
 
                 //Draw all blocks in the inventory
                 for (int i = 0; i < 5; i++)
@@ -263,10 +281,14 @@ namespace SharpCraft
                         new Rectangle(currentMouseState.X, currentMouseState.Y, 45, 45), Color.White);
                 }
 
-                //Draw the name of the texture with a mouse pointer inside it
+                //Draw the name of the hovered texture
                 if (hoveredTexture != null)
                 {
-                    spriteBatch.DrawString(font14, blockIndices[(ushort)hoveredTexture], 
+                    Vector2 textSize = font14.MeasureString(blockNames[(ushort)hoveredTexture]);
+
+                    spriteBatch.Draw(blackTexture,
+                        new Rectangle(currentMouseState.X + 20, currentMouseState.Y, (int)textSize.X, (int)textSize.Y), Color.Black);
+                    spriteBatch.DrawString(font14, blockNames[(ushort)hoveredTexture], 
                         new Vector2(currentMouseState.X + 20, currentMouseState.Y), Color.White);
                     hoveredTexture = null;
                 }
@@ -274,7 +296,7 @@ namespace SharpCraft
 
             spriteBatch.DrawString(font14, "FPS: " + fps.ToString(), new Vector2(10, 10), Color.White);
 
-            spriteBatch.DrawString(font14, "Memory:" + GC.GetTotalMemory(false) / 1024, new Vector2(10, 30), Color.White);
+            spriteBatch.DrawString(font14, "Memory: " + GC.GetTotalMemory(false) / 1024, new Vector2(10, 30), Color.White);
 
             spriteBatch.End();
 
@@ -283,22 +305,36 @@ namespace SharpCraft
 
         void MenuControl(MouseState currentMouseState, Point mouseLoc)
         {
-            if (back.Rect.Contains(mouseLoc))
+            if (back.Contains(mouseLoc))
             {
-                back.IsSelected = true;
+                back.Selected = true;
 
-                if (Util.IsLeftButtonClicked(currentMouseState, previousMouseState))
+                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
                 {
                     MenuSwitch();
-                    Parameters.ExitedMenu = true;
+                    Parameters.ExitedGameMenu = true;
                 }
             }
-            else if (quit.Rect.Contains(mouseLoc))
-            {
-                quit.IsSelected = true;
 
-                if (Util.IsLeftButtonClicked(currentMouseState, previousMouseState))
+            else if (toMain.Contains(mouseLoc))
+            {
+                toMain.Selected = true;
+
+                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
                 {
+                    MenuSwitch();
+                    Parameters.GameStarted = false;
+                    Parameters.ExitedToMainMenu = true;
+                }
+            }
+
+            else if (quit.Contains(mouseLoc))
+            {
+                quit.Selected = true;
+
+                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
+                {
+                    Parameters.Inventory = tools;
                     game.Exit();
                 }
             }
@@ -310,7 +346,7 @@ namespace SharpCraft
 
             for (int i = 0; i < tools.Length; i++)
             {
-                bool isClicked = Util.IsLeftButtonClicked(currentMouseState, previousMouseState) &&
+                bool isClicked = Util.LeftButtonClicked(currentMouseState, previousMouseState) &&
                                  new Rectangle(game.Window.ClientBounds.Width / 5 + 23 + i * 49, game.Window.ClientBounds.Height - 145, 45, 45).Contains(mouseLoc);
 
                 if (tools[i] is null && draggedTexture != null && isClicked)
@@ -346,7 +382,7 @@ namespace SharpCraft
                     for (int j = 0; j < items[i].Length; j++)
                     {
                         if (items[i][j] != null &&
-                            Util.IsLeftButtonClicked(currentMouseState, previousMouseState) &&
+                            Util.LeftButtonClicked(currentMouseState, previousMouseState) &&
                             new Rectangle(game.Window.ClientBounds.Width / 5 + 23 + j * 49, 76 + i * 50, 45, 45).Contains(mouseLoc))
                         {
                             draggedTexture = items[i][j];
@@ -362,9 +398,9 @@ namespace SharpCraft
                 }
             }
 
-            if (Util.IsRightButtonClicked(currentMouseState, previousMouseState) ||
+            if (Util.RightButtonClicked(currentMouseState, previousMouseState) ||
                 (!isItemSelected &&
-                Util.IsLeftButtonClicked(currentMouseState, previousMouseState)))
+                Util.LeftButtonClicked(currentMouseState, previousMouseState)))
             {
                 draggedTexture = null;
             }

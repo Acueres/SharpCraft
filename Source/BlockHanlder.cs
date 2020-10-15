@@ -18,11 +18,10 @@ namespace SharpCraft
         int size;
         int x, y, z, index;
         Vector3 position;
-        ushort bedrock, water;
 
 
         public BlockHanlder(Player _player, Dictionary<Vector3, Chunk> _region, 
-            GameMenu _gameMenu, SaveHandler _saveHandler, int _size, Dictionary<string, ushort> blockNames)
+            GameMenu _gameMenu, SaveHandler _saveHandler, int _size)
         {
             player = _player;
             region = _region;
@@ -30,17 +29,11 @@ namespace SharpCraft
             saveHandler = _saveHandler;
 
             size = _size;
-            bedrock = blockNames["Bedrock"];
-            water = blockNames["Water"];
         }
 
         public void Reset()
         {
-            x = 0;
             y = 0;
-            z = 0;
-            index = 0;
-            position = new Vector3(0, 0, 0);
         }
 
         public void Set(int _x, int _y, int _z, int _index, Vector3 _position)
@@ -57,15 +50,15 @@ namespace SharpCraft
             bool clickCondition = player.GameTime.TotalGameTime.TotalMilliseconds - player.LastClickTime > 100;
 
             if (clickCondition &&
-                Util.IsLeftButtonClicked(player.CurrentMouseState, player.PreviousMouseState) &&
-                !Parameters.ExitedMenu)
+                Util.LeftButtonClicked(player.CurrentMouseState, player.PreviousMouseState) &&
+                !Parameters.ExitedGameMenu)
             {
                 player.LastClickTime = player.GameTime.TotalGameTime.TotalMilliseconds;
                 return RemoveBlock();
             }
 
             if (clickCondition &&
-                Util.IsRightButtonClicked(player.CurrentMouseState, player.PreviousMouseState))
+                Util.RightButtonClicked(player.CurrentMouseState, player.PreviousMouseState))
             {
                 player.LastClickTime = player.GameTime.TotalGameTime.TotalMilliseconds;
                 return AddBlock();
@@ -76,7 +69,7 @@ namespace SharpCraft
 
         bool RemoveBlock()
         {
-            if (region[position].Blocks[y][x][z] == bedrock)
+            if (y == 0)
             {
                 return false;
             }
@@ -97,6 +90,11 @@ namespace SharpCraft
 
         bool AddBlock()
         {
+            if (y == 0)
+            {
+                return false;
+            }
+
             Vector3 blockCenterDirection = (new Vector3(x, y, z) - position) - player.Position;
             blockCenterDirection.Normalize();
 

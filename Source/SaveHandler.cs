@@ -20,9 +20,9 @@ namespace SharpCraft
 
         public SaveHandler()
         {
-            string saveName = @"URI=file:" + Directory.GetCurrentDirectory() + @"\Saves\Test\test.db";
+            string path = @"URI=file:" + Directory.GetCurrentDirectory() + @"\Save\save.db";
 
-            connection = new SQLiteConnection(saveName);
+            connection = new SQLiteConnection(path);
             connection.Open();
 
             cmd = new SQLiteCommand(connection)
