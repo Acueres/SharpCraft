@@ -1,10 +1,9 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
+
+using Microsoft.Xna.Framework;
 
 
 namespace SharpCraft
@@ -13,6 +12,8 @@ namespace SharpCraft
     {
         public Vector3 Position;
 
+        public NeighboringChunks Neighbors;
+
         public bool GenerateMesh;
         public bool Initialize;
 
@@ -20,15 +21,17 @@ namespace SharpCraft
 
         public byte[][] BiomeData;
 
+        public byte[][][] LightMap;
+
         public List<byte> ActiveY;
         public List<byte> ActiveX;
         public List<byte> ActiveZ;
 
-        public VertexPositionNormalTexture[] Vertices;
-        public VertexPositionNormalTexture[] TransparentVertices;
+        public VertexPositionTextureLight[] Vertices;
+        public VertexPositionTextureLight[] TransparentVertices;
 
-        public List<VertexPositionNormalTexture> VertexList;
-        public List<VertexPositionNormalTexture> TransparentVertexList;
+        public List<VertexPositionTextureLight> VertexList;
+        public List<VertexPositionTextureLight> TransparentVertexList;
 
         public int VertexCount;
         public int TransparentVertexCount;
@@ -42,8 +45,13 @@ namespace SharpCraft
         {
             Position = position;
 
+            Neighbors = new NeighboringChunks();
+
             GenerateMesh = true;
             Initialize = true;
+
+            //Only about <5% of all blocks in a chunk are visible
+            int total = (int)(0.05 * size * size * height);
 
             Blocks = new ushort?[height][][];
             for (int y = 0; y < height; y++)
@@ -62,15 +70,32 @@ namespace SharpCraft
                 BiomeData[x] = new byte[size];
             }
 
-            //Only about <5% of all blocks in a chunk are visible
-            int total = (int)(0.05 * size * size * height);
+            LightMap = new byte[height][][];
+            for (int y = 0; y < height; y++)
+            {
+                LightMap[y] = new byte[size][];
+
+                for (int x = 0; x < size; x++)
+                {
+                    LightMap[y][x] = new byte[size];
+                }
+            }
+
+            //Set the topmost layer to max light value
+            for (int x = 0; x < size; x++)
+            {
+                for (int z = 0; z < size; z++)
+                {
+                    LightMap[height - 1][x][z] = 16;
+                }
+            }
 
             ActiveY = new List<byte>(total);
             ActiveX = new List<byte>(total);
             ActiveZ = new List<byte>(total);
 
-            VertexList = new List<VertexPositionNormalTexture>(6 * total);
-            TransparentVertexList = new List<VertexPositionNormalTexture>(3 * total);
+            VertexList = new List<VertexPositionTextureLight>(6 * total);
+            TransparentVertexList = new List<VertexPositionTextureLight>(3 * total);
         }
 
         protected virtual void Dispose(bool disposing)

@@ -13,7 +13,7 @@ namespace SharpCraft
     public class MainGame : Game
     {
         GraphicsDeviceManager graphics;
-        BasicEffect effect;
+        Effect effect;
 
         Player player;
         World world;
@@ -72,6 +72,8 @@ namespace SharpCraft
 
             fonts[0] = Content.Load<SpriteFont>("Fonts/font14");
             fonts[1] = Content.Load<SpriteFont>("Fonts/font24");
+
+            effect = Content.Load<Effect>("Shaders/BlockEffect");
         }
 
         protected override void UnloadContent()
@@ -92,7 +94,7 @@ namespace SharpCraft
                         player.Update(gameTime);
                         world.Update();
                     }
-
+                    
                     gameMenu.Update();
                 }
                 else if (Parameters.GameLoading)
@@ -103,10 +105,15 @@ namespace SharpCraft
                 {
                     SaveSettings();
                     player = null;
+
                     world = null;
+
                     saveHandler = null;
+
                     gameMenu = null;
+
                     renderer = null;
+
                     GC.Collect();
 
                     IsMouseVisible = true;
@@ -144,7 +151,8 @@ namespace SharpCraft
 
         void NewGame()
         {
-            effect = new BasicEffect(graphics.GraphicsDevice);
+            Parameters.GameLoading = false;
+            Parameters.GameStarted = true;
 
             saveHandler = new SaveHandler();
             gameMenu = new GameMenu(this, graphics, menuTextures, blockTextures, blockNames, fonts);
@@ -153,10 +161,7 @@ namespace SharpCraft
             player = new Player(graphics, Parameters.Position, Parameters.Direction);
             renderer = new Renderer(graphics, effect, world.Region, blockTextures);
 
-            world.SetPlayer(player, blockIndices);
-
-            Parameters.GameLoading = false;
-            Parameters.GameStarted = true;
+            world.SetPlayer(player);
         }
 
         void SaveSettings()
@@ -187,18 +192,18 @@ namespace SharpCraft
 
         void LoadBlocks()
         {
-            List<BlockData> blockData;
+            List<MultifaceData> blockData;
             using (StreamReader r = new StreamReader("Assets/multiface_blocks.json"))
             {
                 string json = r.ReadToEnd();
-                blockData = JsonConvert.DeserializeObject<List<BlockData>>(json);
+                blockData = JsonConvert.DeserializeObject<List<MultifaceData>>(json);
             }
 
-            List<BlockName> blockNameData;
+            List<BlockData> blockNameData;
             using (StreamReader r = new StreamReader("Assets/blocks.json"))
             {
                 string json = r.ReadToEnd();
-                blockNameData = JsonConvert.DeserializeObject<List<BlockName>>(json);
+                blockNameData = JsonConvert.DeserializeObject<List<BlockData>>(json);
             }
 
             var blockTextureNames = Directory.GetFiles("Assets/Textures/Blocks", ".").ToArray();

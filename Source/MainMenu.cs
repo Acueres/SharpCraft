@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Data.SQLite;
 
 using Microsoft.Xna.Framework;
@@ -171,7 +170,11 @@ namespace SharpCraft
                 {
                     newGame.Selected = false;
                     game.IsMouseVisible = false;
+
                     Parameters.GameLoading = true;
+                    Parameters.Position = Vector3.Zero;
+                    Parameters.IsFlying = false;
+                    Parameters.Direction = new Vector3(0, -0.5f, -1f);
 
                     var rnd = new Random();
                     Parameters.Seed = rnd.Next();

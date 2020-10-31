@@ -1,8 +1,8 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 
 namespace SharpCraft
@@ -10,27 +10,29 @@ namespace SharpCraft
     class Renderer
     {
         GraphicsDeviceManager graphics;
-        BasicEffect effect;
+        Effect effect;
         Dictionary<Vector3, Chunk> region;
+
         Texture2D[] blockTextures;
         Texture2D atlas;
+
         int size;
+
         Chunk currentChunk;
 
         DynamicVertexBuffer buffer;
 
 
-        public Renderer(GraphicsDeviceManager _graphics, BasicEffect _effect,
+        public Renderer(GraphicsDeviceManager _graphics, Effect _effect,
             Dictionary<Vector3, Chunk> _region, Texture2D[] _blockTextures)
         {
             graphics = _graphics;
             effect = _effect;
-            size = Parameters.ChunkSize;
             region = _region;
-            blockTextures = _blockTextures;
 
-            buffer = new DynamicVertexBuffer(graphics.GraphicsDevice, typeof(VertexPositionNormalTexture),
-                        (int)2e4, BufferUsage.WriteOnly);
+            size = Parameters.ChunkSize;
+
+            blockTextures = _blockTextures;
 
             atlas = new Texture2D(graphics.GraphicsDevice, 64, blockTextures.Length * 64);
             Color[] atlasData = new Color[atlas.Width * atlas.Height];
@@ -46,28 +48,22 @@ namespace SharpCraft
                 }
             }
             atlas.SetData(atlasData);
+
+            buffer = new DynamicVertexBuffer(graphics.GraphicsDevice, typeof(VertexPositionTextureLight),
+                        (int)2e4, BufferUsage.WriteOnly);
         }
 
         public void Draw(Vector3[] activeChunks, Player player)
         {
-            Vector3 chunkMax = new Vector3(0.8f * size, 128, 0.8f * size);
+            Vector3 chunkMax = new Vector3(size, 128, size);
             Vector3 position;
 
             bool[] chunkVisible = new bool[activeChunks.Length];
 
-            effect.EnableDefaultLighting();
-
-            effect.TextureEnabled = true;
-            effect.Texture = atlas;
-
-            effect.View = player.Camera.View;
-            effect.Projection = player.Camera.Projection;
-
-            effect.LightingEnabled = true;
-            effect.DirectionalLight0.DiffuseColor = Color.SkyBlue.ToVector3(); // a red light
-            effect.DirectionalLight0.Direction = Vector3.Normalize(new Vector3(0.5f, 0.5f, 0));  // coming along the x-axis
-            effect.DirectionalLight0.SpecularColor = Color.LightYellow.ToVector3(); // with green highlights
-            effect.AmbientLightColor = new Vector3(0.2f, 0.2f, 0.2f);
+            effect.Parameters["World"].SetValue(Matrix.Identity);
+            effect.Parameters["View"].SetValue(player.Camera.View);
+            effect.Parameters["Projection"].SetValue(player.Camera.Projection);
+            effect.Parameters["Texture"].SetValue(atlas);
 
             //Drawing opaque blocks
             for (int i = 0; i < activeChunks.Length; i++)
@@ -81,7 +77,7 @@ namespace SharpCraft
 
                 if (chunkVisible[i] && currentChunk.VertexCount > 0)
                 {
-                    effect.Alpha = 1f;
+                    effect.Parameters["Alpha"].SetValue(1f);
 
                     buffer.SetData(currentChunk.Vertices);
                     graphics.GraphicsDevice.SetVertexBuffer(buffer);
@@ -101,7 +97,7 @@ namespace SharpCraft
 
                 if (chunkVisible[i] && currentChunk.TransparentVertexCount > 0)
                 {
-                    effect.Alpha = 0.7f;
+                    effect.Parameters["Alpha"].SetValue(0.7f);
 
                     buffer.SetData(currentChunk.TransparentVertices);
                     graphics.GraphicsDevice.SetVertexBuffer(buffer);

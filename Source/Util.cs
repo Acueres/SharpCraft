@@ -1,14 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using System;
-using System.Collections.Generic;
+
 
 namespace SharpCraft
 {
-    public static class Util
+    static class Util
     {
-        //Drawing utilities
+        //Legacy rendering code
         public static void DrawCubeSide(VertexPositionTexture[] side, Texture2D texture, GraphicsDeviceManager graphics, BasicEffect effect, Matrix view, Matrix projection, Vector3 position)
         {
             effect.TextureEnabled = true;
@@ -77,12 +76,53 @@ namespace SharpCraft
         public static ushort?[] Inventory = new ushort?[9];
     }
 
-    class BlockData
+    public struct LightNode
+    {
+        public Chunk Chunk;
+        public int X;
+        public int Y;
+        public int Z;
+        public byte Light;
+
+        public LightNode(Chunk chunk, int x, int y, int z, byte light)
+        {
+            Chunk = chunk;
+            X = x;
+            Y = y;
+            Z = z;
+            Light = light;
+        }
+    }
+
+    public class NeighboringChunks
+    {
+        public Chunk ZNeg, ZPos, XNeg, XPos;
+    }
+
+    struct DataDelta
+    {
+        public Vector3 Position;
+        public int X;
+        public int Y;
+        public int Z;
+        public ushort? Texture;
+
+        public DataDelta(Vector3 position, int x, int y, int z, ushort? texture)
+        {
+            Position = position;
+            X = x;
+            Y = y;
+            Z = z;
+            Texture = texture;
+        }
+    }
+
+    class MultifaceData
     {
         public string type, front, back, top, bottom, right, left;
     }
 
-    class BlockName
+    class BlockData
     {
         public string name, type;
     }

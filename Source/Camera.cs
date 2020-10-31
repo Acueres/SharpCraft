@@ -8,9 +8,12 @@ namespace SharpCraft
     {
         public Matrix View;
         public Matrix Projection;
+
         public Vector3 Direction;
         public Vector3 HorizontalDirection;
+
         public Vector2 cameraDelta;
+
         public BoundingFrustum Frustum;
 
         Vector3 target;

@@ -1,20 +1,19 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
+
+using Microsoft.Xna.Framework;
+
 
 namespace SharpCraft
 {
     class WorldGenerator
     {
-        public int Seed;
-        public int Size;
-
+        int seed;
+        int size;
         string Type;
 
         int waterLevel;
+        int last;
 
         FastNoiseLite terrain;
         FastNoiseLite plains;
@@ -28,13 +27,14 @@ namespace SharpCraft
                sand, sandstone;
 
 
-        public WorldGenerator(Dictionary<string, ushort> blockIndices, string type = "Flat", int size = 16, int seed = 0)
+        public WorldGenerator(Dictionary<string, ushort> blockIndices)
         {
-            Seed = seed;
-            Size = size;
-            Type = type;
+            seed = Parameters.Seed;
+            size = Parameters.ChunkSize;
+            Type = Parameters.WorldType;
 
-            waterLevel = 35;
+            waterLevel = 40;
+            last = size - 1;
 
             bedrock = blockIndices["Bedrock"];
             grass = blockIndices["Grass"];
@@ -49,24 +49,22 @@ namespace SharpCraft
             sand = blockIndices["Sand"];
             sandstone = blockIndices["Sandstone"];
 
-            rnd = new Random(Seed);
+            rnd = new Random(seed);
 
-            terrain = new FastNoiseLite(Seed);
+            terrain = new FastNoiseLite(seed);
             terrain.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-            //terrain.SetFractalType(FastNoiseLite.FractalType.PingPong);
             terrain.SetFrequency(0.001f);
 
-            plains = new FastNoiseLite(Seed);
+            plains = new FastNoiseLite(seed);
             plains.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
             plains.SetFractalType(FastNoiseLite.FractalType.Ridged);
-            //plains.SetFrequency(0.001f);
 
-            mountains = new FastNoiseLite(Seed);
+            mountains = new FastNoiseLite(seed);
             mountains.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
             mountains.SetFractalType(FastNoiseLite.FractalType.Ridged);
             mountains.SetFrequency(0.005f);
 
-            rivers = new FastNoiseLite(Seed);
+            rivers = new FastNoiseLite(seed);
             rivers.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
             rivers.SetFractalType(FastNoiseLite.FractalType.Ridged);
             rivers.SetFrequency(0.001f);
@@ -74,20 +72,16 @@ namespace SharpCraft
 
         public Chunk GenerateChunk(Vector3 position)
         {
-            switch (Type)
+            return Type switch
             {
-                case "Flat":
-                    return Flat(position);
-
-                default:
-                    return Default(position);
-            }
+                "Flat" => Flat(position),
+                _ => Default(position),
+            };
         }
 
-        public ushort? LookUp(Vector3 position, int y, int x, int z)
+        public ushort? Peek(Vector3 position, int y, int x, int z)
         {
-            byte b;
-            int height = GetHeight(position, x, z, out b);
+            int height = GetHeight(position, x, z, out _);
 
             if (height > y)
             {
@@ -101,25 +95,22 @@ namespace SharpCraft
         
         Chunk Default(Vector3 position)
         {
-            Chunk chunk = new Chunk(position, size: Size);
+            Chunk chunk = new Chunk(position, size: size);
 
-            int[,] elevationMap = new int[Size, Size];
+            int[,] elevationMap = new int[size, size];
 
-            for (int x = 0; x < Size; x++)
+            for (int x = 0; x < size; x++)
             {
-                for (int z = 0; z < Size; z++)
+                for (int z = 0; z < size; z++)
                 {
-                    byte biomeData;
-                    elevationMap[x, z] = GetHeight(position, x, z, out biomeData);
+                    elevationMap[x, z] = GetHeight(position, x, z, out byte biomeData);
                     chunk.BiomeData[x][z] = biomeData;
                 }
             }
 
-            Interpolate(elevationMap);
-
-            for (int x = 0; x < Size; x++)
+            for (int x = 0; x < size; x++)
             {
-                for (int z = 0; z < Size; z++)
+                for (int z = 0; z < size; z++)
                 {
                     for (int y = 0; y < elevationMap[x, z]; y++)
                     {
@@ -153,7 +144,7 @@ namespace SharpCraft
 
             if (noise < 0.05f)
             {
-                height = (int)Math.Abs(8 * (rivers.GetNoise(xVal, zVal) + 0.8f)) + 25;
+                height = (int)Math.Abs(8 * (rivers.GetNoise(xVal, zVal) + 0.8f)) + 30;
                 biomeData = 0;
             }
 
@@ -174,13 +165,13 @@ namespace SharpCraft
 
         Chunk Flat(Vector3 position)
         {
-            Chunk chunk = new Chunk(position, size: Size);
+            Chunk chunk = new Chunk(position, size: size);
 
             for (int y = 0; y < 4; y++)
             {
-                for (int x = 0; x < Size; x++)
+                for (int x = 0; x < size; x++)
                 {
-                    for (int z = 0; z < Size; z++)
+                    for (int z = 0; z < size; z++)
                     {
                         ushort texture = grass;
 
@@ -261,35 +252,13 @@ namespace SharpCraft
                 return stone;
             }
         }
-
-        void Interpolate(int[,] arr)
-        {
-            for (int x = 0; x < Size; x++)
-            {
-                for (int z = 0; z < Size; z++)
-                {
-                    for (int i = 5; i > 1; i--)
-                    {
-                        if (Size - z > i && arr[x, z] - arr[x, z + i] > 5)
-                        {
-                            arr[x, z + i - 1] = (arr[x, z] + arr[x, z + i]) / 2;
-                        }
-
-                        if (Size - x > i && arr[x, z] - arr[x + i, z] > 5)
-                        {
-                            arr[x + i - 1, z] = (arr[x, z] + arr[x + i, z]) / 2;
-                        }
-                    }
-                }
-            }
-        }
-
+        
         void GenerateTrees(Chunk chunk, int[,] elevationMap)
         {
             for (int i = 0; i < 3; i++)
             {
-                int x = rnd.Next(0, Size);
-                int z = rnd.Next(0, Size);
+                int x = rnd.Next(0, size);
+                int z = rnd.Next(0, size);
 
                 if (chunk.BiomeData[x][z] == 0 ||
                     elevationMap[x, z] > 50)
@@ -337,8 +306,8 @@ namespace SharpCraft
                 {
                     for (int j = z - 1; j < z + 2; j++)
                     {
-                        if ((i < Size - 1 && i > 0) &&
-                            (j < Size - 1 && j > 0) &&
+                        if ((i < size - 1 && i > 0) &&
+                            (j < size - 1 && j > 0) &&
                             (h != y || i != x || j != z) &&
                             chunk.Blocks[h][i][j] is null)
                         {

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
 
 using Microsoft.Xna.Framework;
+
 
 namespace SharpCraft
 {
@@ -12,28 +12,30 @@ namespace SharpCraft
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
         SaveHandler saveHandler;
+        ChunkHandler chunkHandler;
 
-        Thread saveWriter;
+        int size, last;
 
-        int size;
         int x, y, z, index;
         Vector3 position;
 
 
-        public BlockHanlder(Player _player, Dictionary<Vector3, Chunk> _region, 
-            GameMenu _gameMenu, SaveHandler _saveHandler, int _size)
+        public BlockHanlder(Player _player, Dictionary<Vector3, Chunk> _region,
+            GameMenu _gameMenu, SaveHandler _saveHandler, ChunkHandler _chunkHandler, int _size)
         {
             player = _player;
             region = _region;
             gameMenu = _gameMenu;
             saveHandler = _saveHandler;
+            chunkHandler = _chunkHandler;
 
             size = _size;
+            last = size - 1;
         }
 
         public void Reset()
         {
-            y = 0;
+            y = -1;
         }
 
         public void Set(int _x, int _y, int _z, int _index, Vector3 _position)
@@ -69,28 +71,31 @@ namespace SharpCraft
 
         bool RemoveBlock()
         {
-            if (y == 0)
+            if (y == -1 || y == 0)
             {
                 return false;
             }
 
             region[position].Blocks[y][x][z] = null;
-
+            
             region[position].ActiveY.RemoveAt(index);
             region[position].ActiveX.RemoveAt(index);
             region[position].ActiveZ.RemoveAt(index);
 
-            saveWriter = new Thread(() => saveHandler.AddDelta(position, x, y, z, null));
-            saveWriter.Start();
+            chunkHandler.PropagateSunlight(region[position]);
 
-            UpdateAdjacentBlocks(region[position]);
+            saveHandler.AddDelta(position, y, x, z, null);
+
+            Console.WriteLine(new Vector3(x, y, z));
+
+            UpdateAdjacentBlocks(region[position], y, x, z);
 
             return true;
         }
 
         bool AddBlock()
         {
-            if (y == 0)
+            if (y == -1)
             {
                 return false;
             }
@@ -109,99 +114,67 @@ namespace SharpCraft
                 return false;
             }
 
+            ushort? texture;
+
             if (region[position].Blocks[y][x][z] is null && gameMenu.ActiveTool != null)
             {
-                region[position].Blocks[y][x][z] = gameMenu.ActiveTool;
+                texture = gameMenu.ActiveTool;
+            }
+            else
+            {
+                return false;
             }
 
-            saveWriter = new Thread(() => saveHandler.AddDelta(position, x, y, z, region[position].Blocks[y][x][z]));
-            saveWriter.Start();
+            region[position].Blocks[y][x][z] = texture;
 
-            UpdateAdjacentBlocks(region[position]);
+            region[position].LightMap[y][x][z] = 0;
+            chunkHandler.PropagateSunlight(region[position]);
+
+            saveHandler.AddDelta(position, y, x, z, texture);
+
+            UpdateAdjacentBlocks(region[position], y, x, z);
+
+            Console.WriteLine(new Vector3(x, y, z));
 
             return true;
         }
 
-        void UpdateAdjacentBlocks(Chunk chunk)
+        void UpdateAdjacentBlocks(Chunk chunk, int y, int x, int z)
         {
-            Vector3 position = chunk.Position;
-
             chunk.GenerateMesh = true;
 
-            if (!(chunk.Blocks[y][x][z] is null))
+            if (chunk.Blocks[y][x][z] != null)
             {
                 ActivateBlock(chunk, y, x, z);
             }
 
             ActivateBlock(chunk, y + 1, x, z);
-
             ActivateBlock(chunk, y - 1, x, z);
 
-            Vector3 northPosition = position + new Vector3(0, 0, -size),
-                    southPosition = position + new Vector3(0, 0, size),
-                    eastPosition = position + new Vector3(-size, 0, 0),
-                    westPosition = position + new Vector3(size, 0, 0);
-
-            bool northChunkExists = region.ContainsKey(northPosition),
-                 southChunkExists = region.ContainsKey(southPosition),
-                 eastChunkExists = region.ContainsKey(eastPosition),
-                 westChunkExists = region.ContainsKey(westPosition);
-
-            if (x == size - 1 && eastChunkExists)
-            {
-                ActivateBlock(region[eastPosition], y, 0, z);
-
-                ActivateBlock(chunk, y, x - 1, z);
-            }
-
-            else if (x == 0 && westChunkExists)
-            {
+            if (x < last)
                 ActivateBlock(chunk, y, x + 1, z);
+            else if (x == last)
+                ActivateBlock(chunk.Neighbors.XNeg, y, 0, z);
 
-                ActivateBlock(region[westPosition], y, size - 1, z);
-            }
-
-            else
-            {
-                ActivateBlock(chunk, y, x + 1, z);
-
+            if (x > 0)
                 ActivateBlock(chunk, y, x - 1, z);
-            }
+            else if (x == 0)
+                ActivateBlock(chunk.Neighbors.XPos, y, last, z);
 
-
-            if (z == size - 1 && northChunkExists)
-            {
-                ActivateBlock(region[northPosition], y, x, 0);
-
-                ActivateBlock(chunk, y, x, z - 1);
-            }
-
-            else if (z == 0 && southChunkExists)
-            {
+            if (z < last)
                 ActivateBlock(chunk, y, x, z + 1);
+            else if (z == last)
+                ActivateBlock(chunk.Neighbors.ZNeg, y, x, 0);
 
-                ActivateBlock(region[southPosition], y, x, size - 1);
-            }
-
-            else
-            {
-                ActivateBlock(chunk, y, x, z + 1);
-
+            if (z > 0)
                 ActivateBlock(chunk, y, x, z - 1);
-            }
+            else if (z == 0)
+                ActivateBlock(chunk.Neighbors.ZPos, y, x, last);
         }
 
         void ActivateBlock(Chunk chunk, int y, int x, int z)
         {
-            try
-            {
-                if (chunk.Blocks[y][x][z] is null)
-                {
-                    return;
-                }
-            }
-
-            catch (IndexOutOfRangeException)
+            if (chunk.Blocks[y][x][z] is null)
             {
                 return;
             }
@@ -218,16 +191,11 @@ namespace SharpCraft
 
         void AdjustIndices(char side, Vector3 vector)
         {
+            Vector3 zNeg = position + new Vector3(0, 0, -size),
+                    zPos = position + new Vector3(0, 0, size),
+                    xNeg = position + new Vector3(-size, 0, 0),
+                    xPos = position + new Vector3(size, 0, 0);
 
-            Vector3 northPosition = position + new Vector3(0, 0, -size),
-                    southPosition = position + new Vector3(0, 0, size),
-                    eastPosition = position + new Vector3(-size, 0, 0),
-                    westPosition = position + new Vector3(size, 0, 0);
-
-            bool northChunkExists = region.ContainsKey(northPosition),
-                 southChunkExists = region.ContainsKey(southPosition),
-                 eastChunkExists = region.ContainsKey(eastPosition),
-                 westChunkExists = region.ContainsKey(westPosition);
 
             switch (side)
             {
@@ -235,16 +203,16 @@ namespace SharpCraft
                     if (vector.X > 0) x--;
                     else x++;
 
-                    if (x > size - 1 && eastChunkExists)
+                    if (x > last)
                     {
-                        position = eastPosition;
+                        position = xNeg;
                         x = 0;
                     }
 
-                    else if (x < 0 && westChunkExists)
+                    else if (x < 0)
                     {
-                        position = westPosition;
-                        x = size - 1;
+                        position = xPos;
+                        x = last;
                     }
 
                     break;
@@ -259,16 +227,16 @@ namespace SharpCraft
                     if (vector.Z > 0) z--;
                     else z++;
 
-                    if (z > size - 1 && northChunkExists)
+                    if (z > last)
                     {
-                        position = northPosition;
+                        position = zNeg;
                         z = 0;
                     }
 
-                    else if (z < 0 && southChunkExists)
+                    else if (z < 0)
                     {
-                        position = southPosition;
-                        z = size - 1;
+                        position = zPos;
+                        z = last;
                     }
 
                     break;

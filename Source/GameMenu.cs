@@ -27,7 +27,7 @@ namespace SharpCraft
 
         Texture2D blackTexture;
 
-        Button back, toMain, quit;
+        Button back, quit;
 
         SpriteFont font14, font24;
 
@@ -115,10 +115,9 @@ namespace SharpCraft
 
             back = new Button((game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70, 
                 menuTextures["button"], menuTextures["button_selector"], font24, "Back to game");
-            toMain = new Button((game.Window.ClientBounds.Width / 2) - 200, 3 * 70, 400, 70,
-                menuTextures["button"], menuTextures["button_selector"], font24, "Main Menu");
+
             quit = new Button((game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
-                menuTextures["button"], menuTextures["button_selector"], font24, "Quit Game");
+                menuTextures["button"], menuTextures["button_selector"], font24, "Save & Quit");
 
             crosshair = new Rectangle((game.Window.ClientBounds.Width / 2) - 15, 
                 (game.Window.ClientBounds.Height / 2) - 15, 30, 30);
@@ -245,7 +244,6 @@ namespace SharpCraft
             else if (menuActive)
             {
                 back.Draw(spriteBatch);
-                toMain.Draw(spriteBatch);
                 quit.Draw(spriteBatch);
             }
             //Draw creative inventory
@@ -316,26 +314,17 @@ namespace SharpCraft
                 }
             }
 
-            else if (toMain.Contains(mouseLoc))
-            {
-                toMain.Selected = true;
-
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    MenuSwitch();
-                    Parameters.GameStarted = false;
-                    Parameters.ExitedToMainMenu = true;
-                }
-            }
-
             else if (quit.Contains(mouseLoc))
             {
                 quit.Selected = true;
 
                 if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
                 {
+                    MenuSwitch();
+
                     Parameters.Inventory = tools;
-                    game.Exit();
+                    Parameters.GameStarted = false;
+                    Parameters.ExitedToMainMenu = true;
                 }
             }
         }
