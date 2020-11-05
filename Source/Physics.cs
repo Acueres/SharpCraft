@@ -200,7 +200,7 @@ namespace SharpCraft
             else if (!ceilingCollision && player.Swimming
                 && currentKeyboardState.IsKeyDown(Keys.Space))
             {
-                positionDelta.Y += 0.2f;
+                positionDelta.Y += 0.05f;
                 ascendingInWater = true;
             }
 
@@ -248,7 +248,9 @@ namespace SharpCraft
 
             if (player.Swimming)
             {
-                positionDelta *= 0.3f;
+                positionDelta.X *= 0.3f;
+                positionDelta.Y *= 0.8f;
+                positionDelta.Z *= 0.3f;
             }
 
             player.Position += positionDelta;

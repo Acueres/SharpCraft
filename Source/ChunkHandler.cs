@@ -59,8 +59,6 @@ namespace SharpCraft
         {
             GetNeighbors(chunk);
 
-            PropagateSunlight(chunk);
-
             chunk.ActiveY.Clear();
             chunk.ActiveX.Clear();
             chunk.ActiveZ.Clear();
@@ -295,6 +293,8 @@ namespace SharpCraft
             }
 
             FloodFill();
+
+            chunk.CalculateLight = false;
         }
 
         void FloodFill()

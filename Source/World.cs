@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Microsoft.Xna.Framework;
 
@@ -46,15 +47,17 @@ namespace SharpCraft
             water = blockIndices["Water"];
 
             worldGenerator = new WorldGenerator(blockIndices);
-            Region = new Dictionary<Vector3, Chunk>();
+            Region = new Dictionary<Vector3, Chunk>((int)2e3);
             chunkHandler = new ChunkHandler(worldGenerator, Region, multifaceBlocks, transparentBlocks, size, textureCount);
 
             UpdateOccured = true;
 
-            ActiveChunks = new Vector3[(2 * renderDistance + 1) * (2 * renderDistance + 1)];
+            int n1 = 2 * renderDistance + 1;
+            int n2 = (2 * (renderDistance + 2) + 1);
+            ActiveChunks = new Vector3[n1 * n1];
             nearChunks = new HashSet<Vector3>(4);
-            inactiveChunks = new List<Vector3>((2 * (renderDistance + 2) + 1) * (2 * (renderDistance + 2) + 1));
-            loadedChunks = new Vector3[(2 * (renderDistance + 2) + 1) * (2 * (renderDistance + 2) + 1)];
+            inactiveChunks = new List<Vector3>(n2 * n2);
+            loadedChunks = new Vector3[n2 * n2];
         }
 
         public void SetPlayer(Player _player)
@@ -118,6 +121,11 @@ namespace SharpCraft
                 if (Region[ActiveChunks[i]].Initialize)
                 {
                     chunkHandler.Initialize(Region[ActiveChunks[i]]);
+                }
+
+                if (Region[ActiveChunks[i]].CalculateLight)
+                {
+                    chunkHandler.PropagateSunlight(Region[ActiveChunks[i]]);
                 }
             }
 
@@ -239,6 +247,11 @@ namespace SharpCraft
                     {
                         if (Region[position].Blocks[y][x][z] == water)
                         {
+                            if (!player.Swimming)
+                            {
+                                player.Physics.Velocity.Y /= 2;
+                            }
+
                             player.Swimming = true;
                         }
                         else

@@ -86,8 +86,6 @@ namespace SharpCraft
 
             saveHandler.AddDelta(position, y, x, z, null);
 
-            Console.WriteLine(new Vector3(x, y, z));
-
             UpdateAdjacentBlocks(region[position], y, x, z);
 
             return true;
@@ -133,8 +131,6 @@ namespace SharpCraft
             saveHandler.AddDelta(position, y, x, z, texture);
 
             UpdateAdjacentBlocks(region[position], y, x, z);
-
-            Console.WriteLine(new Vector3(x, y, z));
 
             return true;
         }

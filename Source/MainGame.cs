@@ -168,20 +168,22 @@ namespace SharpCraft
         {
             if (player != null)
             {
-                List<SaveParameters> data = new List<SaveParameters>(1);
-                data.Add(new SaveParameters()
+                List<SaveParameters> data = new List<SaveParameters>(1)
                 {
-                    seed = Parameters.Seed,
-                    isFlying = player.IsFlying,
-                    X = player.Position.X,
-                    Y = player.Position.Y,
-                    Z = player.Position.Z,
-                    dirX = player.Camera.Direction.X,
-                    dirY = player.Camera.Direction.Y,
-                    dirZ = player.Camera.Direction.Z,
-                    inventory = Parameters.Inventory,
-                    worldType = Parameters.WorldType
-                });
+                    new SaveParameters()
+                    {
+                        seed = Parameters.Seed,
+                        isFlying = player.IsFlying,
+                        X = player.Position.X,
+                        Y = player.Position.Y,
+                        Z = player.Position.Z,
+                        dirX = player.Camera.Direction.X,
+                        dirY = player.Camera.Direction.Y,
+                        dirZ = player.Camera.Direction.Z,
+                        inventory = Parameters.Inventory,
+                        worldType = Parameters.WorldType
+                    }
+                };
 
                 string json = JsonConvert.SerializeObject(data);
                 string path = Directory.GetCurrentDirectory() + @"\Save\parameters.json";

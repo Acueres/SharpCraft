@@ -16,6 +16,7 @@ namespace SharpCraft
 
         public bool GenerateMesh;
         public bool Initialize;
+        public bool CalculateLight;
 
         public ushort?[][][] Blocks;
 
@@ -49,6 +50,7 @@ namespace SharpCraft
 
             GenerateMesh = true;
             Initialize = true;
+            CalculateLight = true;
 
             //Only about <5% of all blocks in a chunk are visible
             int total = (int)(0.05 * size * size * height);

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-
 using Microsoft.Xna.Framework;
 
 
@@ -8,17 +7,23 @@ namespace SharpCraft
 {
     class WorldGenerator
     {
-        int seed;
         int size;
-        string Type;
+        string type;
 
         int waterLevel;
         int last;
 
         FastNoiseLite terrain;
-        FastNoiseLite plains;
-        FastNoiseLite mountains;
-        FastNoiseLite rivers;
+        FastNoiseLite forest;
+        FastNoiseLite mountain;
+        FastNoiseLite river;
+
+        enum Biomes: byte
+        {
+            River,
+            Forest,
+            Mountain
+        }
 
         Random rnd;
 
@@ -29,12 +34,13 @@ namespace SharpCraft
 
         public WorldGenerator(Dictionary<string, ushort> blockIndices)
         {
-            seed = Parameters.Seed;
             size = Parameters.ChunkSize;
-            Type = Parameters.WorldType;
+            type = Parameters.WorldType;
 
             waterLevel = 40;
             last = size - 1;
+
+            int seed = Parameters.Seed;
 
             bedrock = blockIndices["Bedrock"];
             grass = blockIndices["Grass"];
@@ -55,24 +61,24 @@ namespace SharpCraft
             terrain.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
             terrain.SetFrequency(0.001f);
 
-            plains = new FastNoiseLite(seed);
-            plains.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
-            plains.SetFractalType(FastNoiseLite.FractalType.Ridged);
+            forest = new FastNoiseLite(seed);
+            forest.SetNoiseType(FastNoiseLite.NoiseType.Perlin);
+            forest.SetFractalType(FastNoiseLite.FractalType.Ridged);
 
-            mountains = new FastNoiseLite(seed);
-            mountains.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-            mountains.SetFractalType(FastNoiseLite.FractalType.Ridged);
-            mountains.SetFrequency(0.005f);
+            mountain = new FastNoiseLite(seed);
+            mountain.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+            mountain.SetFractalType(FastNoiseLite.FractalType.Ridged);
+            mountain.SetFrequency(0.005f);
 
-            rivers = new FastNoiseLite(seed);
-            rivers.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
-            rivers.SetFractalType(FastNoiseLite.FractalType.Ridged);
-            rivers.SetFrequency(0.001f);
+            river = new FastNoiseLite(seed);
+            river.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+            river.SetFractalType(FastNoiseLite.FractalType.Ridged);
+            river.SetFrequency(0.001f);
         }
 
         public Chunk GenerateChunk(Vector3 position)
         {
-            return Type switch
+            return type switch
             {
                 "Flat" => Flat(position),
                 _ => Default(position),
@@ -129,7 +135,7 @@ namespace SharpCraft
                 }
             }
 
-            GenerateTrees(chunk, elevationMap);
+            GenerateTrees(chunk, elevationMap, 5);
 
             return chunk;
         }
@@ -144,20 +150,18 @@ namespace SharpCraft
 
             if (noise < 0.05f)
             {
-                height = (int)Math.Abs(8 * (rivers.GetNoise(xVal, zVal) + 0.8f)) + 30;
-                biomeData = 0;
+                height = (int)Math.Abs(8 * (river.GetNoise(xVal, zVal) + 0.8f)) + 30;
+                biomeData = (byte)Biomes.River;
             }
-
             else if (noise < 1.2f)
             {
-                height = (int)Math.Abs(10 * (plains.GetNoise(xVal, zVal) + 0.8f)) + 30;
-                biomeData = 1;
+                height = (int)Math.Abs(10 * (forest.GetNoise(xVal, zVal) + 0.8f)) + 30;
+                biomeData = (byte)Biomes.Forest;
             }
-
             else
             {
-                height = (int)Math.Abs(30 * (mountains.GetNoise(xVal, zVal) + 0.8f)) + 30;
-                biomeData = 2;
+                height = (int)Math.Abs(30 * (mountain.GetNoise(xVal, zVal) + 0.8f)) + 30;
+                biomeData = (byte)Biomes.Mountain;
             }
 
             return height;
@@ -167,16 +171,20 @@ namespace SharpCraft
         {
             Chunk chunk = new Chunk(position, size: size);
 
-            for (int y = 0; y < 4; y++)
+            for (int y = 0; y < 5; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
                     for (int z = 0; z < size; z++)
                     {
-                        ushort texture = grass;
+                        ushort texture;
 
                         if (y == 0)
                             texture = bedrock;
+                        else if (y == 4)
+                            texture = grass;
+                        else
+                            texture = dirt;
 
                         chunk.Blocks[y][x][z] = texture;
                     }
@@ -188,93 +196,125 @@ namespace SharpCraft
 
         ushort Fill(int maxY, int currentY, byte biome)
         {
-            if (biome == 0)
+            switch (biome)
             {
-                if (currentY == 0)
-                {
-                    return bedrock;
-                }
+                case (byte)Biomes.River:
+                    {
+                        if (currentY == 0)
+                        {
+                            return bedrock;
+                        }
 
-                if (currentY == maxY - 1)
-                {
-                    return sand;
-                }
-                else if (currentY > maxY - 6)
-                {
-                    if (rnd.Next(0, 2) == 0)
-                        return sandstone;
-                    return sand;
-                }
+                        if (currentY == maxY - 1)
+                        {
+                            return sand;
+                        }
+                        else if (currentY > maxY - 6)
+                        {
+                            if (rnd.Next(0, 2) == 0)
+                                return sandstone;
+                            return sand;
+                        }
 
-                ushort texture = stone;
+                        ushort texture = stone;
 
-                if (rnd.Next(0, 2) == 0)
-                    texture = dirt;
+                        if (rnd.Next(0, 2) == 0)
+                            texture = dirt;
 
-                return texture;
+                        return texture;
+                    }
+
+                case (byte)Biomes.Forest:
+                    {
+                        if (currentY == 0)
+                        {
+                            return bedrock;
+                        }
+
+                        if (currentY == maxY - 1)
+                        {
+                            return grass;
+                        }
+
+                        ushort texture = stone;
+
+                        if (rnd.Next(0, 2) == 0)
+                            texture = dirt;
+
+                        return texture;
+                    }
+
+                case (byte)Biomes.Mountain:
+                    {
+                        if (currentY == 0)
+                        {
+                            return bedrock;
+                        }
+
+                        if (currentY < 50 && currentY == maxY - 1)
+                        {
+                            return grass;
+                        }
+
+                        if (currentY >= 60 && currentY == maxY - 1)
+                        {
+                            return snow;
+                        }
+
+                        return stone;
+                    }
             }
-            else if (biome == 1)
-            {
-                if (currentY == 0)
-                {
-                    return bedrock;
-                }
 
-                if (currentY == maxY - 1)
-                {
-                    return grass;
-                }
-
-                ushort texture = stone;
-
-                if (rnd.Next(0, 2) == 0)
-                    texture = dirt;
-
-                return texture;
-            }
-            else
-            {
-                if (currentY == 0)
-                {
-                    return bedrock;
-                }
-
-                if (currentY < 50 && currentY == maxY - 1)
-                {
-                    return grass;
-                }
-
-                if (currentY >= 60 && currentY == maxY - 1)
-                {
-                    return snow;
-                }
-
-                return stone;
-            }
+            return 0;
         }
-        
-        void GenerateTrees(Chunk chunk, int[,] elevationMap)
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                int x = rnd.Next(0, size);
-                int z = rnd.Next(0, size);
 
-                if (chunk.BiomeData[x][z] == 0 ||
-                    elevationMap[x, z] > 50)
+        void GenerateTrees(Chunk chunk, int[,] elevationMap, int n)
+        {
+            int[,] coords = new int[n, 2];
+
+            int i = 0;
+
+            while (i < n)
+            {
+                int x = rnd.Next(1, last - 1);
+                int z = rnd.Next(1, last - 1);
+
+                bool skip = false;
+                for (int j = 0; j < i; j++)
+                {
+                    if (Math.Abs(coords[j, 0] - x) < 2 ||
+                        Math.Abs(coords[j, 1] - z) < 2)
+                    {
+                        skip = true;
+                        break;
+                    }
+                }
+
+                if (skip)
                 {
                     continue;
                 }
 
-                if (x < 3)
-                    x += 2;
-                else if (x > 13)
-                    x -= 2;
+                if (chunk.BiomeData[x][z] == (byte)Biomes.River ||
+                    elevationMap[x, z] > 50)
+                {
+                    i++;
+                    continue;
+                }
 
-                if (z < 3)
-                    z += 2;
-                else if (z > 13)
-                    z -= 2;
+                coords[i, 0] = x;
+                coords[i, 1] = z;
+
+                i++;
+            }
+
+            for (i = 0; i < n; i++)
+            {
+                int x = coords[i, 0];
+                int z = coords[i, 1];
+
+                if (x == 0 || z == 0)
+                    break;
 
                 int y = elevationMap[x, z];
 
@@ -291,30 +331,58 @@ namespace SharpCraft
 
         void MakeTree(Chunk chunk, ushort wood, int y, int x, int z)
         {
-            for (int i = y; i < y + 4; i++)
+            if (chunk.Blocks[y - 1][x][z] != grass &&
+                chunk.Blocks[y - 1][x][z] != dirt)
+            {
+                return;
+            }
+
+            int height = rnd.Next(3, 6);
+            int level1 = y + height - 1;
+            int level2 = y + height;
+            int level3 = y + height + 1;
+
+            for (int i = y; i < y + height; i++)
             {
                 chunk.Blocks[i][x][z] = wood;
             }
-            for (int i = y + 4; i < y + 7; i++)
-            {
-                chunk.Blocks[i][x][z] = leaves;
-            }
 
-            for (int h = y + 2; h < y + 5; h++)
+            for (int i = x - 1; i < x + 2; i++)
             {
-                for (int i = x - 1; i < x + 2; i++)
+                for (int j = z - 1; j < z + 2; j++)
                 {
-                    for (int j = z - 1; j < z + 2; j++)
+                    if (chunk.Blocks[level1][i][j] is null)
                     {
-                        if ((i < size - 1 && i > 0) &&
-                            (j < size - 1 && j > 0) &&
-                            (h != y || i != x || j != z) &&
-                            chunk.Blocks[h][i][j] is null)
-                        {
-                            chunk.Blocks[h][i][j] = leaves;
-                        }
+                        chunk.Blocks[level1][i][j] = leaves;
                     }
                 }
+            }
+
+            if (chunk.Blocks[level2][x][z] is null)
+            {
+                chunk.Blocks[level2][x][z] = leaves;
+            }
+            if (chunk.Blocks[level3][x][z] is null)
+            {
+                chunk.Blocks[level3][x][z] = leaves;
+            }
+
+            if (chunk.Blocks[level2][x - 1][z] is null)
+            {
+                chunk.Blocks[level2][x - 1][z] = leaves;
+            }
+            if (chunk.Blocks[level2][x + 1][z] is null)
+            {
+                chunk.Blocks[level2][x + 1][z] = leaves;
+            }
+
+            if (chunk.Blocks[level2][x][z - 1] is null)
+            {
+                chunk.Blocks[level2][x][z - 1] = leaves;
+            }
+            if (chunk.Blocks[level2][x][z + 1] is null)
+            {
+                chunk.Blocks[level2][x][z + 1] = leaves;
             }
         }
     }
