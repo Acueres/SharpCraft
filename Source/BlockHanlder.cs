@@ -12,7 +12,8 @@ namespace SharpCraft
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
         SaveHandler saveHandler;
-        ChunkHandler chunkHandler;
+        //ChunkHandler chunkHandler;
+        LightHandler lightHandler;
 
         int size, last;
 
@@ -21,13 +22,14 @@ namespace SharpCraft
 
 
         public BlockHanlder(Player _player, Dictionary<Vector3, Chunk> _region,
-            GameMenu _gameMenu, SaveHandler _saveHandler, ChunkHandler _chunkHandler, int _size)
+            GameMenu _gameMenu, SaveHandler _saveHandler, LightHandler _lightHandler, int _size)
         {
             player = _player;
             region = _region;
             gameMenu = _gameMenu;
             saveHandler = _saveHandler;
-            chunkHandler = _chunkHandler;
+            //chunkHandler = _chunkHandler;
+            lightHandler = _lightHandler;
 
             size = _size;
             last = size - 1;
@@ -76,17 +78,19 @@ namespace SharpCraft
                 return false;
             }
 
-            region[position].Blocks[y][x][z] = null;
-            
-            region[position].ActiveY.RemoveAt(index);
-            region[position].ActiveX.RemoveAt(index);
-            region[position].ActiveZ.RemoveAt(index);
+            Chunk chunk = region[position];
 
-            chunkHandler.PropagateSunlight(region[position]);
+            chunk.Blocks[y][x][z] = null;
+            
+            chunk.ActiveY.RemoveAt(index);
+            chunk.ActiveX.RemoveAt(index);
+            chunk.ActiveZ.RemoveAt(index);
+
+            lightHandler.Update(chunk, y, x, z, null);
 
             saveHandler.AddDelta(position, y, x, z, null);
 
-            UpdateAdjacentBlocks(region[position], y, x, z);
+            UpdateAdjacentBlocks(chunk, y, x, z);
 
             return true;
         }
@@ -112,9 +116,10 @@ namespace SharpCraft
                 return false;
             }
 
+            Chunk chunk = region[position];
             ushort? texture;
 
-            if (region[position].Blocks[y][x][z] is null && gameMenu.ActiveTool != null)
+            if (chunk.Blocks[y][x][z] is null && gameMenu.ActiveTool != null)
             {
                 texture = gameMenu.ActiveTool;
             }
@@ -123,14 +128,13 @@ namespace SharpCraft
                 return false;
             }
 
-            region[position].Blocks[y][x][z] = texture;
+            chunk.Blocks[y][x][z] = texture;
 
-            region[position].LightMap[y][x][z] = 0;
-            chunkHandler.PropagateSunlight(region[position]);
+            lightHandler.Update(chunk, y, x, z, texture);
 
             saveHandler.AddDelta(position, y, x, z, texture);
 
-            UpdateAdjacentBlocks(region[position], y, x, z);
+            UpdateAdjacentBlocks(chunk, y, x, z);
 
             return true;
         }

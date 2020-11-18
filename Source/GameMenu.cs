@@ -113,10 +113,10 @@ namespace SharpCraft
             font14 = fonts[0];
             font24 = fonts[1];
 
-            back = new Button((game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70, 
+            back = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70, 
                 menuTextures["button"], menuTextures["button_selector"], font24, "Back to game");
 
-            quit = new Button((game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
+            quit = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
                 menuTextures["button"], menuTextures["button_selector"], font24, "Save & Quit");
 
             crosshair = new Rectangle((game.Window.ClientBounds.Width / 2) - 15, 
@@ -243,8 +243,8 @@ namespace SharpCraft
             //Draw buttons
             else if (menuActive)
             {
-                back.Draw(spriteBatch);
-                quit.Draw(spriteBatch);
+                back.Draw();
+                quit.Draw();
             }
             //Draw creative inventory
             else if (inventoryActive)

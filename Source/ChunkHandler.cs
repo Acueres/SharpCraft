@@ -20,15 +20,13 @@ namespace SharpCraft
 
         Dictionary<ushort, ushort[]> multifaceBlocks;
 
-        Queue<LightNode> lightNodes;
-
-        bool[] transparentBlocks;
-        bool[] blockSpecial;
+        bool[] transparent;
+        bool[] multiface;
 
 
         public ChunkHandler(WorldGenerator _worldGenerator, Dictionary<Vector3, Chunk> _region,
             Dictionary<ushort, ushort[]> _multifaceBlocks,
-            bool[] _transparentBlocks, int _size, int _textureCount)
+            bool[] _transparent, int _size, int _textureCount)
         {
             worldGenerator = _worldGenerator;
             region = _region;
@@ -42,15 +40,13 @@ namespace SharpCraft
 
             multifaceBlocks = _multifaceBlocks;
 
-            lightNodes = new Queue<LightNode>((int)1.5e4);
-
-            transparentBlocks = _transparentBlocks;
-            blockSpecial = new bool[textureCount];
-            for (ushort i = 0; i < blockSpecial.Length; i++)
+            transparent = _transparent;
+            multiface = new bool[textureCount];
+            for (ushort i = 0; i < multiface.Length; i++)
             {
                 if (multifaceBlocks.ContainsKey(i))
                 {
-                    blockSpecial[i] = true;
+                    multiface[i] = true;
                 }
             }
         }
@@ -166,19 +162,19 @@ namespace SharpCraft
             bool blockOpaque = true;
             if (calculateOpacity)
             {
-                blockOpaque = !transparentBlocks[(int)chunk.Blocks[y][x][z]];
+                blockOpaque = !transparent[(int)chunk.Blocks[y][x][z]];
             }
 
             if (y + 1 < height)
             {
                 adjacentBlock = chunk.Blocks[y + 1][x][z];
-                visibleFaces[2] = adjacentBlock is null || (transparentBlocks[(int)adjacentBlock] && blockOpaque);
+                visibleFaces[2] = adjacentBlock is null || (transparent[(int)adjacentBlock] && blockOpaque);
             }
 
             if (y > 0)
             {
                 adjacentBlock = chunk.Blocks[y - 1][x][z];
-                visibleFaces[3] = adjacentBlock is null || (transparentBlocks[(int)adjacentBlock] && blockOpaque);
+                visibleFaces[3] = adjacentBlock is null || (transparent[(int)adjacentBlock] && blockOpaque);
             }
 
 
@@ -199,7 +195,7 @@ namespace SharpCraft
                 adjacentBlock = chunk.Blocks[y][x + 1][z];
             }
 
-            visibleFaces[4] = adjacentBlock is null || (transparentBlocks[(int)adjacentBlock] && blockOpaque);
+            visibleFaces[4] = adjacentBlock is null || (transparent[(int)adjacentBlock] && blockOpaque);
 
 
             if (x == 0)
@@ -219,7 +215,7 @@ namespace SharpCraft
                 adjacentBlock = chunk.Blocks[y][x - 1][z];
             }
 
-            visibleFaces[5] = adjacentBlock is null || (transparentBlocks[(int)adjacentBlock] && blockOpaque);
+            visibleFaces[5] = adjacentBlock is null || (transparent[(int)adjacentBlock] && blockOpaque);
 
 
             if (z == last)
@@ -239,7 +235,7 @@ namespace SharpCraft
                 adjacentBlock = chunk.Blocks[y][x][z + 1];
             }
 
-            visibleFaces[0] = adjacentBlock is null || (transparentBlocks[(int)adjacentBlock] && blockOpaque);
+            visibleFaces[0] = adjacentBlock is null || (transparent[(int)adjacentBlock] && blockOpaque);
 
 
             if (z == 0)
@@ -259,154 +255,7 @@ namespace SharpCraft
                 adjacentBlock = chunk.Blocks[y][x][z - 1];
             }
 
-            visibleFaces[1] = adjacentBlock is null || (transparentBlocks[(int)adjacentBlock] && blockOpaque);
-        }
-
-        public void PropagateSunlight(Chunk chunk)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                for (int z = 0; z < size; z++)
-                {
-                    for (int y = height - 2; y > -1; y--)
-                    {
-                        if (chunk.Blocks[y][x][z] is null &&
-                            chunk.Blocks[y + 1][x][z] is null)
-                        {
-                            chunk.LightMap[y][x][z] = chunk.LightMap[y + 1][x][z];
-
-                            if (x > 0 && z > 0 && x < last && z < last &&
-                                 (chunk.Blocks[y][x - 1][z] != null ||
-                                  chunk.Blocks[y][x + 1][z] != null ||
-                                  chunk.Blocks[y][x][z - 1] != null ||
-                                  chunk.Blocks[y][x][z + 1] != null))
-                            {
-                                lightNodes.Enqueue(new LightNode(chunk, x, y + 1, z, chunk.LightMap[y + 1][x][z]));
-                            }
-                        }
-                        else if (chunk.Blocks[y][x][z] != null)
-                        {
-                            lightNodes.Enqueue(new LightNode(chunk, x, y + 1, z, chunk.LightMap[y + 1][x][z]));
-                        }
-                    }
-                }
-            }
-
-            FloodFill();
-
-            chunk.CalculateLight = false;
-        }
-
-        void FloodFill()
-        {
-            LightNode node;
-            while (lightNodes.Count > 0)
-            {
-                node = lightNodes.Dequeue();
-
-                PropagateLight(node.Chunk, node.Y, node.X, node.Z, node.Light);
-            }
-        }
-
-        void PropagateLight(Chunk chunk, int y, int x, int z, byte light)
-        {
-            byte newLight;
-            chunk.LightMap[y][x][z] = light;
-
-            if (light > 1)
-                newLight = (byte)(light - 2);
-            else
-                newLight = 1;
-
-            if (y + 1 < height &&
-                Transparent(chunk.Blocks[y + 1][x][z]) &&
-                chunk.LightMap[y + 1][x][z] < light)
-            {
-                lightNodes.Enqueue(new LightNode(chunk, x, y + 1, z, newLight));
-            }
-
-            if (y > 0 &&
-                Transparent(chunk.Blocks[y - 1][x][z]) &&
-                chunk.LightMap[y - 1][x][z] < light)
-            {
-                lightNodes.Enqueue(new LightNode(chunk, x, y - 1, z, newLight));
-            }
-
-
-            if (x == last)
-            {
-                if (chunk.Neighbors.XNeg != null &&
-                    Transparent(chunk.Neighbors.XNeg.Blocks[y][0][z]) &&
-                    chunk.Neighbors.XNeg.LightMap[y][0][z] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.XNeg, 0, y, z, newLight));
-                }
-            }
-            else
-            {
-                if (Transparent(chunk.Blocks[y][x + 1][z]) &&
-                chunk.LightMap[y][x + 1][z] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk, x + 1, y, z, newLight));
-                }
-            }
-
-
-            if (x == 0)
-            {
-                if (chunk.Neighbors.XPos != null &&
-                    Transparent(chunk.Neighbors.XPos.Blocks[y][last][z]) &&
-                    chunk.Neighbors.XPos.LightMap[y][last][z] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.XPos, last, y, z, newLight));
-                }
-            }
-            else
-            {
-                if (Transparent(chunk.Blocks[y][x - 1][z]) &&
-                    chunk.LightMap[y][x - 1][z] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk, x - 1, y, z, newLight));
-                }
-            }
-
-
-            if (z == last)
-            {
-                if (chunk.Neighbors.ZNeg != null &&
-                    Transparent(chunk.Neighbors.ZNeg.Blocks[y][x][0]) &&
-                    chunk.Neighbors.ZNeg.LightMap[y][x][0] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.ZNeg, x, y, 0, newLight));
-                }
-            }
-            else
-            {
-                if (Transparent(chunk.Blocks[y][x][z + 1]) &&
-                    chunk.LightMap[y][x][z + 1] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk, x, y, z + 1, newLight));
-                }
-            }
-
-
-            if (z == 0)
-            {
-                if (chunk.Neighbors.ZPos != null &&
-                    Transparent(chunk.Neighbors.ZPos.Blocks[y][x][last]) &&
-                    chunk.Neighbors.ZPos.LightMap[y][x][last] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.ZPos, x, y, last, newLight));
-                }
-            }
-            else
-            {
-                if (Transparent(chunk.Blocks[y][x][z - 1]) &&
-                    chunk.LightMap[y][x][z - 1] < light)
-                {
-                    lightNodes.Enqueue(new LightNode(chunk, x, y, z - 1, newLight));
-                }
-            }
+            visibleFaces[1] = adjacentBlock is null || (transparent[(int)adjacentBlock] && blockOpaque);
         }
 
         void GetFacesLight(byte[] lightValues, bool[] facesVisible, Chunk chunk, int y, int x, int z)
@@ -476,11 +325,6 @@ namespace SharpCraft
             }
         }
 
-        bool Transparent(ushort? texture)
-        {
-            return texture is null || transparentBlocks[(int)texture];
-        }
-
         void GetNeighbors(Chunk chunk)
         {
             Vector3 position = chunk.Position;
@@ -529,12 +373,12 @@ namespace SharpCraft
 
         void AddFaceMesh(Chunk chunk, ushort? texture, int face, byte light, Vector3 blockPosition)
         {
-            if (blockSpecial[(int)texture])
+            if (multiface[(int)texture])
             {
                 AddData(chunk.VertexList,
                     face, light, blockPosition, multifaceBlocks[(ushort)texture][face]);
             }
-            else if (transparentBlocks[(int)texture])
+            else if (transparent[(int)texture])
             {
                 AddData(chunk.TransparentVertexList, face, light, blockPosition, texture);
             }

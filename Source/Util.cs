@@ -1,4 +1,7 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System;
+using System.Linq;
+
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
@@ -31,6 +34,37 @@ namespace SharpCraft
                 return string.Empty;
 
             return char.ToUpper(str[0]) + str.Substring(1).ToLower();
+        }
+
+        public static int ArgMax(byte[] arr)
+        {
+            int index = 0;
+            int count = 0;
+            byte max = arr.Max();
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                if (arr[i] == max)
+                {
+                    count++;
+                    index = i;
+                }
+            }
+
+            if (count > 1)
+            {
+                Random rnd = new Random();
+                index = rnd.Next(0, 6);
+
+                while (arr[index] != max)
+                {
+                    index = rnd.Next(0, 6);
+                }
+
+                return index;
+            }
+
+            return index;
         }
 
         //Input utility functions
@@ -74,24 +108,6 @@ namespace SharpCraft
         public static Vector3 Direction = new Vector3(0, -0.5f, -1f);
 
         public static ushort?[] Inventory = new ushort?[9];
-    }
-
-    public struct LightNode
-    {
-        public Chunk Chunk;
-        public int X;
-        public int Y;
-        public int Z;
-        public byte Light;
-
-        public LightNode(Chunk chunk, int x, int y, int z, byte light)
-        {
-            Chunk = chunk;
-            X = x;
-            Y = y;
-            Z = z;
-            Light = light;
-        }
     }
 
     public class NeighboringChunks

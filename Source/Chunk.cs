@@ -16,7 +16,6 @@ namespace SharpCraft
 
         public bool GenerateMesh;
         public bool Initialize;
-        public bool CalculateLight;
 
         public ushort?[][][] Blocks;
 
@@ -50,9 +49,8 @@ namespace SharpCraft
 
             GenerateMesh = true;
             Initialize = true;
-            CalculateLight = true;
 
-            //Only about <5% of all blocks in a chunk are visible
+            //Only about ~5% of all blocks are visible
             int total = (int)(0.05 * size * size * height);
 
             Blocks = new ushort?[height][][];
@@ -83,7 +81,7 @@ namespace SharpCraft
                 }
             }
 
-            //Set the topmost layer to max light value
+            //Set the topmost layer to maximum light value
             for (int x = 0; x < size; x++)
             {
                 for (int z = 0; z < size; z++)

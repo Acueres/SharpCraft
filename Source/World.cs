@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 using Microsoft.Xna.Framework;
 
@@ -20,6 +19,7 @@ namespace SharpCraft
         WorldGenerator worldGenerator;
         ChunkHandler chunkHandler;
         SaveHandler saveHandler;
+        LightHandler lightHandler;
 
         HashSet<Vector3> nearChunks;
         Vector3[] loadedChunks;
@@ -49,6 +49,7 @@ namespace SharpCraft
             worldGenerator = new WorldGenerator(blockIndices);
             Region = new Dictionary<Vector3, Chunk>((int)2e3);
             chunkHandler = new ChunkHandler(worldGenerator, Region, multifaceBlocks, transparentBlocks, size, textureCount);
+            lightHandler = new LightHandler(size, transparentBlocks);
 
             UpdateOccured = true;
 
@@ -64,7 +65,7 @@ namespace SharpCraft
         {
             player = _player;
 
-            blockHanlder = new BlockHanlder(player, Region, gameMenu, saveHandler, chunkHandler, size);
+            blockHanlder = new BlockHanlder(player, Region, gameMenu, saveHandler, lightHandler, size);
 
             GetActiveChunks();
 
@@ -87,7 +88,7 @@ namespace SharpCraft
             {
                 GetActiveChunks();
                 UnloadChunks();
-                UpdatePlayerActions();
+                PlayerInteraction();
             }
         }
 
@@ -121,11 +122,7 @@ namespace SharpCraft
                 if (Region[ActiveChunks[i]].Initialize)
                 {
                     chunkHandler.Initialize(Region[ActiveChunks[i]]);
-                }
-
-                if (Region[ActiveChunks[i]].CalculateLight)
-                {
-                    chunkHandler.PropagateSunlight(Region[ActiveChunks[i]]);
+                    lightHandler.Initialize(Region[ActiveChunks[i]]);
                 }
             }
 
@@ -206,7 +203,7 @@ namespace SharpCraft
             inactiveChunks.Clear();
         }
 
-        void UpdatePlayerActions()
+        void PlayerInteraction()
         {
             float minDistance = 4.5f;
 

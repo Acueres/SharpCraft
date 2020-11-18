@@ -9,6 +9,8 @@ namespace SharpCraft
         public bool Selected;
         public bool Inactive;
 
+        SpriteBatch spriteBatch;
+
         Texture2D texture;
         Texture2D selector;
         Texture2D shading;
@@ -22,8 +24,11 @@ namespace SharpCraft
         Vector2 textPosition;
 
 
-        public Button(int x, int y, int width, int height, Texture2D _texture, Texture2D _selector, SpriteFont _font, string _text)
+        public Button(SpriteBatch _spriteBatch, int x, int y, int width, int height,
+                      Texture2D _texture, Texture2D _selector, SpriteFont _font, string _text)
         {
+            spriteBatch = _spriteBatch;
+
             texture = _texture;
             selector = _selector;
             font = _font;
@@ -49,7 +54,7 @@ namespace SharpCraft
             shading.SetData(shadingColor);
         }
 
-        public void Draw(SpriteBatch spriteBatch)
+        public void Draw()
         {
             Vector2 textSize = font.MeasureString(text) / 2;
             textSize.Y = 0;
@@ -70,7 +75,7 @@ namespace SharpCraft
             Selected = false;
         }
 
-        public void Draw(SpriteBatch spriteBatch, object data)
+        public void Draw(object data)
         {
             string newText = text + $": {data}";
             Vector2 textSize = font.MeasureString(newText) / 2;

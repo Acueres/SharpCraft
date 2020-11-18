@@ -55,7 +55,7 @@ namespace SharpCraft
             font14 = fonts[0];
             font24 = fonts[1];
 
-            resume = new Button((game.Window.ClientBounds.Width / 2) - 200, 2 * 70, 400, 70,
+            resume = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 2 * 70, 400, 70,
                        menuTextures["button"], menuTextures["button_selector"], font24, "Resume");
             resume.SetShading(graphics);
 
@@ -64,22 +64,22 @@ namespace SharpCraft
                 resume.Inactive = true;
             }
 
-            newGame = new Button((game.Window.ClientBounds.Width / 2) - 200, 3 * 70, 400, 70,
+            newGame = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 3 * 70, 400, 70,
                        menuTextures["button"], menuTextures["button_selector"], font24, "New Game");
 
-            settings = new Button((game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
+            settings = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
                        menuTextures["button"], menuTextures["button_selector"], font24, "Settings");
 
-            quit = new Button((game.Window.ClientBounds.Width / 2) - 200, 5 * 70, 400, 70,
+            quit = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 5 * 70, 400, 70,
                        menuTextures["button"], menuTextures["button_selector"], font24, "Quit Game");
 
-            back = new Button((game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
+            back = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
                        menuTextures["button"], menuTextures["button_selector"], font24, "Back");
 
-            renderDistance = new Button((game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70,
+            renderDistance = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70,
                        menuTextures["button"], menuTextures["button_selector"], font24, "Render Distance");
 
-            worldType = new Button((game.Window.ClientBounds.Width / 2) - 200, 2 * 70, 400, 70,
+            worldType = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 2 * 70, 400, 70,
                        menuTextures["button"], menuTextures["button_selector"], font24, "World Type");
 
 
@@ -119,16 +119,16 @@ namespace SharpCraft
             if (main)
             {
                 spriteBatch.Draw(logoTexture, logo, Color.White);
-                resume.Draw(spriteBatch);
-                newGame.Draw(spriteBatch);
-                settings.Draw(spriteBatch);
-                quit.Draw(spriteBatch);
+                resume.Draw();
+                newGame.Draw();
+                settings.Draw();
+                quit.Draw();
             }
             else if (settingsMenu)
             {
-                renderDistance.Draw(spriteBatch, Parameters.RenderDistance);
-                worldType.Draw(spriteBatch, Parameters.WorldType);
-                back.Draw(spriteBatch);
+                renderDistance.Draw(Parameters.RenderDistance);
+                worldType.Draw(Parameters.WorldType);
+                back.Draw();
             }
 
             spriteBatch.End();
