@@ -6,34 +6,59 @@ namespace SharpCraft
 {
     public class Player
     {
+        public bool Clicked
+        {
+            get
+            {
+                return gameTime.TotalGameTime.TotalMilliseconds - lastClickTime > 100;
+            }
+        }
+        
+        public bool LeftClick
+        {
+            get
+            {
+                return Util.LeftButtonClicked(currentMouseState, previousMouseState);
+            }
+        }
+
+        public bool RightClick
+        {
+            get
+            {
+                return Util.RightButtonClicked(currentMouseState, previousMouseState);
+            }
+        }
+
         public Vector3 Position;
-        public Vector3 PreviousPosition;
+
         public Camera Camera;
         public Physics Physics;
-        public Ray Ray;
-        public BoundingBox Bounds;
 
-        public bool IsFlying;
-        public bool OnGround;
-        public bool Sprint;
+        public Ray Ray;
+        public BoundingBox Bound;
+
+        public bool Flying;
+        public bool Walking;
+        public bool Sprinting;
         public bool UpdateOccured;
         public bool Swimming;
 
-        public MouseState CurrentMouseState;
-        public MouseState PreviousMouseState;
-
-        public double LastClickTime;
-
-        public GameTime GameTime;
-
-        public KeyboardState CurrentKeyboardState;
-        public KeyboardState PreviousKeyboardState;
-
-        Vector3 min;
-        Vector3 max;
+        double lastClickTime;
+        double lastPressTime;
 
         Keys lastKeyPressed;
-        double lastPressTime;
+
+        GameTime gameTime;
+
+        MouseState currentMouseState;
+        MouseState previousMouseState;
+
+        KeyboardState currentKeyboardState;
+        KeyboardState previousKeyboardState;
+
+        Vector3 boundMin;
+        Vector3 boundMax;
 
 
         public Player(GraphicsDeviceManager graphics, Vector3 position, Vector3 target)
@@ -44,92 +69,94 @@ namespace SharpCraft
 
             Ray = new Ray(position, Camera.Direction);
 
+            Bound = new BoundingBox(boundMin + Position, boundMax + Position);
+
             Position = position;
 
-            IsFlying = Parameters.IsFlying;
-            Sprint = false;
+            Flying = Parameters.Flying;
+            Sprinting = false;
             UpdateOccured = true;
             Swimming = false;
 
-            CurrentKeyboardState = Keyboard.GetState();
+            lastClickTime = 0;
 
-            CurrentMouseState = Mouse.GetState();
+            currentMouseState = Mouse.GetState();
 
-            LastClickTime = 0;
+            currentKeyboardState = Keyboard.GetState();
 
-            min = new Vector3(-0.25f, -1.6f, -0.25f);
-            max = new Vector3(0.25f, 0.5f, 0.25f);
-
-            Bounds = new BoundingBox(min + Position, max + Position);
+            boundMin = new Vector3(-0.25f, -1.6f, -0.25f);
+            boundMax = new Vector3(0.25f, 0.5f, 0.25f);
         }
 
 
         public void Update(GameTime _gameTime)
         {
-            GameTime = _gameTime;
+            gameTime = _gameTime;
 
-            CurrentKeyboardState = Keyboard.GetState();
+            currentKeyboardState = Keyboard.GetState();
 
-            PreviousMouseState = CurrentMouseState;
-            CurrentMouseState = Mouse.GetState();
+            previousMouseState = currentMouseState;
+            currentMouseState = Mouse.GetState();
 
-            PreviousPosition = Position;
+            CheckInput();
 
-            UpdateState();
-            Camera.Update(Position, GameTime);
-            Physics.Update();
+            Camera.Update(Position, gameTime);
 
-            UpdateOccured = Camera.cameraDelta.Length() > 0 || Physics.Velocity.Length() > 0 ||
-                Util.LeftButtonClicked(CurrentMouseState, PreviousMouseState) ||
-                Util.RightButtonClicked(CurrentMouseState, PreviousMouseState);
+            Physics.Update(gameTime);
+
+            UpdateOccured = Camera.Moved || Physics.Moving || LeftClick || RightClick;
 
             Ray.Position = Position;
             Ray.Direction = Camera.Direction;
 
-            Bounds.Min = min + Position;
-            Bounds.Max = max + Position;
+            Bound.Min = boundMin + Position;
+            Bound.Max = boundMax + Position;
 
-            PreviousKeyboardState = CurrentKeyboardState;
+            previousKeyboardState = currentKeyboardState;
         }
 
-
-        void UpdateState()
+        public void SetLastClickTime()
         {
-            //State change
-            if (Util.KeyPressed(Keys.Space, CurrentKeyboardState, PreviousKeyboardState) &&
-                lastKeyPressed == Keys.Space && GameTime.TotalGameTime.TotalMilliseconds - lastPressTime < 225)
+            lastClickTime = gameTime.TotalGameTime.TotalMilliseconds;
+        }
+
+        void CheckInput()
+        {
+            if (Util.KeyPressed(Keys.Space, currentKeyboardState, previousKeyboardState) &&
+                lastKeyPressed == Keys.Space && gameTime.TotalGameTime.TotalMilliseconds - lastPressTime < 225)
             {
-                IsFlying ^= true;
+                Flying ^= true;
                 Physics.Velocity.Y = 0;
             }
-            else if (CurrentKeyboardState.IsKeyDown(Keys.Space))
+            else if (currentKeyboardState.IsKeyDown(Keys.Space))
             {
-                lastPressTime = GameTime.TotalGameTime.TotalMilliseconds;
+                lastPressTime = gameTime.TotalGameTime.TotalMilliseconds;
                 lastKeyPressed = Keys.Space;
 
-                if (!IsFlying && OnGround)
+                if (!Flying && Walking)
                 {
                     Position.Y += 0.1f;
 
                     Physics.Velocity.Y = -0.12f;
 
-                    OnGround = false;
+                    Walking = false;
                 }
             }
 
-            if (Util.KeyReleased(Keys.W, CurrentKeyboardState, PreviousKeyboardState))
+            if (Util.KeyReleased(Keys.W, currentKeyboardState, previousKeyboardState))
             {
-                Sprint = false;
+                Sprinting = false;
             }
 
-            if (Util.KeyPressed(Keys.W, CurrentKeyboardState, PreviousKeyboardState) && lastKeyPressed == Keys.W && GameTime.TotalGameTime.TotalMilliseconds - lastPressTime < 225)
+            if (Util.KeyPressed(Keys.W, currentKeyboardState, previousKeyboardState) && lastKeyPressed == Keys.W &&
+                gameTime.TotalGameTime.TotalMilliseconds - lastPressTime < 225)
             {
-                Sprint = true;
+                Sprinting = true;
             }
 
-            if (Util.KeyPressed(Keys.W, CurrentKeyboardState, PreviousKeyboardState))
+            if (Util.KeyPressed(Keys.W, currentKeyboardState, previousKeyboardState))
             {
-                lastPressTime = GameTime.TotalGameTime.TotalMilliseconds;
+                lastPressTime = gameTime.TotalGameTime.TotalMilliseconds;
                 lastKeyPressed = Keys.W;
             }
         }

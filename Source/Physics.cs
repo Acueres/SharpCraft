@@ -9,6 +9,14 @@ namespace SharpCraft
 {
     public class Physics
     {
+        public bool Moving
+        {
+            get
+            {
+                return Velocity.Length() > 0;
+            }
+        }
+
         public Vector3 Velocity;
 
         Player player;
@@ -67,8 +75,8 @@ namespace SharpCraft
                 player.Position.Y = blockPosition.Y + 1.97f;
                 Velocity.Y = 0;
 
-                player.IsFlying = false;
-                player.OnGround = true;
+                player.Flying = false;
+                player.Walking = true;
                 return;
             }
 
@@ -82,18 +90,18 @@ namespace SharpCraft
                     Velocity.X = 0;
                     Velocity.Z = 0;
 
-                    player.Sprint = false;
+                    player.Sprinting = false;
                 }
             }
         }
 
-        public void Update()
+        public void Update(GameTime gameTime)
         {
             Vector3 positionDelta = new Vector3(0f, 0f, 0f);
 
-            KeyboardState currentKeyboardState = player.CurrentKeyboardState;
+            KeyboardState currentKeyboardState = Keyboard.GetState();
 
-            elapsedTime = player.GameTime.ElapsedGameTime.TotalMilliseconds;
+            elapsedTime = gameTime.ElapsedGameTime.TotalMilliseconds;
 
             float delta = (float)elapsedTime / 20f;
             float friction = 0.5f;
@@ -102,16 +110,16 @@ namespace SharpCraft
             bool ascendingInWater = false;
 
             //Velocity update && friction
-            if (player.IsFlying && Math.Abs(Velocity.Y) > 5e-3f)
+            if (player.Flying && Math.Abs(Velocity.Y) > 5e-3f)
             {
                 Velocity.Y -= Math.Sign(Velocity.Y) * delta * friction * acceleration;
             }
-            else if (player.IsFlying)
+            else if (player.Flying)
             {
                 Velocity.Y = 0;
             }
 
-            if (player.IsFlying)
+            if (player.Flying)
             {
                 friction = 0.1f;
             }
@@ -187,7 +195,7 @@ namespace SharpCraft
 
             //Vertical movement
             //Move up in flight mode
-            if (!ceilingCollision && player.IsFlying
+            if (!ceilingCollision && player.Flying
                 && currentKeyboardState.IsKeyDown(Keys.Space))
             {
                 if (Velocity.Y < 2 * maxSpeed)
@@ -197,15 +205,15 @@ namespace SharpCraft
                 positionDelta.Y += Velocity.Y;
             }
             //Move up in water
-            else if (!ceilingCollision && player.Swimming
-                && currentKeyboardState.IsKeyDown(Keys.Space))
+            else if (!ceilingCollision && player.Swimming &&
+                     currentKeyboardState.IsKeyDown(Keys.Space))
             {
                 positionDelta.Y += 0.05f;
                 ascendingInWater = true;
             }
 
             //Move down in flight mode
-            if (player.IsFlying && currentKeyboardState.IsKeyDown(Keys.LeftShift))
+            if (player.Flying && currentKeyboardState.IsKeyDown(Keys.LeftShift))
             {
                 if (Velocity.Y < 2 * maxSpeed)
                 {
@@ -216,7 +224,7 @@ namespace SharpCraft
             }
 
             //Apply gravity in normal mode
-            if (!player.IsFlying && !player.OnGround && !ascendingInWater)
+            if (!player.Flying && !player.Walking && !ascendingInWater)
             {
                 if (Velocity.Y < 1f)
                 {
@@ -228,7 +236,7 @@ namespace SharpCraft
 
             positionDelta += delta * Velocity.X * player.Camera.HorizontalDirection;
 
-            if (player.Sprint && !player.Swimming)
+            if (player.Sprinting && !player.Swimming)
             {
                 positionDelta.X *= 2;
                 positionDelta.Z *= 2;
@@ -257,7 +265,7 @@ namespace SharpCraft
 
             collisionNormals.Clear();
 
-            player.OnGround = false;
+            player.Walking = false;
             player.Swimming = false;
 
             ceilingCollision = false;

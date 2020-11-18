@@ -224,7 +224,7 @@ namespace SharpCraft
 
             foreach (Vector3 position in nearChunks)
             {
-                for (int j = 0, n2 = Region[position].ActiveY.Count; j < n2; j++)
+                for (int j = 0, n = Region[position].ActiveY.Count; j < n; j++)
                 {
                     byte y = Region[position].ActiveY[j];
                     byte x = Region[position].ActiveX[j];
@@ -240,7 +240,7 @@ namespace SharpCraft
 
                     BoundingBox blockBounds = new BoundingBox(blockMin + blockPosition, blockMax + blockPosition);
 
-                    if (player.Bounds.Intersects(blockBounds))
+                    if (player.Bound.Intersects(blockBounds))
                     {
                         if (Region[position].Blocks[y][x][z] == water)
                         {
@@ -261,7 +261,7 @@ namespace SharpCraft
                     if (player.Camera.Frustum.Contains(blockBounds) != ContainmentType.Disjoint)
                     {
                         float? rayBlockDistance = player.Ray.Intersects(blockBounds);
-                        if (!(rayBlockDistance is null) && rayBlockDistance < minDistance)
+                        if (rayBlockDistance != null && rayBlockDistance < minDistance)
                         {
                             minDistance = (float)rayBlockDistance;
                             blockHanlder.Set(x, y, z, j, position);

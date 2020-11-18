@@ -173,7 +173,7 @@ namespace SharpCraft
 
                     Parameters.GameLoading = true;
                     Parameters.Position = Vector3.Zero;
-                    Parameters.IsFlying = false;
+                    Parameters.Flying = false;
                     Parameters.Direction = new Vector3(0, -0.5f, -1f);
 
                     var rnd = new Random();
@@ -316,7 +316,7 @@ namespace SharpCraft
             }
 
             Parameters.Seed = data.seed;
-            Parameters.IsFlying = data.isFlying;
+            Parameters.Flying = data.isFlying;
             Parameters.Position = new Vector3(data.X, data.Y, data.Z);
             Parameters.Direction = new Vector3(data.dirX, data.dirY, data.dirZ);
             Parameters.Inventory = data.inventory;

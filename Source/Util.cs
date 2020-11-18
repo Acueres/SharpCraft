@@ -11,7 +11,8 @@ namespace SharpCraft
     static class Util
     {
         //Legacy rendering code
-        public static void DrawCubeSide(VertexPositionTexture[] side, Texture2D texture, GraphicsDeviceManager graphics, BasicEffect effect, Matrix view, Matrix projection, Vector3 position)
+        public static void DrawCubeSide(VertexPositionTexture[] side, Texture2D texture,
+            GraphicsDeviceManager graphics, BasicEffect effect, Matrix view, Matrix projection, Vector3 position)
         {
             effect.TextureEnabled = true;
             effect.Texture = texture;
@@ -80,12 +81,14 @@ namespace SharpCraft
 
         public static bool RightButtonClicked(MouseState currentMouseState, MouseState previousMouseState)
         {
-            return currentMouseState.RightButton == ButtonState.Pressed && previousMouseState.RightButton == ButtonState.Released;
+            return currentMouseState.RightButton == ButtonState.Pressed &&
+                   previousMouseState.RightButton == ButtonState.Released;
         }
 
         public static bool LeftButtonClicked(MouseState currentMouseState, MouseState previousMouseState)
         {
-            return currentMouseState.LeftButton == ButtonState.Pressed && previousMouseState.LeftButton == ButtonState.Released;
+            return currentMouseState.LeftButton == ButtonState.Pressed &&
+                   previousMouseState.LeftButton == ButtonState.Released;
         }
     }
 
@@ -96,7 +99,7 @@ namespace SharpCraft
         public static bool GamePaused = false;
         public static bool ExitedGameMenu = false;
         public static bool ExitedToMainMenu = false;
-        public static bool IsFlying = false;
+        public static bool Flying = false;
 
         public static int Seed = 0;
         public static int ChunkSize = 16;

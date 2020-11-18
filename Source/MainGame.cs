@@ -173,7 +173,7 @@ namespace SharpCraft
                     new SaveParameters()
                     {
                         seed = Parameters.Seed,
-                        isFlying = player.IsFlying,
+                        isFlying = player.Flying,
                         X = player.Position.X,
                         Y = player.Position.Y,
                         Z = player.Position.Z,

@@ -12,7 +12,6 @@ namespace SharpCraft
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
         SaveHandler saveHandler;
-        //ChunkHandler chunkHandler;
         LightHandler lightHandler;
 
         int size, last;
@@ -28,7 +27,6 @@ namespace SharpCraft
             region = _region;
             gameMenu = _gameMenu;
             saveHandler = _saveHandler;
-            //chunkHandler = _chunkHandler;
             lightHandler = _lightHandler;
 
             size = _size;
@@ -51,20 +49,15 @@ namespace SharpCraft
 
         public bool Update()
         {
-            bool clickCondition = player.GameTime.TotalGameTime.TotalMilliseconds - player.LastClickTime > 100;
-
-            if (clickCondition &&
-                Util.LeftButtonClicked(player.CurrentMouseState, player.PreviousMouseState) &&
-                !Parameters.ExitedGameMenu)
+            if (player.Clicked && player.LeftClick && !Parameters.ExitedGameMenu)
             {
-                player.LastClickTime = player.GameTime.TotalGameTime.TotalMilliseconds;
+                player.SetLastClickTime();
                 return RemoveBlock();
             }
 
-            if (clickCondition &&
-                Util.RightButtonClicked(player.CurrentMouseState, player.PreviousMouseState))
+            if (player.Clicked && player.RightClick)
             {
-                player.LastClickTime = player.GameTime.TotalGameTime.TotalMilliseconds;
+                player.SetLastClickTime();
                 return AddBlock();
             }
 
