@@ -21,6 +21,7 @@ namespace SharpCraft
         MainMenu mainMenu;
         Renderer renderer;
         SaveHandler saveHandler;
+        Time time;
 
         Dictionary<string, Texture2D> menuTextures = new Dictionary<string, Texture2D>();
         Dictionary<ushort, string> blockNames = new Dictionary<ushort, string>();
@@ -41,7 +42,6 @@ namespace SharpCraft
             };
 
             IsFixedTimeStep = true;
-            TargetElapsedTime = TimeSpan.FromMilliseconds(16);
 
             Content.RootDirectory = "Assets";
         }
@@ -132,8 +132,6 @@ namespace SharpCraft
         {
             if (Parameters.GameStarted)
             {
-                graphics.GraphicsDevice.Clear(Color.SkyBlue);
-
                 renderer.Draw(world.ActiveChunks, player);
                 gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
             }
@@ -154,12 +152,14 @@ namespace SharpCraft
             Parameters.GameLoading = false;
             Parameters.GameStarted = true;
 
+            time = new Time(Parameters.Day, Parameters.Hour, Parameters.Minute);
+
             saveHandler = new SaveHandler();
-            gameMenu = new GameMenu(this, graphics, menuTextures, blockTextures, blockNames, fonts);
+            gameMenu = new GameMenu(this, graphics, time, menuTextures, blockTextures, blockNames, fonts);
             world = new World(blockTextures.Length, gameMenu, saveHandler,
                               blockIndices, multifaceBlocks, transparentBlocks);
             player = new Player(graphics, Parameters.Position, Parameters.Direction);
-            renderer = new Renderer(graphics, effect, world.Region, blockTextures);
+            renderer = new Renderer(graphics, effect, time, world.Region, blockTextures);
 
             world.SetPlayer(player);
         }
@@ -168,6 +168,8 @@ namespace SharpCraft
         {
             if (player != null)
             {
+                int[] date = time.Date;
+
                 List<SaveParameters> data = new List<SaveParameters>(1)
                 {
                     new SaveParameters()
@@ -181,7 +183,10 @@ namespace SharpCraft
                         dirY = player.Camera.Direction.Y,
                         dirZ = player.Camera.Direction.Z,
                         inventory = Parameters.Inventory,
-                        worldType = Parameters.WorldType
+                        worldType = Parameters.WorldType,
+                        day = date[0],
+                        hour = date[1],
+                        minute = date[2]
                     }
                 };
 

@@ -13,6 +13,8 @@ namespace SharpCraft
         Effect effect;
         Dictionary<Vector3, Chunk> region;
 
+        Time time;
+
         Texture2D[] blockTextures;
         Texture2D atlas;
 
@@ -23,12 +25,14 @@ namespace SharpCraft
         DynamicVertexBuffer buffer;
 
 
-        public Renderer(GraphicsDeviceManager _graphics, Effect _effect,
+        public Renderer(GraphicsDeviceManager _graphics, Effect _effect, Time _time,
             Dictionary<Vector3, Chunk> _region, Texture2D[] _blockTextures)
         {
             graphics = _graphics;
             effect = _effect;
             region = _region;
+
+            time = _time;
 
             size = Parameters.ChunkSize;
 
@@ -58,12 +62,22 @@ namespace SharpCraft
             Vector3 chunkMax = new Vector3(size, 128, size);
             Vector3 position;
 
+            float lightIntensity = time.LightIntensity;
+
             bool[] chunkVisible = new bool[activeChunks.Length];
 
             effect.Parameters["World"].SetValue(Matrix.Identity);
             effect.Parameters["View"].SetValue(player.Camera.View);
             effect.Parameters["Projection"].SetValue(player.Camera.Projection);
             effect.Parameters["Texture"].SetValue(atlas);
+            effect.Parameters["LightIntensity"].SetValue(lightIntensity);
+
+            if (!Parameters.GamePaused)
+            {
+                time.Update();
+            }
+
+            graphics.GraphicsDevice.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
 
             //Drawing opaque blocks
             for (int i = 0; i < activeChunks.Length; i++)

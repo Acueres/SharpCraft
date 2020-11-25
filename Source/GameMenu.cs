@@ -16,6 +16,8 @@ namespace SharpCraft
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
 
+        Time time;
+
         Rectangle crosshair,
                   selector,
                   inventory,
@@ -51,14 +53,15 @@ namespace SharpCraft
         Dictionary<ushort, string> blockNames;
 
 
-        public GameMenu(MainGame _game, GraphicsDeviceManager _graphics,
+        public GameMenu(MainGame _game, GraphicsDeviceManager _graphics, Time _time,
                         Dictionary<string, Texture2D> _textures, Texture2D[] _blockTextures,
                         Dictionary<ushort, string> _blockNames, SpriteFont[] fonts)
         {
             game = _game;
             graphics = _graphics;
-
             spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
+
+            time = _time;
 
             menuTextures = _textures;
             blockNames = _blockNames;
@@ -293,8 +296,8 @@ namespace SharpCraft
             }
 
             spriteBatch.DrawString(font14, "FPS: " + fps.ToString(), new Vector2(10, 10), Color.White);
-
-            spriteBatch.DrawString(font14, "Memory: " + GC.GetTotalMemory(false) / 1024, new Vector2(10, 30), Color.White);
+            spriteBatch.DrawString(font14, $"Memory: {GC.GetTotalMemory(false) / (1024 * 1024)} Mb", new Vector2(10, 30), Color.White);
+            spriteBatch.DrawString(font14, time.ToString(), new Vector2(10, 50), Color.White);
 
             spriteBatch.End();
 

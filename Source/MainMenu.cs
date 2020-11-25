@@ -321,6 +321,9 @@ namespace SharpCraft
             Parameters.Direction = new Vector3(data.dirX, data.dirY, data.dirZ);
             Parameters.Inventory = data.inventory;
             Parameters.WorldType = data.worldType;
+            Parameters.Day = data.day;
+            Parameters.Hour = data.hour;
+            Parameters.Minute = data.minute;
         }
     }
 }

@@ -94,21 +94,27 @@ namespace SharpCraft
 
     static class Parameters
     {
-        public static bool GameLoading = false;
-        public static bool GameStarted = false;
-        public static bool GamePaused = false;
-        public static bool ExitedGameMenu = false;
-        public static bool ExitedToMainMenu = false;
-        public static bool Flying = false;
+        public static bool
+        GameLoading = false,
+        GameStarted = false,
+        GamePaused = false,
+        ExitedGameMenu = false,
+        ExitedToMainMenu = false,
+        Flying = false;
 
-        public static int Seed = 0;
-        public static int ChunkSize = 16;
-        public static int RenderDistance = 8;
+        public static int
+        Seed = 0,
+        ChunkSize = 16,
+        RenderDistance = 8,
+        Day = 1,
+        Hour = 6,
+        Minute = 0;
 
         public static string WorldType = "Default";
 
-        public static Vector3 Position = Vector3.Zero;
-        public static Vector3 Direction = new Vector3(0, -0.5f, -1f);
+        public static Vector3
+        Position = Vector3.Zero,
+        Direction = new Vector3(0, -0.5f, -1f);
 
         public static ushort?[] Inventory = new ushort?[9];
     }
@@ -154,6 +160,7 @@ namespace SharpCraft
         public float dirX, dirY, dirZ;
         public ushort?[] inventory;
         public string worldType;
+        public int day, hour, minute;
     }
 
     class Settings

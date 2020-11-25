@@ -3,8 +3,10 @@ matrix View;
 matrix Projection;
 
 float Alpha = 1;
+float LightIntensity = 1;
 
 texture Texture;
+
 sampler2D textureSampler = sampler_state
 {
     Texture = <Texture>;
@@ -21,12 +23,14 @@ struct VertexShaderInput
     float2 TexureCoordinate : TEXCOORD0;
     float Light : TEXCOORD01;
 };
+
 struct VertexShaderOutput
 {
     float4 Position : POSITION0;
     float2 TexureCoordinate : TEXCOORD0;
     float Light : TEXCOORD1;
 };
+
 struct PixelShaderOutput
 {
     float4 Color : COLOR0;
@@ -52,13 +56,14 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
     PixelShaderOutput output = (PixelShaderOutput)0;
     output.Color = tex2D(textureSampler, input.TexureCoordinate);
 
-    float4 colorValue = pow(input.Light / 16.0f, 1.4f);
+    float4 colorValue = pow(input.Light / 16.0f, 1.4f) * LightIntensity;
     output.Color.rgb *= colorValue;
     output.Color.a = Alpha;
 
     return output;
 }
-technique BlankTechniqueB
+
+technique BlockTechnique
 {
     pass Pass0
     {
