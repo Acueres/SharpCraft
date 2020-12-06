@@ -18,7 +18,7 @@ namespace SharpCraft
         BlockHanlder blockHanlder;
         WorldGenerator worldGenerator;
         ChunkHandler chunkHandler;
-        SaveHandler saveHandler;
+        DatabaseHandler saveHandler;
         LightHandler lightHandler;
 
         HashSet<Vector3> nearChunks;
@@ -33,22 +33,20 @@ namespace SharpCraft
         bool[] transparentBlocks;
 
 
-        public World(int textureCount, GameMenu _gameMenu, SaveHandler _saveHandler,
-            Dictionary<string, ushort> blockIndices, Dictionary<ushort, ushort[]> multifaceBlocks,
-            bool[] _transparentBlocks)
+        public World(GameMenu _gameMenu, DatabaseHandler _saveHandler, Parameters parameters)
         {
             gameMenu = _gameMenu;
             saveHandler = _saveHandler;
-            transparentBlocks = _transparentBlocks;
+            transparentBlocks = Assets.TransparentBlocks;
 
-            size = Parameters.ChunkSize;
-            renderDistance = Parameters.RenderDistance;
+            size = Settings.ChunkSize;
+            renderDistance = Settings.RenderDistance;
 
-            water = blockIndices["Water"];
+            water = Assets.BlockIndices["Water"];
 
-            worldGenerator = new WorldGenerator(blockIndices);
+            worldGenerator = new WorldGenerator(parameters);
             Region = new Dictionary<Vector3, Chunk>((int)2e3);
-            chunkHandler = new ChunkHandler(worldGenerator, Region, multifaceBlocks, transparentBlocks, size, textureCount);
+            chunkHandler = new ChunkHandler(worldGenerator, Region, parameters);
             lightHandler = new LightHandler(size, transparentBlocks);
 
             UpdateOccured = true;
@@ -61,7 +59,7 @@ namespace SharpCraft
             loadedChunks = new Vector3[n2 * n2];
         }
 
-        public void SetPlayer(Player _player)
+        public void SetPlayer(Player _player, Parameters parameters)
         {
             player = _player;
 
@@ -71,14 +69,14 @@ namespace SharpCraft
 
             int centerIndex = (ActiveChunks.Length - 1) / 2;
 
-            if (Parameters.Position == Vector3.Zero)
+            if (parameters.Position == Vector3.Zero)
             {
                 player.Position = new Vector3(Region[ActiveChunks[centerIndex]].ActiveX[0],
                 Region[ActiveChunks[centerIndex]].ActiveY[0] + 2f, Region[ActiveChunks[centerIndex]].ActiveZ[0]);
             }
             else
             {
-                player.Position = Parameters.Position;
+                player.Position = parameters.Position;
             }
         }
 

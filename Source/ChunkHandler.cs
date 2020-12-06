@@ -24,23 +24,21 @@ namespace SharpCraft
         bool[] multiface;
 
 
-        public ChunkHandler(WorldGenerator _worldGenerator, Dictionary<Vector3, Chunk> _region,
-            Dictionary<ushort, ushort[]> _multifaceBlocks,
-            bool[] _transparent, int _size, int _textureCount)
+        public ChunkHandler(WorldGenerator _worldGenerator, Dictionary<Vector3, Chunk> _region, Parameters parameters)
         {
             worldGenerator = _worldGenerator;
             region = _region;
             cube = new Cube();
 
-            size = _size;
+            size = Settings.ChunkSize;
             height = 128;
             last = size - 1;
 
-            textureCount = _textureCount;
+            textureCount = Assets.BlockTextures.Length;
 
-            multifaceBlocks = _multifaceBlocks;
+            multifaceBlocks = Assets.MultifaceBlocks;
 
-            transparent = _transparent;
+            transparent = Assets.TransparentBlocks;
             multiface = new bool[textureCount];
             for (ushort i = 0; i < multiface.Length; i++)
             {

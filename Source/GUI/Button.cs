@@ -1,15 +1,18 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System;
+
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace SharpCraft
+namespace SharpCraft.GUI
 {
-    class Button
+    class Button : GUIElement
     {
-        public bool Selected;
-        public bool Inactive;
-
         SpriteBatch spriteBatch;
+
+        Action action;
+
+        Point currentMouseLoc;
 
         Texture2D texture;
         Texture2D selector;
@@ -19,43 +22,44 @@ namespace SharpCraft
 
         Rectangle rect;
 
-        string text;
+        string baseText;
 
         Vector2 textPosition;
 
 
-        public Button(SpriteBatch _spriteBatch, int x, int y, int width, int height,
-                      Texture2D _texture, Texture2D _selector, SpriteFont _font, string _text)
+        public Button(GraphicsDeviceManager graphics, SpriteBatch _spriteBatch, string _text,
+                      SpriteFont _font, int x, int y, int width, int height,
+                      Texture2D _texture, Texture2D _selector, Action a = null)
         {
             spriteBatch = _spriteBatch;
-
             texture = _texture;
             selector = _selector;
             font = _font;
+            action = a;
 
             rect = new Rectangle(x, y, width, height);
 
-            text = _text;
+            baseText = _text;
 
             textPosition = new Vector2(x + width / 2, y + height / 4);
 
-            Selected = false;
-            Inactive = false;
-        }
-
-        public void SetShading(GraphicsDeviceManager graphics)
-        {
             shading = new Texture2D(graphics.GraphicsDevice, rect.Width, rect.Height);
-
             Color[] shadingColor = new Color[rect.Width * rect.Height];
             for (int i = 0; i < shadingColor.Length; i++)
+            {
                 shadingColor[i] = new Color(Color.Black, 0.5f);
-
+            }
             shading.SetData(shadingColor);
         }
 
-        public void Draw()
+        public void SetAction(Action a)
         {
+            action = a;
+        }
+
+        public override void Draw(string data)
+        {
+            string text = baseText + $"{data}";
             Vector2 textSize = font.MeasureString(text) / 2;
             textSize.Y = 0;
 
@@ -66,40 +70,36 @@ namespace SharpCraft
             {
                 spriteBatch.Draw(shading, rect, Color.White);
             }
-
-            if (Selected)
+            else if (rect.Contains(currentMouseLoc))
             {
                 spriteBatch.Draw(selector, rect, Color.White);
             }
-
-            Selected = false;
         }
 
-        public void Draw(object data)
+        public override void Draw()
         {
-            string newText = text + $": {data}";
-            Vector2 textSize = font.MeasureString(newText) / 2;
-            textSize.Y = 0;
-
-            spriteBatch.Draw(texture, rect, Color.White);
-            spriteBatch.DrawString(font, newText, textPosition - textSize, Color.White);
-
-            if (Inactive)
-            {
-                spriteBatch.Draw(shading, rect, Color.White);
-            }
-
-            if (Selected)
-            {
-                spriteBatch.Draw(selector, rect, Color.White);
-            }
-
-            Selected = false;
+            Draw(null);
         }
 
-        public bool Contains(Point point)
+        public override void Update(Point mouseLoc, bool click)
         {
-            return !Inactive && rect.Contains(point);
+            if (action is null)
+            {
+                return;
+            }
+
+            currentMouseLoc = mouseLoc;
+
+            if (!Inactive && rect.Contains(mouseLoc) && click)
+            {
+                action();
+            }
+        }
+
+        public override bool Clicked(Point mouseLoc, bool click)
+        {
+            currentMouseLoc = mouseLoc;
+            return !Inactive && rect.Contains(mouseLoc) && click;
         }
     }
 }

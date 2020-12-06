@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -25,18 +24,18 @@ namespace SharpCraft
         DynamicVertexBuffer buffer;
 
 
-        public Renderer(GraphicsDeviceManager _graphics, Effect _effect, Time _time,
-            Dictionary<Vector3, Chunk> _region, Texture2D[] _blockTextures)
+        public Renderer(GraphicsDeviceManager _graphics, Time _time,
+            Dictionary<Vector3, Chunk> _region, Parameters parameters)
         {
             graphics = _graphics;
-            effect = _effect;
+            effect = Assets.Effect;
             region = _region;
 
             time = _time;
 
-            size = Parameters.ChunkSize;
+            size = Settings.ChunkSize;
 
-            blockTextures = _blockTextures;
+            blockTextures = Assets.BlockTextures;
 
             atlas = new Texture2D(graphics.GraphicsDevice, 64, blockTextures.Length * 64);
             Color[] atlasData = new Color[atlas.Width * atlas.Height];
@@ -72,7 +71,7 @@ namespace SharpCraft
             effect.Parameters["Texture"].SetValue(atlas);
             effect.Parameters["LightIntensity"].SetValue(lightIntensity);
 
-            if (!Parameters.GamePaused)
+            if (!GameState.Paused)
             {
                 time.Update();
             }

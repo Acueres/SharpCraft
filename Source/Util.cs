@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.IO;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -27,6 +28,19 @@ namespace SharpCraft
 
                 graphics.GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, side, 0, 2);
             }
+        }
+
+        public static Texture2D Screenshot(GraphicsDevice graphicsDevice, int screenWidth, int screenHeight, string path)
+        {
+            Color[] colorData = new Color[screenHeight * screenWidth];
+            graphicsDevice.GetBackBufferData(colorData);
+            Texture2D screenshot = new Texture2D(graphicsDevice, screenWidth, screenHeight);
+            screenshot.SetData(colorData);
+
+            Stream stream = File.Create(path);
+            screenshot.SaveAsPng(stream, screenWidth, screenHeight);
+
+            return screenshot;
         }
 
         public static string Title(string str)
@@ -90,82 +104,5 @@ namespace SharpCraft
             return currentMouseState.LeftButton == ButtonState.Pressed &&
                    previousMouseState.LeftButton == ButtonState.Released;
         }
-    }
-
-    static class Parameters
-    {
-        public static bool
-        GameLoading = false,
-        GameStarted = false,
-        GamePaused = false,
-        ExitedGameMenu = false,
-        ExitedToMainMenu = false,
-        Flying = false;
-
-        public static int
-        Seed = 0,
-        ChunkSize = 16,
-        RenderDistance = 8,
-        Day = 1,
-        Hour = 6,
-        Minute = 0;
-
-        public static string WorldType = "Default";
-
-        public static Vector3
-        Position = Vector3.Zero,
-        Direction = new Vector3(0, -0.5f, -1f);
-
-        public static ushort?[] Inventory = new ushort?[9];
-    }
-
-    public class NeighboringChunks
-    {
-        public Chunk ZNeg, ZPos, XNeg, XPos;
-    }
-
-    struct DataDelta
-    {
-        public Vector3 Position;
-        public int X;
-        public int Y;
-        public int Z;
-        public ushort? Texture;
-
-        public DataDelta(Vector3 position, int x, int y, int z, ushort? texture)
-        {
-            Position = position;
-            X = x;
-            Y = y;
-            Z = z;
-            Texture = texture;
-        }
-    }
-
-    class MultifaceData
-    {
-        public string type, front, back, top, bottom, right, left;
-    }
-
-    class BlockData
-    {
-        public string name, type;
-    }
-
-    class SaveParameters
-    {
-        public int seed;
-        public bool isFlying;
-        public float X, Y, Z;
-        public float dirX, dirY, dirZ;
-        public ushort?[] inventory;
-        public string worldType;
-        public int day, hour, minute;
-    }
-
-    class Settings
-    {
-        public int renderDistance;
-        public string worldType;
     }
 }

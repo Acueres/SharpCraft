@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using SharpCraft.GUI;
 
 
 namespace SharpCraft
@@ -17,6 +18,7 @@ namespace SharpCraft
         SpriteBatch spriteBatch;
 
         Time time;
+        Parameters parameters;
 
         Rectangle crosshair,
                   selector,
@@ -52,21 +54,23 @@ namespace SharpCraft
         Texture2D[] blockTextures;
         Dictionary<ushort, string> blockNames;
 
+        int screenWidth, screenHeight;
+        Vector2 screenCenter;
 
-        public GameMenu(MainGame _game, GraphicsDeviceManager _graphics, Time _time,
-                        Dictionary<string, Texture2D> _textures, Texture2D[] _blockTextures,
-                        Dictionary<ushort, string> _blockNames, SpriteFont[] fonts)
+
+        public GameMenu(MainGame _game, GraphicsDeviceManager _graphics, Time _time, Parameters _params)
         {
             game = _game;
             graphics = _graphics;
             spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
 
             time = _time;
+            parameters = _params;
 
-            menuTextures = _textures;
-            blockNames = _blockNames;
+            menuTextures = Assets.MenuTextures;
+            blockNames = Assets.BlockNames;
 
-            blockTextures = _blockTextures;
+            blockTextures = Assets.BlockTextures;
 
             menuActive = false;
             inventoryActive = false;
@@ -75,11 +79,11 @@ namespace SharpCraft
 
             tools = new ushort?[9];
 
-            foreach (var i in Parameters.Inventory)
+            foreach (var tool in parameters.Inventory)
             {
-                if (i != null)
+                if (tool != null)
                 {
-                    tools = Parameters.Inventory;
+                    tools = parameters.Inventory;
                     break;
                 }
             }
@@ -113,35 +117,48 @@ namespace SharpCraft
             previousKeyboardState = Keyboard.GetState();
             previousMouseState = Mouse.GetState();
 
-            font14 = fonts[0];
-            font24 = fonts[1];
+            font14 = Assets.Fonts[0];
+            font24 = Assets.Fonts[1];
 
-            back = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70, 
-                menuTextures["button"], menuTextures["button_selector"], font24, "Back to game");
+            screenWidth = game.Window.ClientBounds.Width;
+            screenHeight = game.Window.ClientBounds.Height;
 
-            quit = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
-                menuTextures["button"], menuTextures["button_selector"], font24, "Save & Quit");
+            screenCenter = new Vector2(screenWidth / 2, screenHeight / 2);
 
-            crosshair = new Rectangle((game.Window.ClientBounds.Width / 2) - 15, 
-                (game.Window.ClientBounds.Height / 2) - 15, 30, 30);
 
-            selector = new Rectangle((game.Window.ClientBounds.Width / 2) - 225, 
-                game.Window.ClientBounds.Height - 50, 50, 50);
+            back = new Button(graphics, spriteBatch, "Back to game", font14,
+                (screenWidth / 2) - 150, 100, 300, 40, 
+                menuTextures["button"], menuTextures["button_selector"], () => 
+                {
+                    MenuSwitch();
+                    GameState.ExitedGameMenu = true;
+                });
 
-            inventory = new Rectangle((game.Window.ClientBounds.Width / 5), 30, 700, 700);
+            quit = new Button(graphics, spriteBatch, "Save & Quit", font14,
+                (screenWidth / 2) - 150, 260, 300, 40,
+                menuTextures["button"], menuTextures["button_selector"], () => 
+                {
+                    MenuSwitch();
+                    parameters.Inventory = tools;
+                    GameState.ExitingToMainMenu = true;
+                    GameState.Started = false;
+                });
 
-            toolbar = new Rectangle((game.Window.ClientBounds.Width / 2) - 225, 
-                game.Window.ClientBounds.Height - 50, 450, 50);
 
-            tool = new Rectangle((game.Window.ClientBounds.Width / 2) - 220, 
-                game.Window.ClientBounds.Height - 45, 40, 40);
+            crosshair = new Rectangle((screenWidth / 2) - 15, (screenHeight / 2) - 15, 30, 30);
 
-            screenShading = new Rectangle(0, 0, game.Window.ClientBounds.Width, 
-                game.Window.ClientBounds.Height);
-            screenShadingTexture = new Texture2D(graphics.GraphicsDevice, 
-                game.Window.ClientBounds.Width, game.Window.ClientBounds.Height);
+            selector = new Rectangle((screenWidth / 2) - 225, screenHeight - 50, 50, 50);
 
-            Color[] darkBackGroundColor = new Color[game.Window.ClientBounds.Width * game.Window.ClientBounds.Height];
+            inventory = new Rectangle((screenWidth / 5), 30, 700, 700);
+
+            toolbar = new Rectangle((screenWidth / 2) - 225, screenHeight - 50, 450, 50);
+
+            tool = new Rectangle((screenWidth / 2) - 220, screenHeight - 45, 40, 40);
+
+            screenShading = new Rectangle(0, 0, screenWidth, screenHeight);
+            screenShadingTexture = new Texture2D(graphics.GraphicsDevice, screenWidth, screenHeight);
+
+            Color[] darkBackGroundColor = new Color[screenWidth * game.Window.ClientBounds.Height];
             for (int i = 0; i < darkBackGroundColor.Length; i++)
                 darkBackGroundColor[i] = new Color(Color.Black, 0.5f);
 
@@ -160,7 +177,7 @@ namespace SharpCraft
             MouseState currentMouseState = Mouse.GetState();
             KeyboardState currentKeyboardState = Keyboard.GetState();
 
-            Parameters.ExitedGameMenu = false;
+            GameState.ExitedGameMenu = false;
 
             if (!inventoryActive && Util.KeyPressed(Keys.Escape, currentKeyboardState, previousKeyboardState))
             {
@@ -235,7 +252,7 @@ namespace SharpCraft
             spriteBatch.Draw(menuTextures["selector"], selector, Color.White);
 
             //Dim the background when menu is open
-            if (Parameters.GamePaused)
+            if (GameState.Paused)
             {
                 spriteBatch.Draw(screenShadingTexture, screenShading, Color.White);
             }
@@ -263,7 +280,7 @@ namespace SharpCraft
                     {
                         if (items[i][j] != null)
                             spriteBatch.Draw(blockTextures[(int)items[i][j]],
-                                new Rectangle(game.Window.ClientBounds.Width / 5 + 25 + j * 49, 78 + i * 50, 45, 45), Color.White);
+                                new Rectangle(screenWidth / 5 + 25 + j * 49, 78 + i * 50, 45, 45), Color.White);
                     }
                 }
 
@@ -272,7 +289,8 @@ namespace SharpCraft
                 {
                     if (tools[i] != null)
                         spriteBatch.Draw(blockTextures[(int)tools[i]], 
-                            new Rectangle(game.Window.ClientBounds.Width / 5 + 25 + i * 49, game.Window.ClientBounds.Height - 145, 45, 45), Color.White);
+                            new Rectangle(screenWidth / 5 + 25 + i * 49,
+                            screenHeight - 145, 45, 45), Color.White);
                 }
 
                 //Draw the selected dragged texture
@@ -306,30 +324,10 @@ namespace SharpCraft
 
         void MenuControl(MouseState currentMouseState, Point mouseLoc)
         {
-            if (back.Contains(mouseLoc))
-            {
-                back.Selected = true;
+            bool leftClick = Util.LeftButtonClicked(currentMouseState, previousMouseState);
 
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    MenuSwitch();
-                    Parameters.ExitedGameMenu = true;
-                }
-            }
-
-            else if (quit.Contains(mouseLoc))
-            {
-                quit.Selected = true;
-
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    MenuSwitch();
-
-                    Parameters.Inventory = tools;
-                    Parameters.GameStarted = false;
-                    Parameters.ExitedToMainMenu = true;
-                }
-            }
+            back.Update(mouseLoc, leftClick);
+            quit.Update(mouseLoc, leftClick);
         }
 
         void InventoryControl(MouseState currentMouseState, Point mouseLoc)
@@ -339,7 +337,8 @@ namespace SharpCraft
             for (int i = 0; i < tools.Length; i++)
             {
                 bool isClicked = Util.LeftButtonClicked(currentMouseState, previousMouseState) &&
-                                 new Rectangle(game.Window.ClientBounds.Width / 5 + 23 + i * 49, game.Window.ClientBounds.Height - 145, 45, 45).Contains(mouseLoc);
+                                 new Rectangle(screenWidth / 5 + 23 + i * 49,
+                                 screenHeight - 145, 45, 45).Contains(mouseLoc);
 
                 if (tools[i] is null && draggedTexture != null && isClicked)
                 {
@@ -361,7 +360,8 @@ namespace SharpCraft
                 }
 
                 if (tools[i] != null &&
-                    new Rectangle(game.Window.ClientBounds.Width / 5 + 23 + i * 49, game.Window.ClientBounds.Height - 145, 45, 45).Contains(mouseLoc))
+                    new Rectangle(screenWidth / 5 + 23 + i * 49,
+                    screenHeight - 145, 45, 45).Contains(mouseLoc))
                 {
                     hoveredTexture = tools[i];
                 }
@@ -375,14 +375,14 @@ namespace SharpCraft
                     {
                         if (items[i][j] != null &&
                             Util.LeftButtonClicked(currentMouseState, previousMouseState) &&
-                            new Rectangle(game.Window.ClientBounds.Width / 5 + 23 + j * 49, 76 + i * 50, 45, 45).Contains(mouseLoc))
+                            new Rectangle(screenWidth / 5 + 23 + j * 49, 76 + i * 50, 45, 45).Contains(mouseLoc))
                         {
                             draggedTexture = items[i][j];
                             isItemSelected = true;
                         }
 
                         if (items[i][j] != null &&
-                            new Rectangle(game.Window.ClientBounds.Width / 5 + 23 + j * 49, 76 + i * 50, 45, 45).Contains(mouseLoc))
+                            new Rectangle(screenWidth / 5 + 23 + j * 49, 76 + i * 50, 45, 45).Contains(mouseLoc))
                         {
                             hoveredTexture = items[i][j];
                         }
@@ -400,22 +400,20 @@ namespace SharpCraft
 
         void InventorySwitch()
         {
-            Vector2 screenCenter = new Vector2(game.Window.ClientBounds.Width / 2, game.Window.ClientBounds.Height / 2);
             Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
             game.IsMouseVisible ^= true;
 
             inventoryActive ^= true;
-            Parameters.GamePaused ^= true;
+            GameState.Paused ^= true;
         }
 
         void MenuSwitch()
         {
-            Vector2 screenCenter = new Vector2(game.Window.ClientBounds.Width / 2, game.Window.ClientBounds.Height / 2);
             Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
             game.IsMouseVisible ^= true;
 
             menuActive ^= true;
-            Parameters.GamePaused ^= true;
+            GameState.Paused ^= true;
         }
 
         void ActiveToolSwitch(MouseState currentMouseState)
@@ -446,7 +444,7 @@ namespace SharpCraft
                 }
             }
 
-            selector.X = (game.Window.ClientBounds.Width / 2) - 225 + (activeToolIndex * 50);
+            selector.X = (screenWidth / 2) - 225 + (activeToolIndex * 50);
 
             ActiveTool = tools[activeToolIndex];
         }

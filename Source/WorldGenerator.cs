@@ -32,15 +32,17 @@ namespace SharpCraft
                sand, sandstone;
 
 
-        public WorldGenerator(Dictionary<string, ushort> blockIndices)
+        public WorldGenerator(Parameters parameters)
         {
-            size = Parameters.ChunkSize;
-            type = Parameters.WorldType;
+            size = Settings.ChunkSize;
+            type = parameters.WorldType;
 
             waterLevel = 40;
             last = size - 1;
 
-            int seed = Parameters.Seed;
+            int seed = parameters.Seed;
+
+            var blockIndices = Assets.BlockIndices;
 
             bedrock = blockIndices["Bedrock"];
             grass = blockIndices["Grass"];
@@ -196,9 +198,9 @@ namespace SharpCraft
 
         ushort Fill(int maxY, int currentY, byte biome)
         {
-            switch (biome)
+            switch ((Biomes)biome)
             {
-                case (byte)Biomes.River:
+                case Biomes.River:
                     {
                         if (currentY == 0)
                         {
@@ -224,7 +226,7 @@ namespace SharpCraft
                         return texture;
                     }
 
-                case (byte)Biomes.Forest:
+                case Biomes.Forest:
                     {
                         if (currentY == 0)
                         {
@@ -244,7 +246,7 @@ namespace SharpCraft
                         return texture;
                     }
 
-                case (byte)Biomes.Mountain:
+                case Biomes.Mountain:
                     {
                         if (currentY == 0)
                         {

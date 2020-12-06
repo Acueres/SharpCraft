@@ -12,7 +12,7 @@ namespace SharpCraft
     {
         public Vector3 Position;
 
-        public NeighboringChunks Neighbors;
+        public NeighborChunks Neighbors;
 
         public bool GenerateMesh;
         public bool Initialize;
@@ -40,12 +40,17 @@ namespace SharpCraft
         SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
         bool disposed = false;
 
+        public class NeighborChunks
+        {
+            public Chunk ZNeg, ZPos, XNeg, XPos;
+        }
+
 
         public Chunk(Vector3 position, int size = 16, int height = 128)
         {
             Position = position;
 
-            Neighbors = new NeighboringChunks();
+            Neighbors = new NeighborChunks();
 
             GenerateMesh = true;
             Initialize = true;

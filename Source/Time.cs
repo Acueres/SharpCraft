@@ -21,7 +21,7 @@ namespace SharpCraft
             }
         }
 
-        uint days;
+        int days;
         int hours;
         int minutes;
         int seconds;
@@ -31,7 +31,7 @@ namespace SharpCraft
 
         public Time(int day, int hour, int minute)
         {
-            days = (uint)day;
+            days = day;
             hours = hour;
             minutes = minute;
             seconds = 0;
@@ -58,6 +58,13 @@ namespace SharpCraft
                 hours = 0;
                 days++;
             }
+        }
+
+        public void SaveParameters(Parameters parameters)
+        {
+            parameters.Day = days;
+            parameters.Hour = hours;
+            parameters.Minute = minutes;
         }
 
         public override string ToString()

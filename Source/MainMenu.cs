@@ -1,21 +1,26 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
-using System.Data.SQLite;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Newtonsoft.Json;
+using SharpCraft.GUI;
 
 
 namespace SharpCraft
 {
     class MainMenu
     {
+        public Save CurrentSave { get; private set; }
+
         MainGame game;
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
+
+        Parameters newWorldParameters;
+
         Dictionary<string, Texture2D> menuTextures;
 
         Rectangle background;
@@ -24,71 +29,61 @@ namespace SharpCraft
         Rectangle logo;
         Texture2D logoTexture;
 
-        Button resume, newGame, settings, quit, //main buttons
-               back, renderDistance, worldType;  //settings buttons
+        Dictionary<string, GUIElement>
+        mainLayout,
+        newWorldLayout,
+        loadWorldLayout,
+        settingsLayout;
+
+        TextBox worldName;
+
+        Label saving, loading;
 
         SpriteFont font14, font24;
 
-        bool main, settingsMenu;
+        MenuState state;
+
+        enum MenuState
+        {
+            Main,
+            Settings,
+            LoadWorld,
+            NewWorld
+        }
 
         KeyboardState previousKeyboardState;
         MouseState previousMouseState;
 
+        int screenWidth;
+        int screenHeight;
 
-        public MainMenu(MainGame _game, GraphicsDeviceManager _graphics, Dictionary<string, Texture2D> _textures,
-                        SpriteFont[] fonts)
+        List<Save> saves;
+        SaveGrid saveGrid;
+
+
+        public MainMenu(MainGame _game, GraphicsDeviceManager _graphics)
         {
             game = _game;
             game.IsMouseVisible = true;
-
             graphics = _graphics;
-            menuTextures = _textures;
-
             spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
 
-            background = new Rectangle(0, 0, game.Window.ClientBounds.Width, game.Window.ClientBounds.Height);
-            backgroundTexture = menuTextures["menu_background"];
+            menuTextures = Assets.MenuTextures;
 
-            logoTexture = menuTextures["logo"];
-            logo = new Rectangle(100, 0, logoTexture.Width, logoTexture.Height);
+            screenWidth = game.Window.ClientBounds.Width;
+            screenHeight = game.Window.ClientBounds.Height;
 
-            font14 = fonts[0];
-            font24 = fonts[1];
+            font14 = Assets.Fonts[0];
+            font24 = Assets.Fonts[1];
 
-            resume = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 2 * 70, 400, 70,
-                       menuTextures["button"], menuTextures["button_selector"], font24, "Resume");
-            resume.SetShading(graphics);
-
-            if (!File.Exists(@"Save\parameters.json"))
-            {
-                resume.Inactive = true;
-            }
-
-            newGame = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 3 * 70, 400, 70,
-                       menuTextures["button"], menuTextures["button_selector"], font24, "New Game");
-
-            settings = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
-                       menuTextures["button"], menuTextures["button_selector"], font24, "Settings");
-
-            quit = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 5 * 70, 400, 70,
-                       menuTextures["button"], menuTextures["button_selector"], font24, "Quit Game");
-
-            back = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 4 * 70, 400, 70,
-                       menuTextures["button"], menuTextures["button_selector"], font24, "Back");
-
-            renderDistance = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 70, 400, 70,
-                       menuTextures["button"], menuTextures["button_selector"], font24, "Render Distance");
-
-            worldType = new Button(spriteBatch, (game.Window.ClientBounds.Width / 2) - 200, 2 * 70, 400, 70,
-                       menuTextures["button"], menuTextures["button_selector"], font24, "World Type");
-
-
-            main = true;
+            state = MenuState.Main;
 
             previousKeyboardState = Keyboard.GetState();
             previousMouseState = Mouse.GetState();
 
-            LoadSettings();
+            saves = Save.LoadAll(graphics.GraphicsDevice);
+
+            InitializeGUI();
         }
 
         public void Update()
@@ -97,13 +92,31 @@ namespace SharpCraft
             KeyboardState currentKeyboardState = Keyboard.GetState();
             Point mouseLoc = new Point(currentMouseState.X, currentMouseState.Y);
 
-            if (main)
+            switch (state)
             {
-                MainControl(currentMouseState, mouseLoc);
-            }
-            else if (settingsMenu)
-            {
-                SettingsControl(currentMouseState, mouseLoc);
+                case MenuState.Main:
+                    {
+                        MainControl(currentMouseState, mouseLoc);
+                        break;
+                    }
+
+                case MenuState.Settings:
+                    {
+                        SettingsControl(currentMouseState, mouseLoc);
+                        break;
+                    }
+
+                case MenuState.LoadWorld:
+                    {
+                        LoadWorldControl(currentKeyboardState, currentMouseState, mouseLoc);
+                        break;
+                    }
+
+                case MenuState.NewWorld:
+                    {
+                        NewWorldControl(currentKeyboardState, currentMouseState, mouseLoc);
+                        break;
+                    }
             }
 
             previousKeyboardState = currentKeyboardState;
@@ -116,19 +129,53 @@ namespace SharpCraft
 
             spriteBatch.Draw(backgroundTexture, background, Color.White);
 
-            if (main)
+            switch (state)
             {
-                spriteBatch.Draw(logoTexture, logo, Color.White);
-                resume.Draw();
-                newGame.Draw();
-                settings.Draw();
-                quit.Draw();
-            }
-            else if (settingsMenu)
-            {
-                renderDistance.Draw(Parameters.RenderDistance);
-                worldType.Draw(Parameters.WorldType);
-                back.Draw();
+                case MenuState.Main:
+                    {
+                        spriteBatch.Draw(logoTexture, logo, Color.White);
+                        
+                        foreach (var element in mainLayout.Values)
+                        {
+                            element.Draw();
+                        }
+                        break;
+                    }
+
+                case MenuState.Settings:
+                    {
+                        foreach (var element in settingsLayout.Values)
+                        {
+                            element.Draw();
+                        }
+
+                        settingsLayout["Render Distance"].Draw(Settings.RenderDistance.ToString());
+                        break;
+                    }
+
+                case MenuState.NewWorld:
+                    {
+                        worldName.Draw();
+
+                        foreach (var element in newWorldLayout.Values)
+                        {
+                            element.Draw();
+                        }
+
+                        newWorldLayout["World Type"].Draw(newWorldParameters.WorldType);
+                        break;
+                    }
+
+                case MenuState.LoadWorld:
+                    {
+                        saveGrid.Draw();
+
+                        foreach (var element in loadWorldLayout.Values)
+                        {
+                            element.Draw();
+                        }
+                        break;
+                    }
             }
 
             spriteBatch.End();
@@ -139,191 +186,269 @@ namespace SharpCraft
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
 
             spriteBatch.Draw(backgroundTexture, background, Color.White);
+            loading.Draw();
 
-            Vector2 textSize = font24.MeasureString("Loading World");
-            spriteBatch.DrawString(font24, "Loading World",
-                (new Vector2(game.Window.ClientBounds.Width, game.Window.ClientBounds.Height - textSize.Y) - textSize) / 2, Color.White);
+            spriteBatch.End();
+        }
+
+        public void DrawSavingScreen()
+        {
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend);
+
+            spriteBatch.Draw(backgroundTexture, background, Color.White);
+            saving.Draw();
 
             spriteBatch.End();
         }
 
         void MainControl(MouseState currentMouseState, Point mouseLoc)
         {
-            if (resume.Contains(mouseLoc))
+            bool leftClick = Util.LeftButtonClicked(currentMouseState, previousMouseState);
+
+            foreach (var element in mainLayout.Values)
             {
-                resume.Selected = true;
-
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    game.IsMouseVisible = false;
-                    Parameters.GameLoading = true;
-                    LoadParameters();
-                    return;
-                }
-            }
-
-            if (newGame.Contains(mouseLoc))
-            {
-                newGame.Selected = true;
-
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    newGame.Selected = false;
-                    game.IsMouseVisible = false;
-
-                    Parameters.GameLoading = true;
-                    Parameters.Position = Vector3.Zero;
-                    Parameters.Flying = false;
-                    Parameters.Direction = new Vector3(0, -0.5f, -1f);
-
-                    var rnd = new Random();
-                    Parameters.Seed = rnd.Next();
-
-                    if (File.Exists(@"Save\save.db"))
-                    {
-                        string path = @"URI=file:" + Directory.GetCurrentDirectory() + @"\Save\save.db";
-
-                        var connection = new SQLiteConnection(path);
-                        connection.Open();
-
-                        var cmd = new SQLiteCommand(connection)
-                        {
-                            CommandText = @"DROP TABLE chunks"
-                        };
-                        cmd.ExecuteNonQuery();
-                    }
-
-                    return;
-                }
-            }
-
-            if (settings.Contains(mouseLoc))
-            {
-                settings.Selected = true;
-
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    settings.Selected = false;
-
-                    main = false;
-                    settingsMenu = true;
-                }
-            }
-
-            if (quit.Contains(mouseLoc))
-            {
-                quit.Selected = true;
-
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    game.Exit();
-                }
+                element.Update(mouseLoc, leftClick);
             }
         }
 
         void SettingsControl(MouseState currentMouseState, Point mouseLoc)
         {
-            if (back.Contains(mouseLoc))
+            bool leftClick = Util.LeftButtonClicked(currentMouseState, previousMouseState);
+            bool rightClick = Util.RightButtonClicked(currentMouseState, previousMouseState);
+
+            foreach (var element in settingsLayout.Values)
             {
-                back.Selected = true;
+                element.Update(mouseLoc, leftClick);
+            }
 
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
+            if (settingsLayout["Render Distance"].Clicked(mouseLoc, leftClick))
+            {
+                if (Settings.RenderDistance < 16)
+                    Settings.RenderDistance++;
+                else
+                    Settings.RenderDistance = 1;
+            }
+            else if (settingsLayout["Render Distance"].Clicked(mouseLoc, rightClick))
+            {
+                if (Settings.RenderDistance > 1)
+                    Settings.RenderDistance--;
+                else
+                    Settings.RenderDistance = 16;
+            }
+        }
+
+        void NewWorldControl(KeyboardState currentKeyboardState, MouseState currentMouseState, Point mouseLoc)
+        {
+            bool leftClick = Util.LeftButtonClicked(currentMouseState, previousMouseState);
+            bool rightClick = Util.RightButtonClicked(currentMouseState, previousMouseState);
+
+            newWorldLayout["Create World"].Inactive = saves.Exists(x =>
+            x.Name == worldName.ToString());
+
+            worldName.Update(mouseLoc, currentKeyboardState, previousKeyboardState, leftClick, rightClick);
+
+            foreach (var element in newWorldLayout.Values)
+            {
+                element.Update(mouseLoc, leftClick);
+            }
+        }
+
+        void LoadWorldControl(KeyboardState currentKeyboardState, MouseState currentMouseState, Point mouseLoc)
+        {
+            bool leftClick = Util.LeftButtonClicked(currentMouseState, previousMouseState);
+
+            loadWorldLayout["Play"].Inactive = saves.Count == 0;
+            loadWorldLayout["Reset"].Inactive = saves.Count == 0;
+            loadWorldLayout["Delete"].Inactive = saves.Count == 0;
+
+            foreach (var element in loadWorldLayout.Values)
+            {
+                element.Update(mouseLoc, leftClick);
+            }
+
+            saveGrid.Update(currentMouseState, previousMouseState, mouseLoc);
+        }
+
+        void InitializeGUI()
+        {
+            int elementWidth = 300;
+            int elementHeight = 40;
+            int offset = elementHeight + screenWidth / elementHeight;
+
+            background = new Rectangle(0, 0, screenWidth, game.Window.ClientBounds.Height);
+            backgroundTexture = menuTextures["menu_background"];
+
+            logoTexture = menuTextures["logo"];
+            logo = new Rectangle(100, 0, logoTexture.Width, logoTexture.Height);
+
+            saving = new Label(spriteBatch, "Saving World", font24,
+                (new Vector2(screenWidth, screenHeight) - font24.MeasureString("Saving World")) / 2, Color.White);
+
+            loading = new Label(spriteBatch, "Loading World", font24,
+                (new Vector2(screenWidth, screenHeight) - font24.MeasureString("Loading World")) / 2, Color.White);
+
+
+            mainLayout = new Dictionary<string, GUIElement>()
+            {
+                ["New World"] = new Button(graphics, spriteBatch, "New World", font14,
+                (screenWidth / 2) - elementWidth / 2, 3 * offset, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
                 {
-                    back.Selected = false;
+                    newWorldParameters = new Parameters();
+                    state = MenuState.NewWorld;
+                }),
 
-                    main = true;
-                    settingsMenu = false;
+                ["Load World"] = new Button(graphics, spriteBatch, "Load World", font14,
+                (screenWidth / 2) - elementWidth / 2, 4 * offset, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    saves.Sort((a, b) => a.Parameters.Date.CompareTo(b.Parameters.Date));
+                    saves.Reverse();
 
-                    List<Settings> data = new List<Settings>(1);
-                    data.Add(new Settings()
+                    state = MenuState.LoadWorld;
+                }),
+
+                ["Settings"] = new Button(graphics, spriteBatch, "Settings", font14,
+                (screenWidth / 2) - elementWidth / 2, 5 * offset, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    state = MenuState.Settings;
+                }),
+
+                ["Quit"] = new Button(graphics, spriteBatch, "Quit Game", font14,
+                (screenWidth / 2) - elementWidth / 2, 6 * offset, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    game.Exit();
+                })
+            };
+
+
+            settingsLayout = new Dictionary<string, GUIElement>()
+            {
+                ["Render Distance"] = new Button(graphics, spriteBatch, "Render Distance: ", font14,
+                (screenWidth / 2) - elementWidth / 2, offset, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"]),
+
+                ["Back"] = new Button(graphics, spriteBatch, "Back", font14,
+                screenWidth - elementWidth, screenHeight - elementHeight, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    state = MenuState.Main;
+                    Settings.Save();
+                })
+            };
+
+
+            newWorldLayout = new Dictionary<string, GUIElement>()
+            {
+                ["Create World Label"] = new Label(spriteBatch, "Create New World", font24,
+                new Vector2((screenWidth / 2) - 130, 0), Color.White),
+
+                ["World Name Label"] = new Label(spriteBatch, "World Name", font14,
+                new Vector2((screenWidth / 2) - 200, 100), Color.White),
+
+                ["World Type"] = new Button(graphics, spriteBatch, "World Type: ", font14,
+                (screenWidth / 2) - elementWidth / 2, 3 * offset, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    if (newWorldParameters.WorldType == "Default")
                     {
-                        renderDistance = Parameters.RenderDistance,
-                        worldType = Parameters.WorldType
-                    });
-
-                    string json = JsonConvert.SerializeObject(data);
-                    string path = Directory.GetCurrentDirectory() + @"\Save\settings.json";
-
-                    File.WriteAllText(path, json);
-                }
-            }
-
-            else if (renderDistance.Contains(mouseLoc))
-            {
-                renderDistance.Selected = true;
-
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState))
-                {
-                    if (Parameters.RenderDistance < 16)
-                        Parameters.RenderDistance++;
+                        newWorldParameters.WorldType = "Flat";
+                    }
                     else
-                        Parameters.RenderDistance = 1;
-                }
-                else if (Util.RightButtonClicked(currentMouseState, previousMouseState))
+                    {
+                        newWorldParameters.WorldType = "Default";
+                    }
+                }),
+
+                ["Create World"] = new Button(graphics, spriteBatch, "Create World", font14,
+                0, screenHeight - elementHeight, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
                 {
-                    if (Parameters.RenderDistance > 1)
-                        Parameters.RenderDistance--;
-                    else
-                        Parameters.RenderDistance = 16;
-                }
-            }
+                    string saveName = worldName.ToString();
 
-            else if (worldType.Contains(mouseLoc))
-            {
-                worldType.Selected = true;
+                    CurrentSave = new Save(saveName, newWorldParameters);
 
-                if (Util.LeftButtonClicked(currentMouseState, previousMouseState) ||
-                    Util.RightButtonClicked(currentMouseState, previousMouseState))
+                    saves.Add(CurrentSave);
+
+                    Directory.CreateDirectory($@"Saves\{saveName}");
+
+                    state = MenuState.Main;
+                    game.IsMouseVisible = false;
+                    GameState.Loading = true;
+                }),
+
+                ["Cancel"] = new Button(graphics, spriteBatch, "Cancel", font14,
+                screenWidth - elementWidth, screenHeight - elementHeight, elementWidth, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
                 {
-                    if (Parameters.WorldType == "Default")
-                        Parameters.WorldType = "Flat";
-                    else
-                        Parameters.WorldType = "Default";
-                }
-            }
-        }
+                    state = MenuState.Main;
+                })
+            };
 
-        void LoadSettings()
-        {
-            if (File.Exists(@"Save\settings.json"))
+            worldName = new TextBox(game.Window, graphics, spriteBatch,
+                (screenWidth - 400) / 2, 2 * offset, 400, elementHeight,
+                menuTextures["button_selector"], font14);
+
+
+            loadWorldLayout = new Dictionary<string, GUIElement>()
             {
-                Settings data;
-                using (StreamReader r = new StreamReader("Save/settings.json"))
+                ["Select World"] = new Label(spriteBatch, "Select World", font24,
+                new Vector2((screenWidth / 2) - 90, 0), Color.White),
+
+                ["Play"] = new Button(graphics, spriteBatch, "Play", font14,
+                0, screenHeight - elementHeight, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
                 {
-                    string json = r.ReadToEnd();
-                    data = JsonConvert.DeserializeObject<List<Settings>>(json)[0];
-                }
+                    CurrentSave = saveGrid.SelectedSave;
+                    state = MenuState.Main;
+                    game.IsMouseVisible = false;
+                    GameState.Loading = true;
+                }),
 
-                Parameters.RenderDistance = data.renderDistance;
-                Parameters.WorldType = data.worldType;
-            }
-        }
+                ["Reset"] = new Button(graphics, spriteBatch, "Reset", font14,
+                400, screenHeight - elementHeight, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    saveGrid.SelectedSave.Clear();
+                }),
 
-        void LoadParameters()
-        {
-            if (!File.Exists(@"Save\parameters.json"))
+
+                ["Delete"] = new Button(graphics, spriteBatch, "Delete", font14,
+                400 - elementWidth / 2, screenHeight - elementHeight, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    Save toDelete = saveGrid.SelectedSave;
+                    Directory.Delete($@"Saves\{toDelete.Name}", true);
+                }),
+
+                ["Cancel"] = new Button(graphics, spriteBatch, "Cancel", font14,
+                screenWidth - elementWidth / 2, screenHeight - elementHeight, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    state = MenuState.Main;
+                })
+            };
+
+
+            var saveGridLayout = new Dictionary<string, GUIElement>()
             {
-                var rnd = new Random();
-                Parameters.Seed = rnd.Next();
-                return;
-            }
+                ["Save Slot"] = new SaveSlot(spriteBatch, (screenWidth / 2) - 300, 600, 2 * elementHeight,
+                menuTextures["button_selector"], font14),
 
-            SaveParameters data;
-            using (StreamReader r = new StreamReader("Save/parameters.json"))
-            {
-                string json = r.ReadToEnd();
-                data = JsonConvert.DeserializeObject<List<SaveParameters>>(json)[0];
-            }
+                ["Page"] = new Label(spriteBatch, "Page ", font14, new Vector2(370, 350), Color.White),
 
-            Parameters.Seed = data.seed;
-            Parameters.Flying = data.isFlying;
-            Parameters.Position = new Vector3(data.X, data.Y, data.Z);
-            Parameters.Direction = new Vector3(data.dirX, data.dirY, data.dirZ);
-            Parameters.Inventory = data.inventory;
-            Parameters.WorldType = data.worldType;
-            Parameters.Day = data.day;
-            Parameters.Hour = data.hour;
-            Parameters.Minute = data.minute;
+                ["Next Page"] = new Button(graphics, spriteBatch, "Next", font14,
+                400, 380, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"]),
+
+                ["Previous Page"] = new Button(graphics, spriteBatch, "Previous", font14,
+                400 - elementWidth / 2, 380, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"])
+            };
+
+            saveGrid = new SaveGrid(graphics, spriteBatch, screenWidth, saves, saveGridLayout);
         }
     }
 }

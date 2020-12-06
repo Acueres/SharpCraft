@@ -61,19 +61,19 @@ namespace SharpCraft
         Vector3 boundMax;
 
 
-        public Player(GraphicsDeviceManager graphics, Vector3 position, Vector3 target)
+        public Player(GraphicsDeviceManager graphics, Parameters parameters)
         {
-            Camera = new Camera(graphics, Position, target);
+            Camera = new Camera(graphics, Position, parameters.Direction);
 
             Physics = new Physics(this);
 
-            Ray = new Ray(position, Camera.Direction);
+            Ray = new Ray(parameters.Position, Camera.Direction);
 
             Bound = new BoundingBox(boundMin + Position, boundMax + Position);
 
-            Position = position;
+            Position = parameters.Position;
 
-            Flying = Parameters.Flying;
+            Flying = parameters.Flying;
             Sprinting = false;
             UpdateOccured = true;
             Swimming = false;
@@ -113,6 +113,13 @@ namespace SharpCraft
             Bound.Max = boundMax + Position;
 
             previousKeyboardState = currentKeyboardState;
+        }
+
+        public void SaveParameters(Parameters parameters)
+        {
+            parameters.Flying = Flying;
+            parameters.Position = Position;
+            parameters.Direction = Camera.Direction;
         }
 
         public void SetLastClickTime()

@@ -9,7 +9,7 @@ using Microsoft.Xna.Framework;
 
 namespace SharpCraft
 {
-    class SaveHandler
+    class DatabaseHandler
     {
         SQLiteCommand cmd;
         SQLiteConnection connection;
@@ -20,14 +20,34 @@ namespace SharpCraft
         string selectCommand = @"SELECT x, y, z, texture FROM chunks
                                 WHERE [chunkX] = @x AND [chunkZ] = @z";
 
-        Queue<DataDelta> dataQueue;
+        Queue<SaveData> dataQueue;
 
-        public SaveHandler()
+        Task saveTask;
+
+        struct SaveData
         {
-            dataQueue = new Queue<DataDelta>(10);
+            public Vector3 Position;
+            public int X;
+            public int Y;
+            public int Z;
+            public ushort? Texture;
 
-            string path = @"URI=file:" + Directory.GetCurrentDirectory() + @"\Save\save.db";
+            public SaveData(Vector3 position, int x, int y, int z, ushort? texture)
+            {
+                Position = position;
+                X = x;
+                Y = y;
+                Z = z;
+                Texture = texture;
+            }
+        }
 
+
+        public DatabaseHandler(string saveName)
+        {
+            dataQueue = new Queue<SaveData>(10);
+            
+            string path = @"URI=file:" + Directory.GetCurrentDirectory() + $@"\Saves\{saveName}\data.db";
             connection = new SQLiteConnection(path);
             connection.Open();
 
@@ -44,19 +64,25 @@ namespace SharpCraft
             };
             cmd.ExecuteNonQuery();
 
-            Task saveTask = Task.Run(async () =>
+            saveTask = Task.Run(async () =>
             {
-                while (Parameters.GameStarted)
+                while (GameState.Started || dataQueue.Count > 0)
                 {
-                    SaveDelta();
-                    await Task.Delay(5000);
+                    WriteDelta();
+                    await Task.Delay(2000);
                 }
             });
         }
 
+        public void Close()
+        {
+            saveTask.Wait();
+            connection.Close();
+        }
+
         public void AddDelta(Vector3 position, int y, int x, int z, ushort? texture)
         {
-            dataQueue.Enqueue(new DataDelta(position, x, y, z, texture));
+            dataQueue.Enqueue(new SaveData(position, x, y, z, texture));
         }
 
         public void ApplyDelta(Chunk chunk)
@@ -89,11 +115,13 @@ namespace SharpCraft
             }
         }
 
-        void SaveDelta()
+        void WriteDelta()
         {
+            SaveData data;
+
             while (dataQueue.Count > 0)
             {
-                DataDelta data = dataQueue.Dequeue();
+                data = dataQueue.Dequeue();
                 cmd.CommandText = insertCommand;
 
                 cmd.Parameters.AddWithValue("@chunkX", data.Position.X);

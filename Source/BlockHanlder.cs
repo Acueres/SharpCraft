@@ -11,7 +11,7 @@ namespace SharpCraft
         Player player;
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
-        SaveHandler saveHandler;
+        DatabaseHandler saveHandler;
         LightHandler lightHandler;
 
         int size, last;
@@ -21,7 +21,7 @@ namespace SharpCraft
 
 
         public BlockHanlder(Player _player, Dictionary<Vector3, Chunk> _region,
-            GameMenu _gameMenu, SaveHandler _saveHandler, LightHandler _lightHandler, int _size)
+            GameMenu _gameMenu, DatabaseHandler _saveHandler, LightHandler _lightHandler, int _size)
         {
             player = _player;
             region = _region;
@@ -49,7 +49,7 @@ namespace SharpCraft
 
         public bool Update()
         {
-            if (player.Clicked && player.LeftClick && !Parameters.ExitedGameMenu)
+            if (player.Clicked && player.LeftClick && !GameState.ExitedGameMenu)
             {
                 player.SetLastClickTime();
                 return RemoveBlock();
