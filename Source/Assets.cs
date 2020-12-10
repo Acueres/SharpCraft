@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,13 +13,13 @@ namespace SharpCraft
 {
     static class Assets
     {
-        public static Dictionary<string, Texture2D> MenuTextures { get; private set; }
-        public static Dictionary<ushort, string> BlockNames { get; private set; }
-        public static Dictionary<string, ushort> BlockIndices { get; private set; }
-        public static Dictionary<ushort, ushort[]> MultifaceBlocks { get; private set; }
-        public static bool[] TransparentBlocks { get; private set; }
-        public static Texture2D[] BlockTextures { get; private set; }
-        public static SpriteFont[] Fonts { get; private set; }
+        public static ReadOnlyDictionary<string, Texture2D> MenuTextures { get; private set; }
+        public static ReadOnlyDictionary<ushort, string> BlockNames { get; private set; }
+        public static ReadOnlyDictionary<string, ushort> BlockIndices { get; private set; }
+        public static ReadOnlyDictionary<ushort, ushort[]> MultifaceBlocks { get; private set; }
+        public static IList<bool> TransparentBlocks { get; private set; }
+        public static IList<Texture2D> BlockTextures { get; private set; }
+        public static IList<SpriteFont> Fonts { get; private set; }
         public static Effect Effect { get; private set; }
 
         class MultifaceData
@@ -34,10 +35,7 @@ namespace SharpCraft
 
         public static void Load(ContentManager content)
         {
-            MenuTextures = new Dictionary<string, Texture2D>(100);
-            BlockNames = new Dictionary<ushort, string>(ushort.MaxValue);
-            BlockIndices = new Dictionary<string, ushort>(ushort.MaxValue);
-            MultifaceBlocks = new Dictionary<ushort, ushort[]>(100);
+            var menuTextures = new Dictionary<string, Texture2D>(100);
 
             LoadBlocks(content);
 
@@ -47,19 +45,27 @@ namespace SharpCraft
             for (int i = 0; i < textureNames.Length; i++)
             {
                 var t = textureNames[i].Split('\\')[1].Split('.')[0];
-                MenuTextures.Add(t, content.Load<Texture2D>("Textures/Menu/" + t));
+                menuTextures.Add(t, content.Load<Texture2D>("Textures/Menu/" + t));
             }
 
-            Fonts = new SpriteFont[2];
+            var fonts = new SpriteFont[2];
 
-            Fonts[0] = content.Load<SpriteFont>("Fonts/font14");
-            Fonts[1] = content.Load<SpriteFont>("Fonts/font24");
+            fonts[0] = content.Load<SpriteFont>("Fonts/font14");
+            fonts[1] = content.Load<SpriteFont>("Fonts/font24");
+
+            Fonts = Array.AsReadOnly(fonts);
 
             Effect = content.Load<Effect>("Shaders/BlockEffect");
+
+            MenuTextures = new ReadOnlyDictionary<string, Texture2D>(menuTextures);
         }
 
         static void LoadBlocks(ContentManager content)
         {
+            var blockNames = new Dictionary<ushort, string>(ushort.MaxValue);
+            var blockIndices = new Dictionary<string, ushort>(ushort.MaxValue);
+            var multifaceBlocks = new Dictionary<ushort, ushort[]>(100);
+
             List<MultifaceData> blockData;
             using (StreamReader r = new StreamReader("Assets/multiface_blocks.json"))
             {
@@ -75,13 +81,13 @@ namespace SharpCraft
             }
 
             var blockTextureNames = Directory.GetFiles("Assets/Textures/Blocks", ".");
-            BlockTextures = new Texture2D[blockTextureNames.Length];
+            var blockTextures = new Texture2D[blockTextureNames.Length];
 
             for (ushort i = 0; i < blockTextureNames.Length; i++)
             {
                 var t = blockTextureNames[i].Split('\\')[1].Split('.')[0];
-                BlockTextures[i] = content.Load<Texture2D>("Textures/Blocks/" + t);
-                BlockIndices.Add(t, i);
+                blockTextures[i] = content.Load<Texture2D>("Textures/Blocks/" + t);
+                blockIndices.Add(t, i);
             }
 
             string[] sides = { "front", "back", "top", "bottom", "right", "left" };
@@ -100,35 +106,41 @@ namespace SharpCraft
                 {
                     if (sideData[sides[i]] is null)
                     {
-                        arr[i] = BlockIndices[sideData["type"].ToString()];
+                        arr[i] = blockIndices[sideData["type"].ToString()];
                     }
                     else
                     {
-                        arr[i] = BlockIndices[sideData[sides[i]].ToString()];
+                        arr[i] = blockIndices[sideData[sides[i]].ToString()];
                     }
                 }
 
-                MultifaceBlocks.Add(BlockIndices[entry.type], arr);
+                multifaceBlocks.Add(blockIndices[entry.type], arr);
             }
 
             foreach (var entry in blockNameData)
             {
                 string name = entry.name is null ? Util.Title(entry.type) : entry.name;
 
-                BlockNames.Add(BlockIndices[entry.type], name);
+                blockNames.Add(blockIndices[entry.type], name);
             }
 
-            BlockIndices = BlockNames.ToDictionary(x => x.Value, x => x.Key);
+            blockIndices = blockNames.ToDictionary(x => x.Value, x => x.Key);
 
-            TransparentBlocks = new bool[BlockTextures.Length];
+            var transparentBlocks = new bool[blockTextures.Length];
 
-            for (int i = 0; i < TransparentBlocks.Length; i++)
+            for (int i = 0; i < transparentBlocks.Length; i++)
             {
-                if (BlockIndices["Glass"] == i)
-                    TransparentBlocks[i] = true;
-                else if (BlockIndices["Water"] == i)
-                    TransparentBlocks[i] = true;
+                if (blockIndices["Glass"] == i)
+                    transparentBlocks[i] = true;
+                else if (blockIndices["Water"] == i)
+                    transparentBlocks[i] = true;
             }
+
+            BlockNames = new ReadOnlyDictionary<ushort, string>(blockNames);
+            BlockIndices = new ReadOnlyDictionary<string, ushort>(blockIndices);
+            MultifaceBlocks = new ReadOnlyDictionary<ushort, ushort[]>(multifaceBlocks);
+            TransparentBlocks = Array.AsReadOnly(transparentBlocks);
+            BlockTextures = Array.AsReadOnly(blockTextures);
         }
     }
 }

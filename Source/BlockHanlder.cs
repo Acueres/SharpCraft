@@ -8,10 +8,11 @@ namespace SharpCraft
 {
     class BlockHanlder
     {
+        MainGame game;
         Player player;
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
-        DatabaseHandler saveHandler;
+        DatabaseHandler databaseHandler;
         LightHandler lightHandler;
 
         int size, last;
@@ -20,13 +21,14 @@ namespace SharpCraft
         Vector3 position;
 
 
-        public BlockHanlder(Player _player, Dictionary<Vector3, Chunk> _region,
-            GameMenu _gameMenu, DatabaseHandler _saveHandler, LightHandler _lightHandler, int _size)
+        public BlockHanlder(MainGame _game, Player _player, Dictionary<Vector3, Chunk> _region,
+            GameMenu _gameMenu, DatabaseHandler _databaseHandler, LightHandler _lightHandler, int _size)
         {
+            game = _game;
             player = _player;
             region = _region;
             gameMenu = _gameMenu;
-            saveHandler = _saveHandler;
+            databaseHandler = _databaseHandler;
             lightHandler = _lightHandler;
 
             size = _size;
@@ -47,28 +49,38 @@ namespace SharpCraft
             position = _position;
         }
 
-        public bool Update()
+        public void Update(BlockSelector blockSelector, ChunkHandler chunkHandler)
         {
-            if (player.Clicked && player.LeftClick && !GameState.ExitedGameMenu)
+            if (player.LeftClick && !game.ExitedMenu)
             {
                 player.SetLastClickTime();
-                return RemoveBlock();
+                RemoveBlock();
             }
 
-            if (player.Clicked && player.RightClick)
+            else if (player.RightClick)
             {
                 player.SetLastClickTime();
-                return AddBlock();
+                AddBlock();
             }
 
-            return false;
+            if (y != -1 && region[position].Blocks[y][x][z] != null)
+            {
+                bool[] visibleFaces = new bool[6];
+                chunkHandler.GetVisibleFaces(visibleFaces, region[position], y, x, z);
+
+                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - position);
+            }
+            else
+            {
+                blockSelector.Clear();
+            }
         }
 
-        bool RemoveBlock()
+        void RemoveBlock()
         {
-            if (y == -1 || y == 0)
+            if (y < 1)
             {
-                return false;
+                return;
             }
 
             Chunk chunk = region[position];
@@ -81,18 +93,16 @@ namespace SharpCraft
 
             lightHandler.Update(chunk, y, x, z, null);
 
-            saveHandler.AddDelta(position, y, x, z, null);
+            databaseHandler.AddDelta(position, y, x, z, null);
 
             UpdateAdjacentBlocks(chunk, y, x, z);
-
-            return true;
         }
 
-        bool AddBlock()
+        void AddBlock()
         {
             if (y == -1)
             {
-                return false;
+                return;
             }
 
             Vector3 blockCenterDirection = (new Vector3(x, y, z) - position) - player.Position;
@@ -106,30 +116,28 @@ namespace SharpCraft
 
             if ((blockPosition - player.Position).Length() < 1.1f)
             {
-                return false;
+                return;
             }
 
             Chunk chunk = region[position];
             ushort? texture;
 
-            if (chunk.Blocks[y][x][z] is null && gameMenu.ActiveTool != null)
+            if (chunk.Blocks[y][x][z] is null && gameMenu.SelectedItem != null)
             {
-                texture = gameMenu.ActiveTool;
+                texture = gameMenu.SelectedItem;
             }
             else
             {
-                return false;
+                return;
             }
 
             chunk.Blocks[y][x][z] = texture;
 
             lightHandler.Update(chunk, y, x, z, texture);
 
-            saveHandler.AddDelta(position, y, x, z, texture);
+            databaseHandler.AddDelta(position, y, x, z, texture);
 
             UpdateAdjacentBlocks(chunk, y, x, z);
-
-            return true;
         }
 
         void UpdateAdjacentBlocks(Chunk chunk, int y, int x, int z)

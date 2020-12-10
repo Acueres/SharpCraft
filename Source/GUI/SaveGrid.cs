@@ -33,28 +33,35 @@ namespace SharpCraft.GUI
         int page;
 
 
-        public SaveGrid(GraphicsDeviceManager graphics, SpriteBatch _spriteBatch, int screenWidth,
-            List<Save> _saves, Dictionary<string, GUIElement> layout)
+        public SaveGrid(GraphicsDeviceManager graphics, SpriteBatch _spriteBatch, int screenWidth, int elementWidth,
+            int elementHeight, List<Save> _saves, SpriteFont font)
         {
             spriteBatch = _spriteBatch;
             saves = _saves;
 
-            saveSlot = (SaveSlot)layout["Save Slot"];
-            pageLabel = (Label)layout["Page"];
+            var menuTextures = Assets.MenuTextures;
 
-            nextPage = (Button)layout["Next Page"];
-            nextPage.SetAction(() =>
-            {
-                page++;
-                index = 3 * page;
-            });
+            saveSlot = new SaveSlot(spriteBatch, (screenWidth / 2) - 300, 600, 2 * elementHeight,
+                menuTextures["button_selector"], font);
 
-            previousPage = (Button)layout["Previous Page"];
-            previousPage.SetAction(() =>
-            {
-                page--;
-                index = 3 * page;
-            });
+            pageLabel = new Label(spriteBatch, "Page ",
+                font, new Vector2(370, 350), Color.White);
+
+            nextPage = new Button(graphics, spriteBatch, "Next", font,
+                400, 380, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    page++;
+                    index = 3 * page;
+                });
+
+            previousPage = new Button(graphics, spriteBatch, "Previous", font,
+                400 - elementWidth / 2, 380, elementWidth / 2, elementHeight,
+                menuTextures["button"], menuTextures["button_selector"], () =>
+                {
+                    page--;
+                    index = 3 * page;
+                });
 
             shading = new Rectangle(0, 90, screenWidth, 260);
             shadingTexture = new Texture2D(graphics.GraphicsDevice, screenWidth, 260);
@@ -101,6 +108,12 @@ namespace SharpCraft.GUI
         public void Update(MouseState currentMouseState, MouseState previousMouseState, Point mouseLoc)
         {
             bool leftClick = Util.LeftButtonClicked(currentMouseState, previousMouseState);
+
+            if (index == saves.Count && index > 0)
+            {
+                index--;
+            }
+
             page = index / 3;
 
             nextPage.Update(mouseLoc, leftClick);

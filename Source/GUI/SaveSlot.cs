@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace SharpCraft.GUI
 {
-    class SaveSlot : GUIElement
+    class SaveSlot
     {
         SpriteBatch spriteBatch;
 

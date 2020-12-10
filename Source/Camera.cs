@@ -6,7 +6,7 @@ namespace SharpCraft
 {
     public class Camera
     {
-        public bool Moved
+        public bool UpdateOccured
         {
             get
             {
@@ -22,16 +22,21 @@ namespace SharpCraft
 
         public BoundingFrustum Frustum;
 
+        MainGame game;
+
         Vector3 target;
 
         Vector2 cameraDelta;
         Vector2 screenCenter;
 
+        MouseState previousMouseState;
+
         float rotationSpeed;
 
 
-        public Camera(GraphicsDeviceManager graphics, Vector3 position, Vector3 _target)
+        public Camera(MainGame _game, GraphicsDeviceManager graphics, Vector3 position, Vector3 _target)
         {
+            game = _game;
             target = _target;
 
             Direction = target - position;
@@ -40,7 +45,7 @@ namespace SharpCraft
             HorizontalDirection = new Vector3(Direction.X, 0f, Direction.Z);
             HorizontalDirection.Normalize();
 
-            rotationSpeed = 3.5f;
+            rotationSpeed = 2.5f;
 
             View = Matrix.CreateLookAt(position, target, Vector3.Up);
 
@@ -51,6 +56,8 @@ namespace SharpCraft
                                        graphics.GraphicsDevice.Viewport.Height / 2);
             Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
 
+            previousMouseState = Mouse.GetState();
+
             Frustum = new BoundingFrustum(View * Projection);
         }
 
@@ -58,8 +65,14 @@ namespace SharpCraft
         {
             MouseState currentMouseState = Mouse.GetState();
 
+            if (game.ExitedMenu)
+            {
+                previousMouseState = currentMouseState;
+            }
+
             float delta = (float)gameTime.ElapsedGameTime.TotalMilliseconds / 20f;
-            cameraDelta = delta * (new Vector2(currentMouseState.X, currentMouseState.Y) - screenCenter);
+            cameraDelta = delta * (new Vector2(currentMouseState.X, currentMouseState.Y) -
+                new Vector2(previousMouseState.X, previousMouseState.Y));
             cameraDelta = Vector2.Clamp(cameraDelta, new Vector2(-20, -20), new Vector2(20, 20));
             cameraDelta *= rotationSpeed;
 
@@ -82,7 +95,13 @@ namespace SharpCraft
 
             target = Direction + position;
 
-            Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
+            if ((new Vector2(currentMouseState.X, currentMouseState.Y) - screenCenter).Length() > 200)
+            {
+                Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
+                currentMouseState = Mouse.GetState();
+            }
+
+            previousMouseState = currentMouseState;
 
             View = Matrix.CreateLookAt(position, target, Vector3.Up);
 

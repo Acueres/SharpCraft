@@ -5,20 +5,12 @@ using Microsoft.Xna.Framework.Input;
 namespace SharpCraft
 {
     public class Player
-    {
-        public bool Clicked
-        {
-            get
-            {
-                return gameTime.TotalGameTime.TotalMilliseconds - lastClickTime > 100;
-            }
-        }
-        
+    { 
         public bool LeftClick
         {
             get
             {
-                return Util.LeftButtonClicked(currentMouseState, previousMouseState);
+                return Clicked && Util.LeftButtonClicked(currentMouseState, previousMouseState);
             }
         }
 
@@ -26,7 +18,7 @@ namespace SharpCraft
         {
             get
             {
-                return Util.RightButtonClicked(currentMouseState, previousMouseState);
+                return Clicked && Util.RightButtonClicked(currentMouseState, previousMouseState);
             }
         }
 
@@ -43,6 +35,14 @@ namespace SharpCraft
         public bool Sprinting;
         public bool UpdateOccured;
         public bool Swimming;
+
+        bool Clicked
+        {
+            get
+            {
+                return gameTime.TotalGameTime.TotalMilliseconds - lastClickTime > 100;
+            }
+        }
 
         double lastClickTime;
         double lastPressTime;
@@ -61,9 +61,9 @@ namespace SharpCraft
         Vector3 boundMax;
 
 
-        public Player(GraphicsDeviceManager graphics, Parameters parameters)
+        public Player(MainGame game, GraphicsDeviceManager graphics, Parameters parameters)
         {
-            Camera = new Camera(graphics, Position, parameters.Direction);
+            Camera = new Camera(game, graphics, Position, parameters.Direction);
 
             Physics = new Physics(this);
 
@@ -104,7 +104,7 @@ namespace SharpCraft
 
             Physics.Update(gameTime);
 
-            UpdateOccured = Camera.Moved || Physics.Moving || LeftClick || RightClick;
+            UpdateOccured = Camera.UpdateOccured || Physics.Moving || LeftClick || RightClick;
 
             Ray.Position = Position;
             Ray.Direction = Camera.Direction;

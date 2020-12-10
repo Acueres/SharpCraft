@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 using Microsoft.Xna.Framework;
 
@@ -18,9 +19,9 @@ namespace SharpCraft
 
         int textureCount;
 
-        Dictionary<ushort, ushort[]> multifaceBlocks;
+        ReadOnlyDictionary<ushort, ushort[]> multifaceBlocks;
 
-        bool[] transparent;
+        IList<bool> transparent;
         bool[] multiface;
 
 
@@ -34,7 +35,7 @@ namespace SharpCraft
             height = 128;
             last = size - 1;
 
-            textureCount = Assets.BlockTextures.Length;
+            textureCount = Assets.BlockTextures.Count;
 
             multifaceBlocks = Assets.MultifaceBlocks;
 

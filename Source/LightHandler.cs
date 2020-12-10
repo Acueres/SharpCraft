@@ -14,7 +14,7 @@ namespace SharpCraft
         int height;
         int last;
 
-        bool[] transparent;
+        IList<bool> transparent;
 
         HashSet<Chunk> chunksToUpdate;
 
@@ -43,7 +43,7 @@ namespace SharpCraft
         }
 
 
-        public LightHandler(int _size, bool[] _transparent)
+        public LightHandler(int _size)
         {
             lightNodes = new Queue<LightNode>((int)1e3);
 
@@ -51,7 +51,7 @@ namespace SharpCraft
             height = 128;
             last = size - 1;
 
-            transparent = _transparent;
+            transparent = Assets.TransparentBlocks;
 
             chunksToUpdate = new HashSet<Chunk>(5);
         }

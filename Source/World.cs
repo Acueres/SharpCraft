@@ -11,15 +11,16 @@ namespace SharpCraft
     {
         public Dictionary<Vector3, Chunk> Region;
         public Vector3[] ActiveChunks;
-        public bool UpdateOccured;
+        public VertexPositionTextureLight[] Outline;
 
         Player player;
         GameMenu gameMenu;
         BlockHanlder blockHanlder;
         WorldGenerator worldGenerator;
         ChunkHandler chunkHandler;
-        DatabaseHandler saveHandler;
+        DatabaseHandler databaseHandler;
         LightHandler lightHandler;
+        BlockSelector blockSelector;
 
         HashSet<Vector3> nearChunks;
         Vector3[] loadedChunks;
@@ -30,14 +31,12 @@ namespace SharpCraft
 
         ushort water;
 
-        bool[] transparentBlocks;
 
-
-        public World(GameMenu _gameMenu, DatabaseHandler _saveHandler, Parameters parameters)
+        public World(GameMenu _gameMenu, DatabaseHandler _databaseHandler,
+            BlockSelector _blockSelector, Parameters parameters)
         {
             gameMenu = _gameMenu;
-            saveHandler = _saveHandler;
-            transparentBlocks = Assets.TransparentBlocks;
+            databaseHandler = _databaseHandler;
 
             size = Settings.ChunkSize;
             renderDistance = Settings.RenderDistance;
@@ -47,9 +46,10 @@ namespace SharpCraft
             worldGenerator = new WorldGenerator(parameters);
             Region = new Dictionary<Vector3, Chunk>((int)2e3);
             chunkHandler = new ChunkHandler(worldGenerator, Region, parameters);
-            lightHandler = new LightHandler(size, transparentBlocks);
+            lightHandler = new LightHandler(size);
+            blockSelector = _blockSelector;
 
-            UpdateOccured = true;
+            Outline = new VertexPositionTextureLight[36];
 
             int n1 = 2 * renderDistance + 1;
             int n2 = (2 * (renderDistance + 2) + 1);
@@ -59,11 +59,11 @@ namespace SharpCraft
             loadedChunks = new Vector3[n2 * n2];
         }
 
-        public void SetPlayer(Player _player, Parameters parameters)
+        public void SetPlayer(MainGame game, Player _player, Parameters parameters)
         {
             player = _player;
 
-            blockHanlder = new BlockHanlder(player, Region, gameMenu, saveHandler, lightHandler, size);
+            blockHanlder = new BlockHanlder(game, player, Region, gameMenu, databaseHandler, lightHandler, size);
 
             GetActiveChunks();
 
@@ -82,7 +82,7 @@ namespace SharpCraft
 
         public void Update()
         {
-            if (UpdateOccured || player.UpdateOccured)
+            if (player.UpdateOccured)
             {
                 GetActiveChunks();
                 UnloadChunks();
@@ -167,7 +167,7 @@ namespace SharpCraft
                     if (Region[position] is null)
                     {
                         Region[position] = worldGenerator.GenerateChunk(position);
-                        saveHandler.ApplyDelta(Region[position]);
+                        databaseHandler.ApplyDelta(Region[position]);
                     }
 
                     ActiveChunks[count] = position;
@@ -268,7 +268,7 @@ namespace SharpCraft
                 }
             }
 
-            UpdateOccured = blockHanlder.Update();
+            blockHanlder.Update(blockSelector, chunkHandler);
 
             nearChunks.Clear();
         }

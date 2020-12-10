@@ -8,13 +8,15 @@ namespace SharpCraft
 {
     class Renderer
     {
+        MainGame game;
         GraphicsDeviceManager graphics;
         Effect effect;
         Dictionary<Vector3, Chunk> region;
+        BlockSelector blockSelector;
 
         Time time;
 
-        Texture2D[] blockTextures;
+        IList<Texture2D> blockTextures;
         Texture2D atlas;
 
         int size;
@@ -24,12 +26,16 @@ namespace SharpCraft
         DynamicVertexBuffer buffer;
 
 
-        public Renderer(GraphicsDeviceManager _graphics, Time _time,
-            Dictionary<Vector3, Chunk> _region, Parameters parameters)
+        public Renderer(MainGame _game, GraphicsDeviceManager _graphics, Time _time,
+            Dictionary<Vector3, Chunk> _region, BlockSelector _blockSelector)
         {
+            game = _game;
             graphics = _graphics;
-            effect = Assets.Effect;
+            effect = Assets.Effect.Clone();
             region = _region;
+            blockSelector = _blockSelector;
+
+            blockSelector.SetEffect(effect);
 
             time = _time;
 
@@ -37,10 +43,10 @@ namespace SharpCraft
 
             blockTextures = Assets.BlockTextures;
 
-            atlas = new Texture2D(graphics.GraphicsDevice, 64, blockTextures.Length * 64);
+            atlas = new Texture2D(graphics.GraphicsDevice, 64, blockTextures.Count * 64);
             Color[] atlasData = new Color[atlas.Width * atlas.Height];
 
-            for (int i = 0; i < blockTextures.Length; i++)
+            for (int i = 0; i < blockTextures.Count; i++)
             {
                 Color[] textureColor = new Color[64 * 64];
                 blockTextures[i].GetData(textureColor);
@@ -71,7 +77,7 @@ namespace SharpCraft
             effect.Parameters["Texture"].SetValue(atlas);
             effect.Parameters["LightIntensity"].SetValue(lightIntensity);
 
-            if (!GameState.Paused)
+            if (!game.Paused)
             {
                 time.Update();
             }
@@ -122,6 +128,8 @@ namespace SharpCraft
                     }
                 }
             }
+
+            blockSelector.Draw();
         }
     }
 }

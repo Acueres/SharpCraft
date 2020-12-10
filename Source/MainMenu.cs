@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 
 using Microsoft.Xna.Framework;
@@ -21,7 +22,7 @@ namespace SharpCraft
 
         Parameters newWorldParameters;
 
-        Dictionary<string, Texture2D> menuTextures;
+        ReadOnlyDictionary<string, Texture2D> menuTextures;
 
         Rectangle background;
         Texture2D backgroundTexture;
@@ -295,6 +296,7 @@ namespace SharpCraft
                 menuTextures["button"], menuTextures["button_selector"], () =>
                 {
                     newWorldParameters = new Parameters();
+                    worldName.Clear();
                     state = MenuState.NewWorld;
                 }),
 
@@ -376,7 +378,7 @@ namespace SharpCraft
 
                     state = MenuState.Main;
                     game.IsMouseVisible = false;
-                    GameState.Loading = true;
+                    game.State = GameState.Loading;
                 }),
 
                 ["Cancel"] = new Button(graphics, spriteBatch, "Cancel", font14,
@@ -404,7 +406,7 @@ namespace SharpCraft
                     CurrentSave = saveGrid.SelectedSave;
                     state = MenuState.Main;
                     game.IsMouseVisible = false;
-                    GameState.Loading = true;
+                    game.State = GameState.Loading;
                 }),
 
                 ["Reset"] = new Button(graphics, spriteBatch, "Reset", font14,
@@ -421,6 +423,7 @@ namespace SharpCraft
                 {
                     Save toDelete = saveGrid.SelectedSave;
                     Directory.Delete($@"Saves\{toDelete.Name}", true);
+                    saves.Remove(toDelete);
                 }),
 
                 ["Cancel"] = new Button(graphics, spriteBatch, "Cancel", font14,
@@ -431,24 +434,8 @@ namespace SharpCraft
                 })
             };
 
-
-            var saveGridLayout = new Dictionary<string, GUIElement>()
-            {
-                ["Save Slot"] = new SaveSlot(spriteBatch, (screenWidth / 2) - 300, 600, 2 * elementHeight,
-                menuTextures["button_selector"], font14),
-
-                ["Page"] = new Label(spriteBatch, "Page ", font14, new Vector2(370, 350), Color.White),
-
-                ["Next Page"] = new Button(graphics, spriteBatch, "Next", font14,
-                400, 380, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"]),
-
-                ["Previous Page"] = new Button(graphics, spriteBatch, "Previous", font14,
-                400 - elementWidth / 2, 380, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"])
-            };
-
-            saveGrid = new SaveGrid(graphics, spriteBatch, screenWidth, saves, saveGridLayout);
+            saveGrid = new SaveGrid(graphics, spriteBatch, screenWidth, 
+                elementWidth, elementHeight, saves, font14);
         }
     }
 }

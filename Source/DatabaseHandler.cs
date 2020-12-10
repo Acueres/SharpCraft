@@ -43,7 +43,7 @@ namespace SharpCraft
         }
 
 
-        public DatabaseHandler(string saveName)
+        public DatabaseHandler(MainGame game, string saveName)
         {
             dataQueue = new Queue<SaveData>(10);
             
@@ -66,7 +66,7 @@ namespace SharpCraft
 
             saveTask = Task.Run(async () =>
             {
-                while (GameState.Started || dataQueue.Count > 0)
+                while (game.State == GameState.Started || dataQueue.Count > 0)
                 {
                     WriteDelta();
                     await Task.Delay(2000);

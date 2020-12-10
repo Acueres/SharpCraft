@@ -6,18 +6,20 @@ using Microsoft.Xna.Framework;
 
 namespace SharpCraft
 {
-    static class GameState
+    public enum GameState
     {
-        public static bool
-        Loading = false,
-        Started = false,
-        Paused = false,
-        ExitedGameMenu = false,
-        ExitingToMainMenu = false;
+        Loading,
+        Started,
+        MainMenu,
+        Exiting
     }
 
     public class MainGame : Game
     {
+        public GameState State;
+        public bool Paused;
+        public bool ExitedMenu;
+
         GraphicsDeviceManager graphics;
 
         Player player;
@@ -25,7 +27,7 @@ namespace SharpCraft
         GameMenu gameMenu;
         MainMenu mainMenu;
         Renderer renderer;
-        DatabaseHandler saveHandler;
+        DatabaseHandler databaseHandler;
         Save currentSave;
         Time time;
 
@@ -46,6 +48,10 @@ namespace SharpCraft
 
         protected override void Initialize()
         {
+            State = GameState.MainMenu;
+            Paused = false;
+            ExitedMenu = false;
+
             Settings.Load();
 
             Assets.Load(Content);
@@ -64,42 +70,79 @@ namespace SharpCraft
         {
             if (IsActive)
             {
-                if (GameState.Started)
+                switch (State)
                 {
-                    if (!GameState.Paused)
-                    {
-                        player.Update(gameTime);
-                        world.Update();
-                    }
+                    case GameState.Started:
+                        {
+                            if (!Paused)
+                            {
+                                player.Update(gameTime);
+                                world.Update();
+                            }
 
-                    gameMenu.Update();
-                }
-                else if (GameState.Loading)
-                {
-                    NewGame(gameTime);
-                }
-                else if (GameState.ExitingToMainMenu)
-                {
-                    saveHandler.Close();
+                            gameMenu.Update();
 
-                    player.SaveParameters(currentSave.Parameters);
-                    time.SaveParameters(currentSave.Parameters);
-                    currentSave.Parameters.Save();
+                            break;
+                        }
 
-                    player = null;
-                    world = null;
-                    saveHandler = null;
-                    gameMenu = null;
-                    renderer = null;
+                    case GameState.Loading:
+                        {
+                            State = GameState.Started;
 
-                    GC.Collect();
+                            currentSave = mainMenu.CurrentSave;
 
-                    GameState.ExitingToMainMenu = false;
-                    IsMouseVisible = true;
-                }
-                else
-                {
-                    mainMenu.Update();
+                            time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
+
+                            BlockSelector blockSelector = new BlockSelector(graphics);
+
+                            databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName);
+                            gameMenu = new GameMenu(this, graphics, time, currentSave.Parameters);
+                            world = new World(gameMenu, databaseHandler, blockSelector, currentSave.Parameters);
+                            player = new Player(this, graphics, currentSave.Parameters);
+                            renderer = new Renderer(this, graphics, time, world.Region, blockSelector);
+
+                            world.SetPlayer(this, player, currentSave.Parameters);
+
+                            if (!File.Exists($@"Saves\{currentSave.Parameters.SaveName}\save_icon.png"))
+                            {
+                                player.Update(gameTime);
+                                world.Update();
+                                renderer.Draw(world.ActiveChunks, player);
+                                currentSave.Icon = Util.Screenshot(graphics.GraphicsDevice,
+                                    Window.ClientBounds.Width, Window.ClientBounds.Height,
+                                    $@"Saves\{currentSave.Parameters.SaveName}\save_icon.png");
+                            }
+
+                            break;
+                        }
+
+                    case GameState.Exiting:
+                        {
+                            databaseHandler.Close();
+
+                            player.SaveParameters(currentSave.Parameters);
+                            time.SaveParameters(currentSave.Parameters);
+                            currentSave.Parameters.Save();
+
+                            player = null;
+                            world = null;
+                            databaseHandler = null;
+                            gameMenu = null;
+                            renderer = null;
+
+                            GC.Collect();
+
+                            State = GameState.MainMenu;
+                            IsMouseVisible = true;
+
+                            break;
+                        }
+
+                    case GameState.MainMenu:
+                        {
+                            mainMenu.Update();
+                            break;
+                        }
                 }
             }
 
@@ -108,53 +151,35 @@ namespace SharpCraft
 
         protected override void Draw(GameTime gameTime)
         {
-            if (GameState.Started)
+            switch (State)
             {
-                renderer.Draw(world.ActiveChunks, player);
-                gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
-            }
-            else if (GameState.Loading)
-            {
-                mainMenu.DrawLoadingScreen();
-            }
-            else if (GameState.ExitingToMainMenu)
-            {
-                mainMenu.DrawSavingScreen();
-            }
-            else
-            {
-                mainMenu.Draw();
+                case GameState.Started:
+                    {
+                        renderer.Draw(world.ActiveChunks, player);
+                        gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
+                        break;
+                    }
+
+                case GameState.Loading:
+                    {
+                        mainMenu.DrawLoadingScreen();
+                        break;
+                    }
+
+                case GameState.Exiting:
+                    {
+                        mainMenu.DrawSavingScreen();
+                        break;
+                    }
+
+                case GameState.MainMenu:
+                    {
+                        mainMenu.Draw();
+                        break;
+                    }
             }
 
             base.Draw(gameTime);
-        }
-
-        void NewGame(GameTime gameTime)
-        {
-            GameState.Loading = false;
-            GameState.Started = true;
-
-            currentSave = mainMenu.CurrentSave;
-
-            time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
-
-            saveHandler = new DatabaseHandler(currentSave.Parameters.SaveName);
-            gameMenu = new GameMenu(this, graphics, time, currentSave.Parameters);
-            world = new World(gameMenu, saveHandler, currentSave.Parameters);
-            player = new Player(graphics, currentSave.Parameters);
-            renderer = new Renderer(graphics, time, world.Region, currentSave.Parameters);
-
-            world.SetPlayer(player, currentSave.Parameters);
-
-            if (!File.Exists($@"Saves\{currentSave.Parameters.SaveName}\save_icon.png"))
-            {
-                player.Update(gameTime);
-                world.Update();
-                renderer.Draw(world.ActiveChunks, player);
-                currentSave.Icon = Util.Screenshot(graphics.GraphicsDevice,
-                    Window.ClientBounds.Width, Window.ClientBounds.Height,
-                    $@"Saves\{currentSave.Parameters.SaveName}\save_icon.png");
-            }
         }
     }
 }

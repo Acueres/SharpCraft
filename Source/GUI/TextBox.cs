@@ -111,6 +111,11 @@ namespace SharpCraft.GUI
             return stringBuilder.ToString();
         }
 
+        public void Clear()
+        {
+            stringBuilder.Length = 0;
+        }
+
         void AddChar(char inputChar)
         {
             if (font.MeasureString(stringBuilder).X + 30 < rect.Width)
