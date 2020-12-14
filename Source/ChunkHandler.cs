@@ -40,6 +40,7 @@ namespace SharpCraft
             multifaceBlocks = Assets.MultifaceBlocks;
 
             transparent = Assets.TransparentBlocks;
+
             multiface = new bool[textureCount];
             for (ushort i = 0; i < multiface.Length; i++)
             {
@@ -54,9 +55,7 @@ namespace SharpCraft
         {
             GetNeighbors(chunk);
 
-            chunk.ActiveY.Clear();
-            chunk.ActiveX.Clear();
-            chunk.ActiveZ.Clear();
+            chunk.Active.Clear();
 
             bool[] visibleFaces = new bool[6];
 
@@ -87,9 +86,7 @@ namespace SharpCraft
 
                         if (blockExposed)
                         {
-                            chunk.ActiveY.Add((byte)y);
-                            chunk.ActiveX.Add((byte)x);
-                            chunk.ActiveZ.Add((byte)z);
+                            chunk.AddIndex(y, x, z);
                         }
                     }
                 }
@@ -127,11 +124,11 @@ namespace SharpCraft
             bool[] visibleFaces = new bool[6];
             byte[] lightValues = new byte[6];
 
-            for (int i = 0; i < chunk.ActiveY.Count; i++)
+            for (int i = 0; i < chunk.Active.Count; i++)
             {
-                byte y = chunk.ActiveY[i];
-                byte x = chunk.ActiveX[i];
-                byte z = chunk.ActiveZ[i];
+                int y = chunk.Active[i].Y;
+                int x = chunk.Active[i].X;
+                int z = chunk.Active[i].Z;
 
                 Vector3 blockPosition = new Vector3(x, y, z) - position;
 
@@ -147,8 +144,7 @@ namespace SharpCraft
                 }
             }
 
-            Clear(chunk);
-            chunk.GenerateMesh = false;
+            chunk.UpdateMesh();
         }
 
         public void GetVisibleFaces(bool[] visibleFaces, Chunk chunk, int y, int x, int z,
@@ -358,18 +354,6 @@ namespace SharpCraft
             }
         }
 
-        void Clear(Chunk chunk)
-        {
-            chunk.Vertices = chunk.VertexList.ToArray();
-            chunk.TransparentVertices = chunk.TransparentVertexList.ToArray();
-
-            chunk.VertexCount = chunk.VertexList.Count;
-            chunk.TransparentVertexCount = chunk.TransparentVertexList.Count;
-
-            chunk.VertexList.Clear();
-            chunk.TransparentVertexList.Clear();
-        }
-
         void AddFaceMesh(Chunk chunk, ushort? texture, int face, byte light, Vector3 blockPosition)
         {
             if (multiface[(int)texture])
@@ -387,13 +371,17 @@ namespace SharpCraft
             }
         }
 
-        void AddData(List<VertexPositionTextureLight> vertices, int face, float light, Vector3 position, ushort? texture)
+        void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort? texture)
         {
             for (int i = 0; i < 6; i++)
             {
                 VertexPositionTextureLight vertex = cube.Faces[face][i];
                 vertex.Position += position;
-                vertex.Light = light;
+
+                int skylight = (light >> 4) & 0xF;
+                int blockLight = light & 0xF;
+
+                vertex.Light = skylight + size * blockLight;
 
                 if (vertex.TextureCoordinate.Y == 0)
                 {

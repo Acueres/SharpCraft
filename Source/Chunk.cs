@@ -23,9 +23,8 @@ namespace SharpCraft
 
         public byte[][][] LightMap;
 
-        public List<byte> ActiveY;
-        public List<byte> ActiveX;
-        public List<byte> ActiveZ;
+        public List<Index> Active;
+        public List<Index> LightSources;
 
         public VertexPositionTextureLight[] Vertices;
         public VertexPositionTextureLight[] TransparentVertices;
@@ -43,6 +42,44 @@ namespace SharpCraft
         public class NeighborChunks
         {
             public Chunk ZNeg, ZPos, XNeg, XPos;
+        }
+
+        public struct Index
+        {
+            int index;
+
+            const int size = 16;
+            const int size2 = 16 * 16;
+
+            public int X
+            {
+                get
+                {
+                    return index % size;
+                }
+            }
+
+            public int Y
+            {
+                get
+                {
+                    return index / size2;
+                }
+            }
+
+            public int Z
+            {
+                get
+                {
+                    return (index % size2) / size;
+                }
+            }
+
+
+            public Index(int y, int x, int z)
+            {
+                index = x + z * size + y * size2;
+            }
         }
 
 
@@ -86,21 +123,62 @@ namespace SharpCraft
                 }
             }
 
-            //Set the topmost layer to maximum light value
-            for (int x = 0; x < size; x++)
-            {
-                for (int z = 0; z < size; z++)
-                {
-                    LightMap[height - 1][x][z] = 16;
-                }
-            }
-
-            ActiveY = new List<byte>(total);
-            ActiveX = new List<byte>(total);
-            ActiveZ = new List<byte>(total);
+            Active = new List<Index>(total);
+            LightSources = new List<Index>(100);
 
             VertexList = new List<VertexPositionTextureLight>(6 * total);
             TransparentVertexList = new List<VertexPositionTextureLight>(3 * total);
+        }
+
+        public void UpdateMesh()
+        {
+            Vertices = VertexList.ToArray();
+            TransparentVertices = TransparentVertexList.ToArray();
+
+            VertexCount = VertexList.Count;
+            TransparentVertexCount = TransparentVertexList.Count;
+
+            VertexList.Clear();
+            TransparentVertexList.Clear();
+
+            GenerateMesh = false;
+        }
+
+        public void AddIndex(int y, int x, int z)
+        {
+            if (!Active.Contains(new Index(y, x, z))) 
+            {
+                Active.Add(new Index(y, x, z));
+            }
+        }
+
+        public void AddLightSource(int y, int x, int z)
+        {
+            LightSources.Add(new Index(y, x, z));
+        }
+
+        public void SetLight(int y, int x, int z, byte value, bool skylight)
+        {
+            if (skylight)
+            {
+                LightMap[y][x][z] = (byte)((LightMap[y][x][z] & 0xF) | (value << 4));
+            }
+            else
+            {
+                LightMap[y][x][z] = (byte)((LightMap[y][x][z] & 0xF0) | value);
+            }
+        }
+
+        public byte GetLight(int y, int x, int z, bool skylight)
+        {
+            if (skylight)
+            {
+                return (byte)((LightMap[y][x][z] >> 4) & 0xF);
+            }
+            else
+            {
+                return (byte)(LightMap[y][x][z] & 0xF);
+            }
         }
 
         protected virtual void Dispose(bool disposing)

@@ -16,7 +16,6 @@ namespace SharpCraft.GUI
 
         MainGame game;
         SpriteBatch spriteBatch;
-        Parameters parameters;
 
         Action action;
         
@@ -45,12 +44,11 @@ namespace SharpCraft.GUI
 
 
         public Inventory(MainGame _game, SpriteBatch _spriteBatch, SpriteFont _font,
-            Parameters _parameters, Action a = null)
+            Parameters parameters, Action a = null)
         {
             game = _game;
             spriteBatch = _spriteBatch;
             font = _font;
-            parameters = _parameters;
             action = a;
 
             menuTextures = Assets.MenuTextures;
@@ -120,6 +118,11 @@ namespace SharpCraft.GUI
                 blackTextureColor[i] = Color.Black;
             }
             blackTexture.SetData(blackTextureColor);
+        }
+
+        public void SaveParameters(Parameters parameters)
+        {
+            parameters.Inventory = hotbarItems;
         }
 
         public void Draw(MouseState currentMouseState)

@@ -24,6 +24,8 @@ namespace SharpCraft
 
         Task saveTask;
 
+        IList<bool> lightSources;
+
         struct SaveData
         {
             public Vector3 Position;
@@ -46,6 +48,8 @@ namespace SharpCraft
         public DatabaseHandler(MainGame game, string saveName)
         {
             dataQueue = new Queue<SaveData>(10);
+
+            lightSources = Assets.LightSources;
             
             string path = @"URI=file:" + Directory.GetCurrentDirectory() + $@"\Saves\{saveName}\data.db";
             connection = new SQLiteConnection(path);
@@ -111,7 +115,16 @@ namespace SharpCraft
                     texture = (ushort)value;
                 }
 
-                chunk.Blocks[reader.GetInt32(1)][reader.GetInt32(0)][reader.GetInt32(2)] = texture;
+                int y = reader.GetInt32(1);
+                int x = reader.GetInt32(0);
+                int z = reader.GetInt32(2);
+
+                chunk.Blocks[y][x][z] = texture;
+
+                if (texture != null && lightSources[(int)texture])
+                {
+                    chunk.AddLightSource(y, x, z);
+                }
             }
         }
 

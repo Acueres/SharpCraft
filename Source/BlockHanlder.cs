@@ -15,6 +15,8 @@ namespace SharpCraft
         DatabaseHandler databaseHandler;
         LightHandler lightHandler;
 
+        IList<bool> lightSources;
+
         int size, last;
 
         int x, y, z, index;
@@ -30,6 +32,8 @@ namespace SharpCraft
             gameMenu = _gameMenu;
             databaseHandler = _databaseHandler;
             lightHandler = _lightHandler;
+
+            lightSources = Assets.LightSources;
 
             size = _size;
             last = size - 1;
@@ -85,13 +89,13 @@ namespace SharpCraft
 
             Chunk chunk = region[position];
 
-            chunk.Blocks[y][x][z] = null;
-            
-            chunk.ActiveY.RemoveAt(index);
-            chunk.ActiveX.RemoveAt(index);
-            chunk.ActiveZ.RemoveAt(index);
+            bool lightSource = lightSources[(ushort)chunk.Blocks[y][x][z]];
 
-            lightHandler.Update(chunk, y, x, z, null);
+            chunk.Blocks[y][x][z] = null;
+
+            chunk.Active.RemoveAt(index);
+
+            lightHandler.Update(chunk, y, x, z, null, sourceRemoved: lightSource);
 
             databaseHandler.AddDelta(position, y, x, z, null);
 
@@ -180,12 +184,7 @@ namespace SharpCraft
                 return;
             }
 
-            if (!IsBlockActive(chunk.ActiveY, chunk.ActiveX, chunk.ActiveZ, y, x, z))
-            {
-                chunk.ActiveY.Add((byte)y);
-                chunk.ActiveX.Add((byte)x);
-                chunk.ActiveZ.Add((byte)z);
-            }
+            chunk.AddIndex(y, x, z);
 
             chunk.GenerateMesh = true;
         }
@@ -242,19 +241,6 @@ namespace SharpCraft
 
                     break;
             }
-        }
-
-        bool IsBlockActive(List<byte> arrayY, List<byte> arrayX, List<byte> arrayZ, int y, int x, int z)
-        {
-            for (int i = 0; i < arrayY.Count; i++)
-            {
-                if ((arrayY[i] == y) && (arrayX[i] == x) && (arrayZ[i] == z))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         char MaxVectorComponent(Vector3 vector)

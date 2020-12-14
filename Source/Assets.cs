@@ -17,9 +17,14 @@ namespace SharpCraft
         public static ReadOnlyDictionary<ushort, string> BlockNames { get; private set; }
         public static ReadOnlyDictionary<string, ushort> BlockIndices { get; private set; }
         public static ReadOnlyDictionary<ushort, ushort[]> MultifaceBlocks { get; private set; }
+        public static ReadOnlyDictionary<ushort, byte> LightValues { get; private set; }
+
         public static IList<bool> TransparentBlocks { get; private set; }
+        public static IList<bool> LightSources { get; private set; }
+
         public static IList<Texture2D> BlockTextures { get; private set; }
         public static IList<SpriteFont> Fonts { get; private set; }
+
         public static Effect Effect { get; private set; }
 
         class MultifaceData
@@ -30,6 +35,8 @@ namespace SharpCraft
         class BlockData
         {
             public string name, type;
+            public bool transparent;
+            public int lightLevel;
         }
 
 
@@ -65,81 +72,83 @@ namespace SharpCraft
             var blockNames = new Dictionary<ushort, string>(ushort.MaxValue);
             var blockIndices = new Dictionary<string, ushort>(ushort.MaxValue);
             var multifaceBlocks = new Dictionary<ushort, ushort[]>(100);
+            var lightValues = new Dictionary<ushort, byte>(100);
 
-            List<MultifaceData> blockData;
+            List<MultifaceData> blockFacesData;
             using (StreamReader r = new StreamReader("Assets/multiface_blocks.json"))
             {
                 string json = r.ReadToEnd();
-                blockData = JsonConvert.DeserializeObject<List<MultifaceData>>(json);
+                blockFacesData = JsonConvert.DeserializeObject<List<MultifaceData>>(json);
             }
 
-            List<BlockData> blockNameData;
+            List<BlockData> blockData;
             using (StreamReader r = new StreamReader("Assets/blocks.json"))
             {
                 string json = r.ReadToEnd();
-                blockNameData = JsonConvert.DeserializeObject<List<BlockData>>(json);
+                blockData = JsonConvert.DeserializeObject<List<BlockData>>(json);
             }
 
             var blockTextureNames = Directory.GetFiles("Assets/Textures/Blocks", ".");
             var blockTextures = new Texture2D[blockTextureNames.Length];
 
-            for (ushort i = 0; i < blockTextureNames.Length; i++)
+            for (int i = 0; i < blockTextureNames.Length; i++)
             {
                 var t = blockTextureNames[i].Split('\\')[1].Split('.')[0];
                 blockTextures[i] = content.Load<Texture2D>("Textures/Blocks/" + t);
-                blockIndices.Add(t, i);
+                blockIndices.Add(t, (ushort)i);
             }
 
             string[] sides = { "front", "back", "top", "bottom", "right", "left" };
 
-            foreach (var entry in blockData)
+            foreach (var entry in blockFacesData)
             {
-                if (entry.type is null)
-                    continue;
-
-                var sideData = entry.GetType().GetFields().
+                var faceData = entry.GetType().GetFields().
                     ToDictionary(x => x.Name, x => x.GetValue(entry));
 
-                ushort[] arr = new ushort[6];
+                ushort[] faceTextures = new ushort[6];
 
                 for (int i = 0; i < sides.Length; i++)
                 {
-                    if (sideData[sides[i]] is null)
+                    if (faceData[sides[i]] is null)
                     {
-                        arr[i] = blockIndices[sideData["type"].ToString()];
+                        faceTextures[i] = blockIndices[faceData["type"].ToString()];
                     }
                     else
                     {
-                        arr[i] = blockIndices[sideData[sides[i]].ToString()];
+                        faceTextures[i] = blockIndices[faceData[sides[i]].ToString()];
                     }
                 }
 
-                multifaceBlocks.Add(blockIndices[entry.type], arr);
+                multifaceBlocks.Add(blockIndices[entry.type], faceTextures);
             }
 
-            foreach (var entry in blockNameData)
+            var transparentBlocks = new bool[blockTextures.Length];
+            var lightSources = new bool[blockTextures.Length];
+
+            foreach (var entry in blockData)
             {
                 string name = entry.name is null ? Util.Title(entry.type) : entry.name;
-
                 blockNames.Add(blockIndices[entry.type], name);
+
+                transparentBlocks[blockIndices[entry.type]] = entry.transparent;
+                lightSources[blockIndices[entry.type]] = entry.lightLevel > 0;
+
+                if (entry.lightLevel > 0)
+                {
+                    lightValues.Add(blockIndices[entry.type], (byte)entry.lightLevel);
+                }
             }
 
             blockIndices = blockNames.ToDictionary(x => x.Value, x => x.Key);
 
-            var transparentBlocks = new bool[blockTextures.Length];
-
-            for (int i = 0; i < transparentBlocks.Length; i++)
-            {
-                if (blockIndices["Glass"] == i)
-                    transparentBlocks[i] = true;
-                else if (blockIndices["Water"] == i)
-                    transparentBlocks[i] = true;
-            }
-
             BlockNames = new ReadOnlyDictionary<ushort, string>(blockNames);
             BlockIndices = new ReadOnlyDictionary<string, ushort>(blockIndices);
             MultifaceBlocks = new ReadOnlyDictionary<ushort, ushort[]>(multifaceBlocks);
+            LightValues = new ReadOnlyDictionary<ushort, byte>(lightValues);
+
             TransparentBlocks = Array.AsReadOnly(transparentBlocks);
+            LightSources = Array.AsReadOnly(lightSources);
+
             BlockTextures = Array.AsReadOnly(blockTextures);
         }
     }

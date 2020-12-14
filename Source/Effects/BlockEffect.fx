@@ -56,9 +56,12 @@ PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
     PixelShaderOutput output = (PixelShaderOutput)0;
     output.Color = tex2D(textureSampler, input.TexureCoordinate);
 
-    float4 colorValue = pow(input.Light / 16.0f, 1.4f) * LightIntensity;
+    float skylight = pow(input.Light % 16 / 15.0f, 1.4f) * LightIntensity;
+    float blockLight = pow(floor(input.Light / 16) / 15.0f, 1.4f);
+    float4 colorValue = max(skylight, blockLight);
+
     output.Color.rgb *= colorValue;
-    output.Color.a = Alpha;
+    output.Color.a *= Alpha;
 
     return output;
 }

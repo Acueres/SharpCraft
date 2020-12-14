@@ -71,8 +71,8 @@ namespace SharpCraft
 
             if (parameters.Position == Vector3.Zero)
             {
-                player.Position = new Vector3(Region[ActiveChunks[centerIndex]].ActiveX[0],
-                Region[ActiveChunks[centerIndex]].ActiveY[0] + 2f, Region[ActiveChunks[centerIndex]].ActiveZ[0]);
+                player.Position = new Vector3(Region[ActiveChunks[centerIndex]].Active[0].X,
+                Region[ActiveChunks[centerIndex]].Active[0].Y + 2f, Region[ActiveChunks[centerIndex]].Active[0].Z);
             }
             else
             {
@@ -86,7 +86,7 @@ namespace SharpCraft
             {
                 GetActiveChunks();
                 UnloadChunks();
-                PlayerInteraction();
+                UpdateBlocks();
             }
         }
 
@@ -201,7 +201,7 @@ namespace SharpCraft
             inactiveChunks.Clear();
         }
 
-        void PlayerInteraction()
+        void UpdateBlocks()
         {
             float minDistance = 4.5f;
 
@@ -220,13 +220,16 @@ namespace SharpCraft
 
             bool[] visibleFaces = new bool[6];
 
+            Chunk chunk;
+
             foreach (Vector3 position in nearChunks)
             {
-                for (int j = 0, n = Region[position].ActiveY.Count; j < n; j++)
+                chunk = Region[position];
+                for (int j = 0, n = chunk.Active.Count; j < n; j++)
                 {
-                    byte y = Region[position].ActiveY[j];
-                    byte x = Region[position].ActiveX[j];
-                    byte z = Region[position].ActiveZ[j];
+                    int y = chunk.Active[j].Y;
+                    int x = chunk.Active[j].X;
+                    int z = chunk.Active[j].Z;
 
 
                     Vector3 blockPosition = new Vector3(x, y, z) - position;
@@ -240,7 +243,7 @@ namespace SharpCraft
 
                     if (player.Bound.Intersects(blockBounds))
                     {
-                        if (Region[position].Blocks[y][x][z] == water)
+                        if (chunk.Blocks[y][x][z] == water)
                         {
                             if (!player.Swimming)
                             {

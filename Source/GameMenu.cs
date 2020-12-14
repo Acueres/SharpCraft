@@ -26,7 +26,6 @@ namespace SharpCraft
 
         Inventory inventory;
         Time time;
-        Parameters parameters;
 
         Rectangle crosshair;
 
@@ -57,14 +56,13 @@ namespace SharpCraft
         Vector2 screenCenter;
 
 
-        public GameMenu(MainGame _game, GraphicsDeviceManager _graphics, Time _time, Parameters _params)
+        public GameMenu(MainGame _game, GraphicsDeviceManager _graphics, Time _time, Parameters parameters)
         {
             game = _game;
             graphics = _graphics;
             spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
 
             time = _time;
-            parameters = _params;
 
             menuTextures = Assets.MenuTextures;
 
@@ -80,7 +78,6 @@ namespace SharpCraft
                 game.IsMouseVisible = false;
                 game.Paused = false;
                 game.ExitedMenu = true;
-
                 state = MenuState.Main;
             });
 
@@ -112,6 +109,7 @@ namespace SharpCraft
                 {
                     game.Paused = false;
                     game.IsMouseVisible = false;
+                    inventory.SaveParameters(parameters);
                     game.State = GameState.Exiting;
                 });
 
@@ -171,7 +169,6 @@ namespace SharpCraft
 
             inventory.DrawHotbar();
 
-            //Dim the background when the game is paused
             if (game.Paused)
             {
                 spriteBatch.Draw(screenShadingTexture, screenShading, Color.White);
@@ -203,9 +200,6 @@ namespace SharpCraft
             {
                 DrawDebugScreen(fps);
             }
-            /*spriteBatch.DrawString(font14, "FPS: " + fps.ToString(), new Vector2(10, 10), Color.White);
-            spriteBatch.DrawString(font14, $"Memory: {GC.GetTotalMemory(false) / (1024 * 1024)} Mb", new Vector2(10, 30), Color.White);
-            spriteBatch.DrawString(font14, time.ToString(), new Vector2(10, 50), Color.White);*/
 
             spriteBatch.End();
 
@@ -261,7 +255,8 @@ namespace SharpCraft
         void DrawDebugScreen(int fps)
         {
             spriteBatch.DrawString(font14, "FPS: " + fps.ToString(), new Vector2(10, 10), Color.White);
-            spriteBatch.DrawString(font14, $"Memory: {GC.GetTotalMemory(false) / (1024 * 1024)} Mb", new Vector2(10, 30), Color.White);
+            spriteBatch.DrawString(font14, $"Memory: {GC.GetTotalMemory(false) / (1024 * 1024)} Mb",
+                new Vector2(10, 30), Color.White);
             spriteBatch.DrawString(font14, time.ToString(), new Vector2(10, 50), Color.White);
         }
     }

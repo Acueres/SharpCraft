@@ -1,20 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
-
-using Microsoft.Xna.Framework;
+using System.Collections.ObjectModel;
 
 
 namespace SharpCraft
 {
     class LightHandler
     {
-        Queue<LightNode> lightNodes;
+        Queue<LightNode> lightQueue;
+        List<LightNode> lightList;
 
-        int size;
-        int height;
-        int last;
+        LightNode[] nodes;
+        byte[] lightValues;
+
+        readonly int size;
+        readonly int height;
+        readonly int last;
+
+        ReadOnlyDictionary<ushort, byte> lightSourceValues;
 
         IList<bool> transparent;
+        IList<bool> lightSources;
 
         HashSet<Chunk> chunksToUpdate;
 
@@ -25,13 +31,6 @@ namespace SharpCraft
             public int Y;
             public int Z;
 
-            public byte Light
-            {
-                get
-                {
-                    return Chunk.LightMap[Y][X][Z];
-                }
-            }
 
             public LightNode(Chunk chunk, int x, int y, int z)
             {
@@ -40,107 +39,146 @@ namespace SharpCraft
                 Y = y;
                 Z = z;
             }
+
+            public ushort? GetTexture()
+            {
+                return Chunk.Blocks[Y][X][Z];
+            }
+
+            public byte GetLight(bool channel)
+            {
+                return Chunk.GetLight(Y, X, Z, channel);
+            }
+
+            public void SetLight(byte value, bool channel)
+            {
+                Chunk.SetLight(Y, X, Z, value, channel);
+            }
         }
 
 
         public LightHandler(int _size)
         {
-            lightNodes = new Queue<LightNode>((int)1e3);
+            lightQueue = new Queue<LightNode>(1000);
+            lightList = new List<LightNode>(1000);
+
+            nodes = new LightNode[6];
+            lightValues = new byte[6];
 
             size = _size;
             height = 128;
             last = size - 1;
 
+            lightSourceValues = Assets.LightValues;
+
             transparent = Assets.TransparentBlocks;
+            lightSources = Assets.LightSources;
 
             chunksToUpdate = new HashSet<Chunk>(5);
         }
 
         public void Initialize(Chunk chunk)
         {
+            bool skylight = true;
+            bool blockLight = false;
+
+            //Set the topmost layer to maximum light value
             for (int x = 0; x < size; x++)
             {
                 for (int z = 0; z < size; z++)
                 {
-                    lightNodes.Enqueue(new LightNode(chunk, x, height - 1, z));
+                    chunk.SetLight(height - 1, x, z, 15, skylight);
+                    lightQueue.Enqueue(new LightNode(chunk, x, height - 1, z));
                 }
             }
 
-            FloodFill(sunlight: true);
+            FloodFill(skylight);
+
+            for (int i = 0; i < chunk.LightSources.Count; i++)
+            {
+                int y = chunk.LightSources[i].Y;
+                int x = chunk.LightSources[i].X;
+                int z = chunk.LightSources[i].Z;
+
+                chunk.SetLight(y, x, z, lightSourceValues[(ushort)chunk.Blocks[y][x][z]], blockLight);
+                lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+            }
+
+            FloodFill(blockLight);
         }
 
-        public void Update(Chunk chunk, int y, int x, int z, ushort? texture)
+        public void Update(Chunk chunk, int y, int x, int z, ushort? texture, bool sourceRemoved = false)
         {
-            LightNode[] nodes = new LightNode[6];
-            byte[] lightValues = new byte[6];
+            bool skylight = true;
+            bool blockLight = false;
 
             //Propagate light to an empty cell
             if (texture is null)
             {
-                GetNeighbors(chunk, y, x, z, nodes, lightValues);
+                GetNeighborValues(chunk, y, x, z, skylight);
+                lightQueue.Enqueue(nodes[Util.ArgMax(lightValues)]);
+                Repropagate(skylight);
 
-                lightNodes.Enqueue(nodes[Util.ArgMax(lightValues)]);
+                GetNeighborValues(chunk, y, x, z, blockLight);
+                lightQueue.Enqueue(nodes[Util.ArgMax(lightValues)]);
+                Repropagate(blockLight);
 
-                Recalculate();
+                if (sourceRemoved)
+                {
+                    lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+                    RemoveSource();
+                }
             }
+
             //Recalculate light after block placement
             else
             {
-                lightNodes.Enqueue(new LightNode(chunk, x, y, z));
-
-                LightNode nearestSource = new LightNode();
-                int count = 0;
-
-                //For all cells with light values less than the previous set light to 0
-                while (lightNodes.Count > 0)
+                bool sourceAdded = false;
+                if (lightSources[(int)chunk.Blocks[y][x][z]])
                 {
-                    LightNode node = lightNodes.Dequeue();
-
-                    chunksToUpdate.Add(node.Chunk);
-
-                    byte light = node.Chunk.LightMap[node.Y][node.X][node.Z];
-                    node.Chunk.LightMap[node.Y][node.X][node.Z] = 0;
-
-                    GetNeighbors(node.Chunk, node.Y, node.X, node.Z, nodes, lightValues);
-
-                    //Find current cell's nearest light source, starting with the second cell of the queue
-                    //If source for current cell doesn't exist, repeat the process for the next cell
-                    if (count == 1)
-                    {
-                        int max = Util.ArgMax(lightValues);
-
-                        nearestSource = NearestSource(nodes[max].Chunk,
-                                        nodes[max].Y, nodes[max].X, nodes[max].Z);
-
-                        if (nearestSource.Chunk is null)
-                        {
-                            count--;
-                        }
-                    }
-                    count++;
-
-                    for (int i = 0; i < 6; i++)
-                    {
-                        if ((i == 1 || lightValues[i] < light) && nodes[i].Chunk != null &&
-                           IsTransparent(nodes[i].Chunk.Blocks[nodes[i].Y][nodes[i].X][nodes[i].Z]))
-                        {
-                            lightNodes.Enqueue(nodes[i]);
-                        }
-                    }
+                    chunk.SetLight(y, x, z, lightSourceValues[(ushort)chunk.Blocks[y][x][z]], blockLight);
+                    sourceAdded = true;
                 }
 
-                if (nearestSource.Chunk != null)
+                lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+                FloodRemove(skylight);
+
+                lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+                if (sourceAdded)
                 {
-                    chunksToUpdate.Add(nearestSource.Chunk);
-                    lightNodes.Enqueue(nearestSource);
-                    Recalculate();
+                    Repropagate(blockLight);
+                }
+                else
+                {
+                    FloodRemove(blockLight);
                 }
             }
         }
 
-        void Recalculate()
+        void RemoveSource()
         {
-            FloodFill(sunlight: true, recalculate: true);
+            bool blockLight = false;
+
+            while (lightQueue.Count > 0)
+            {
+                LightNode node = lightQueue.Dequeue();
+
+                byte light = node.GetLight(blockLight);
+
+                chunksToUpdate.Add(node.Chunk);
+
+                node.SetLight(0, blockLight);
+
+                GetNeighborValues(node.Chunk, node.Y, node.X, node.Z, blockLight);
+
+                for (int i = 0; i < 6; i++)
+                {
+                    if (lightValues[i] == (byte)(light - 1))
+                    {
+                        lightQueue.Enqueue(nodes[i]);
+                    }
+                }
+            }
 
             foreach (Chunk chunk in chunksToUpdate)
             {
@@ -150,45 +188,66 @@ namespace SharpCraft
             chunksToUpdate.Clear();
         }
 
-        LightNode NearestSource(Chunk chunk, int y, int x, int z)
+        void FloodRemove(bool channel)
         {
-            byte[] lightValues = new byte[6];
-            LightNode[] nodes = new LightNode[6];
-
-            GetNeighbors(chunk, y, x, z, nodes, lightValues);
-
-            LightNode node = new LightNode(chunk, x, y, z);
-
-            for (int i = 0; i < size; i++)
+            while (lightQueue.Count > 0)
             {
-                if (Sunlit(node.Chunk, node.Y, node.X, node.Z))
+                LightNode node = lightQueue.Dequeue();
+
+                chunksToUpdate.Add(node.Chunk);
+
+                byte light = node.GetLight(channel);
+
+                if (TransparentSolid(node.GetTexture()))
                 {
-                    break;
+                    node.SetLight(light, channel);
+                }
+                else
+                {
+                    node.SetLight(0, channel);
                 }
 
-                GetNeighbors(node.Chunk, node.Y, node.X, node.Z, nodes, lightValues);
-
+                GetNeighborValues(node.Chunk, node.Y, node.X, node.Z, channel);
                 int max = Util.ArgMax(lightValues);
-                node = nodes[max];
-            }
 
-            return node;
-        }
+                lightList.Add(nodes[max]);
 
-        bool Sunlit(Chunk chunk, int y, int x, int z)
-        {
-            for (int i = y; i < height; i++)
-            {
-                if (chunk.Blocks[i][x][z] != null)
+                for (int i = 0; i < 6; i++)
                 {
-                    return false;
+                    if (lightValues[i] > 0 && (i == 1 || lightValues[i] < light) &&
+                       Transparent(nodes[i].GetTexture()))
+                    {
+                        lightQueue.Enqueue(nodes[i]);
+                    }
                 }
             }
 
-            return true;
+            for (int i = 0; i < lightList.Count; i++)
+            {
+                if (lightList[i].GetLight(channel) > 1)
+                {
+                    lightQueue.Enqueue(lightList[i]);
+                }
+            }
+
+            lightList.Clear();
+
+            Repropagate(channel);
         }
 
-        void GetNeighbors(Chunk chunk, int y, int x, int z, LightNode[] nodes, byte[] lightValues)
+        void Repropagate(bool channel)
+        {
+            FloodFill(channel, recalculate: true);
+
+            foreach (Chunk chunk in chunksToUpdate)
+            {
+                chunk.GenerateMesh = true;
+            }
+
+            chunksToUpdate.Clear();
+        }
+
+        void GetNeighborValues(Chunk chunk, int y, int x, int z, bool channel)
         {
             Array.Clear(nodes, 0, 6);
             Array.Clear(lightValues, 0, 6);
@@ -196,111 +255,114 @@ namespace SharpCraft
             if (y + 1 < height)
             {
                 nodes[0] = new LightNode(chunk, x, y + 1, z);
-                lightValues[0] = chunk.LightMap[y + 1][x][z];
+                lightValues[0] = chunk.GetLight(y + 1, x, z, channel);
             }
 
             if (y > 0)
             {
                 nodes[1] = new LightNode(chunk, x, y - 1, z);
-                lightValues[1] = chunk.LightMap[y - 1][x][z];
+                lightValues[1] = chunk.GetLight(y - 1, x, z, channel);
             }
 
 
             if (x == last)
             {
                 nodes[2] = new LightNode(chunk.Neighbors.XNeg, 0, y, z);
-                lightValues[2] = chunk.Neighbors.XNeg.LightMap[y][0][z];
+                lightValues[2] = chunk.Neighbors.XNeg.GetLight(y, 0, z, channel);
             }
             else
             {
                 nodes[2] = new LightNode(chunk, x + 1, y, z);
-                lightValues[2] = chunk.LightMap[y][x + 1][z];
+                lightValues[2] = chunk.GetLight(y, x + 1, z, channel);
             }
 
             if (x == 0)
             {
                 nodes[3] = new LightNode(chunk.Neighbors.XPos, last, y, z);
-                lightValues[3] = chunk.Neighbors.XPos.LightMap[y][last][z];
+                lightValues[3] = chunk.Neighbors.XPos.GetLight(y, last, z, channel);
             }
             else
             {
                 nodes[3] = new LightNode(chunk, x - 1, y, z);
-                lightValues[3] = chunk.LightMap[y][x - 1][z];
+                lightValues[3] = chunk.GetLight(y, x - 1, z, channel);
             }
 
 
             if (z == last)
             {
                 nodes[4] = new LightNode(chunk.Neighbors.ZNeg, x, y, 0);
-                lightValues[4] = chunk.Neighbors.ZNeg.LightMap[y][x][0];
+                lightValues[4] = chunk.Neighbors.ZNeg.GetLight(y, x, 0, channel);
             }
             else
             {
                 nodes[4] = new LightNode(chunk, x, y, z + 1);
-                lightValues[4] = chunk.LightMap[y][x][z + 1];
+                lightValues[4] = chunk.GetLight(y, x, z + 1, channel);
             }
 
             if (z == 0)
             {
                 nodes[5] = new LightNode(chunk.Neighbors.ZPos, x, y, last);
-                lightValues[5] = chunk.Neighbors.ZPos.LightMap[y][x][last];
+                lightValues[5] = chunk.Neighbors.ZPos.GetLight(y, x, last, channel);
             }
             else
             {
                 nodes[5] = new LightNode(chunk, x, y, z - 1);
-                lightValues[5] = chunk.LightMap[y][x][z - 1];
+                lightValues[5] = chunk.GetLight(y, x, z - 1, channel);
             }
         }
 
-        void FloodFill(bool sunlight = false, bool recalculate = false)
+        void FloodFill(bool channel, bool recalculate = false)
         {
             LightNode node;
-            while (lightNodes.Count > 0)
+            while (lightQueue.Count > 0)
             {
-                node = lightNodes.Dequeue();
+                node = lightQueue.Dequeue();
 
                 if (recalculate)
                 {
                     chunksToUpdate.Add(node.Chunk);
                 }
 
-                Propagate(node.Chunk, sunlight, node.Y, node.X, node.Z);
+                Propagate(node.Chunk, channel, node.Y, node.X, node.Z);
             }
         }
 
-        void Propagate(Chunk chunk, bool sunlight, int y, int x, int z)
+        void Propagate(Chunk chunk, bool channel, int y, int x, int z)
         {
-            byte light = chunk.LightMap[y][x][z];
-
+            byte light = chunk.GetLight(y, x, z, channel);
             byte nextLight;
 
-            if (light > 1)
-                nextLight = (byte)(light - 1);
+            if (light == 1)
+            {
+                return;
+            }
             else
-                nextLight = 1;
+            {
+                nextLight = (byte)(light - 1);
+            }
 
 
             if (y + 1 < height &&
-                IsTransparent(chunk.Blocks[y + 1][x][z]) &&
-                chunk.LightMap[y + 1][x][z] < light)
+                Transparent(chunk.Blocks[y + 1][x][z]) &&
+                CompareValues(chunk.GetLight(y + 1, x, z, channel), light))
             {
-                chunk.LightMap[y + 1][x][z] = nextLight;
-                lightNodes.Enqueue(new LightNode(chunk, x, y + 1, z));
+                chunk.SetLight(y + 1, x, z, nextLight, channel);
+                lightQueue.Enqueue(new LightNode(chunk, x, y + 1, z));
             }
 
             if (y > 0 &&
-                IsTransparent(chunk.Blocks[y - 1][x][z]) &&
-                chunk.LightMap[y - 1][x][z] < light)
+                Transparent(chunk.Blocks[y - 1][x][z]) &&
+                CompareValues(chunk.GetLight(y - 1, x, z, channel), light))
             {
-                if (sunlight)
+                if (channel)
                 {
-                    chunk.LightMap[y - 1][x][z] = light;
-                    lightNodes.Enqueue(new LightNode(chunk, x, y - 1, z));
+                    chunk.SetLight(y - 1, x, z, light, channel);
+                    lightQueue.Enqueue(new LightNode(chunk, x, y - 1, z));
                 }
                 else
                 {
-                    chunk.LightMap[y - 1][x][z] = nextLight;
-                    lightNodes.Enqueue(new LightNode(chunk, x, y - 1, z));
+                    chunk.SetLight(y - 1, x, z, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(chunk, x, y - 1, z));
                 }
             }
 
@@ -308,78 +370,88 @@ namespace SharpCraft
             if (x == last)
             {
                 if (chunk.Neighbors.XNeg != null &&
-                    IsTransparent(chunk.Neighbors.XNeg.Blocks[y][0][z]) &&
-                    chunk.Neighbors.XNeg.LightMap[y][0][z] < light)
+                    Transparent(chunk.Neighbors.XNeg.Blocks[y][0][z]) &&
+                    CompareValues(chunk.Neighbors.XNeg.GetLight(y, 0, z, channel), light))
                 {
-                    chunk.Neighbors.XNeg.LightMap[y][0][z] = nextLight;
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.XNeg, 0, y, z));
+                    chunk.Neighbors.XNeg.SetLight(y, 0, z, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(chunk.Neighbors.XNeg, 0, y, z));
                 }
             }
-            else if (IsTransparent(chunk.Blocks[y][x + 1][z]) &&
-                chunk.LightMap[y][x + 1][z] < light)
+            else if (Transparent(chunk.Blocks[y][x + 1][z]) &&
+                CompareValues(chunk.GetLight(y, x + 1, z, channel), light))
             {
-                chunk.LightMap[y][x + 1][z] = nextLight;
-                lightNodes.Enqueue(new LightNode(chunk, x + 1, y, z));
+                chunk.SetLight(y, x + 1, z, nextLight, channel);
+                lightQueue.Enqueue(new LightNode(chunk, x + 1, y, z));
             }
 
 
             if (x == 0)
             {
                 if (chunk.Neighbors.XPos != null &&
-                    IsTransparent(chunk.Neighbors.XPos.Blocks[y][last][z]) &&
-                    chunk.Neighbors.XPos.LightMap[y][last][z] < light)
+                    Transparent(chunk.Neighbors.XPos.Blocks[y][last][z]) &&
+                    CompareValues(chunk.Neighbors.XPos.GetLight(y, last, z, channel), light))
                 {
-                    chunk.Neighbors.XPos.LightMap[y][last][z] = nextLight;
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.XPos, last, y, z));
+                    chunk.Neighbors.XPos.SetLight(y, last, z, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(chunk.Neighbors.XPos, last, y, z));
                 }
             }
-            else if (IsTransparent(chunk.Blocks[y][x - 1][z]) &&
-                    chunk.LightMap[y][x - 1][z] < light)
+            else if (Transparent(chunk.Blocks[y][x - 1][z]) &&
+                CompareValues(chunk.GetLight(y, x - 1, z, channel), light))
             {
-                chunk.LightMap[y][x - 1][z] = nextLight;
-                lightNodes.Enqueue(new LightNode(chunk, x - 1, y, z));
+                chunk.SetLight(y, x - 1, z, nextLight, channel);
+                lightQueue.Enqueue(new LightNode(chunk, x - 1, y, z));
             }
 
 
             if (z == last)
             {
                 if (chunk.Neighbors.ZNeg != null &&
-                    IsTransparent(chunk.Neighbors.ZNeg.Blocks[y][x][0]) &&
-                    chunk.Neighbors.ZNeg.LightMap[y][x][0] < light)
+                    Transparent(chunk.Neighbors.ZNeg.Blocks[y][x][0]) &&
+                    CompareValues(chunk.Neighbors.ZNeg.GetLight(y, x, 0, channel), light))
                 {
-                    chunk.Neighbors.ZNeg.LightMap[y][x][0] = nextLight;
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.ZNeg, x, y, 0));
+                    chunk.Neighbors.ZNeg.SetLight(y, x, 0, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(chunk.Neighbors.ZNeg, x, y, 0));
                 }
             }
-            else if (IsTransparent(chunk.Blocks[y][x][z + 1]) &&
-                    chunk.LightMap[y][x][z + 1] < light)
+            else if (Transparent(chunk.Blocks[y][x][z + 1]) &&
+                CompareValues(chunk.GetLight(y, x, z + 1, channel), light))
             {
-                chunk.LightMap[y][x][z + 1] = nextLight;
-                lightNodes.Enqueue(new LightNode(chunk, x, y, z + 1));
+                chunk.SetLight(y, x, z + 1, nextLight, channel);
+                lightQueue.Enqueue(new LightNode(chunk, x, y, z + 1));
             }
 
 
             if (z == 0)
             {
                 if (chunk.Neighbors.ZPos != null &&
-                    IsTransparent(chunk.Neighbors.ZPos.Blocks[y][x][last]) &&
-                    chunk.Neighbors.ZPos.LightMap[y][x][last] < light)
+                    Transparent(chunk.Neighbors.ZPos.Blocks[y][x][last]) &&
+                    CompareValues(chunk.Neighbors.ZPos.GetLight(y, x, last, channel), light))
                 {
-                    chunk.Neighbors.ZPos.LightMap[y][x][last] = nextLight;
-                    lightNodes.Enqueue(new LightNode(chunk.Neighbors.ZPos, x, y, last));
+                    chunk.Neighbors.ZPos.SetLight(y, x, last, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(chunk.Neighbors.ZPos, x, y, last));
                 }
             }
-            else if (IsTransparent(chunk.Blocks[y][x][z - 1]) &&
-                    chunk.LightMap[y][x][z - 1] < light)
+            else if (Transparent(chunk.Blocks[y][x][z - 1]) &&
+                CompareValues(chunk.GetLight(y, x, z - 1, channel), light))
             {
-                chunk.LightMap[y][x][z - 1] = nextLight;
-                lightNodes.Enqueue(new LightNode(chunk, x, y, z - 1));
+                chunk.SetLight(y, x, z - 1, nextLight, channel);
+                lightQueue.Enqueue(new LightNode(chunk, x, y, z - 1));
             }
         }
 
-        bool IsTransparent(ushort? texture)
+        bool CompareValues(byte val, byte light)
+        {
+            return val + 2 < light;
+        }
+
+        bool Transparent(ushort? texture)
         {
             return texture is null || transparent[(int)texture];
+        }
+
+        bool TransparentSolid(ushort? texture)
+        {
+            return texture != null && transparent[(int)texture];
         }
     }
 }
