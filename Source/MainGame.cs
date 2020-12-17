@@ -93,13 +93,15 @@ namespace SharpCraft
 
                             time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
 
+                            ScreenshotTaker screenshotTaker = new ScreenshotTaker(GraphicsDevice, Window.ClientBounds.Width,
+                                                                                  Window.ClientBounds.Height);
                             BlockSelector blockSelector = new BlockSelector(graphics);
 
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName);
-                            gameMenu = new GameMenu(this, graphics, time, currentSave.Parameters);
+                            gameMenu = new GameMenu(this, graphics, time, screenshotTaker, currentSave.Parameters);
                             world = new World(gameMenu, databaseHandler, blockSelector, currentSave.Parameters);
                             player = new Player(this, graphics, currentSave.Parameters);
-                            renderer = new Renderer(this, graphics, time, world.Region, blockSelector);
+                            renderer = new Renderer(this, graphics, time, world.Region, screenshotTaker, blockSelector);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 
@@ -108,9 +110,7 @@ namespace SharpCraft
                                 player.Update(gameTime);
                                 world.Update();
                                 renderer.Draw(world.ActiveChunks, player);
-                                currentSave.Icon = Util.Screenshot(graphics.GraphicsDevice,
-                                    Window.ClientBounds.Width, Window.ClientBounds.Height,
-                                    $@"Saves\{currentSave.Parameters.SaveName}\save_icon.png");
+                                screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }
 
                             break;

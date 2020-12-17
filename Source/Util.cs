@@ -30,19 +30,6 @@ namespace SharpCraft
             }
         }
 
-        public static Texture2D Screenshot(GraphicsDevice graphicsDevice, int screenWidth, int screenHeight, string path)
-        {
-            Color[] colorData = new Color[screenHeight * screenWidth];
-            graphicsDevice.GetBackBufferData(colorData);
-            Texture2D screenshot = new Texture2D(graphicsDevice, screenWidth, screenHeight);
-            screenshot.SetData(colorData);
-
-            Stream stream = File.Create(path);
-            screenshot.SaveAsPng(stream, screenWidth, screenHeight);
-
-            return screenshot;
-        }
-
         public static string Title(string str)
         {
             if (string.IsNullOrEmpty(str))

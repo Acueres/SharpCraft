@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,6 +13,7 @@ namespace SharpCraft
         GraphicsDeviceManager graphics;
         Effect effect;
         Dictionary<Vector3, Chunk> region;
+        ScreenshotTaker screenshotTaker;
         BlockSelector blockSelector;
 
         Time time;
@@ -26,14 +28,15 @@ namespace SharpCraft
         DynamicVertexBuffer buffer;
 
 
-        public Renderer(MainGame _game, GraphicsDeviceManager _graphics, Time _time,
-            Dictionary<Vector3, Chunk> _region, BlockSelector _blockSelector)
+        public Renderer(MainGame game, GraphicsDeviceManager graphics, Time _time,
+            Dictionary<Vector3, Chunk> region, ScreenshotTaker screenshotTaker,  BlockSelector blockSelector)
         {
-            game = _game;
-            graphics = _graphics;
+            this.game = game;
+            this.graphics = graphics;
             effect = Assets.Effect.Clone();
-            region = _region;
-            blockSelector = _blockSelector;
+            this.region = region;
+            this.screenshotTaker = screenshotTaker;
+            this.blockSelector = blockSelector;
 
             blockSelector.SetEffect(effect);
 
@@ -127,6 +130,11 @@ namespace SharpCraft
                         graphics.GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, currentChunk.TransparentVertexCount / 3);
                     }
                 }
+            }
+
+            if (screenshotTaker.TakeScreenshot)
+            {
+                screenshotTaker.Screenshot(DateTime.Now.ToString());
             }
 
             blockSelector.Draw();

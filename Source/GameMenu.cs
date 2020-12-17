@@ -26,6 +26,7 @@ namespace SharpCraft
 
         Inventory inventory;
         Time time;
+        ScreenshotTaker screenshotTaker;
 
         Rectangle crosshair;
 
@@ -56,13 +57,15 @@ namespace SharpCraft
         Vector2 screenCenter;
 
 
-        public GameMenu(MainGame _game, GraphicsDeviceManager _graphics, Time _time, Parameters parameters)
+        public GameMenu(MainGame game, GraphicsDeviceManager graphics, Time time,
+            ScreenshotTaker screenshotTaker, Parameters parameters)
         {
-            game = _game;
-            graphics = _graphics;
+            this.game = game;
+            this.graphics = graphics;
             spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
 
-            time = _time;
+            this.time = time;
+            this.screenshotTaker = screenshotTaker;
 
             menuTextures = Assets.MenuTextures;
 
@@ -226,6 +229,11 @@ namespace SharpCraft
                 game.IsMouseVisible = true;
 
                 state = MenuState.Inventory;
+            }
+
+            else if (Util.KeyPressed(Keys.F2, currentKeyboardState, previousKeyboardState))
+            {
+                screenshotTaker.TakeScreenshot = true;
             }
 
             else if (Util.KeyPressed(Keys.F3, currentKeyboardState, previousKeyboardState))
