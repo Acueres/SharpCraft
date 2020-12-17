@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
@@ -352,7 +353,7 @@ namespace SharpCraft
 
             if (y > 0 &&
                 Transparent(chunk.Blocks[y - 1][x][z]) &&
-                CompareValues(chunk.GetLight(y - 1, x, z, channel), light))
+                CompareValues(chunk.GetLight(y - 1, x, z, channel), light, amount: channel ? 0: 1))
             {
                 if (channel)
                 {
@@ -439,9 +440,9 @@ namespace SharpCraft
             }
         }
 
-        bool CompareValues(byte val, byte light)
+        bool CompareValues(byte val, byte light, byte amount = 1)
         {
-            return val + 2 < light;
+            return val + amount < light;
         }
 
         bool Transparent(ushort? texture)

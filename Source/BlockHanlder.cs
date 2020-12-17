@@ -72,7 +72,7 @@ namespace SharpCraft
                 bool[] visibleFaces = new bool[6];
                 chunkHandler.GetVisibleFaces(visibleFaces, region[position], y, x, z);
 
-                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - position);
+                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - position, player.Camera.Direction);
             }
             else
             {
@@ -109,12 +109,9 @@ namespace SharpCraft
                 return;
             }
 
-            Vector3 blockCenterDirection = (new Vector3(x, y, z) - position) - player.Position;
-            blockCenterDirection.Normalize();
+            char side = Util.MaxVectorComponent(player.Camera.Direction);
 
-            char side = MaxVectorComponent(blockCenterDirection);
-
-            AdjustIndices(side, blockCenterDirection);
+            AdjustIndices(side, player.Camera.Direction);
 
             Vector3 blockPosition = new Vector3(x, y, z) - position;
 
@@ -134,6 +131,8 @@ namespace SharpCraft
             {
                 return;
             }
+
+            Console.WriteLine(chunk.GetLight(y, x, z, true));
 
             chunk.Blocks[y][x][z] = texture;
 
@@ -189,7 +188,7 @@ namespace SharpCraft
             chunk.GenerateMesh = true;
         }
 
-        void AdjustIndices(char side, Vector3 vector)
+        void AdjustIndices(char face, Vector3 vector)
         {
             Vector3 zNeg = position + new Vector3(0, 0, -size),
                     zPos = position + new Vector3(0, 0, size),
@@ -197,7 +196,7 @@ namespace SharpCraft
                     xPos = position + new Vector3(size, 0, 0);
 
 
-            switch (side)
+            switch (face)
             {
                 case 'X':
                     if (vector.X > 0) x--;
@@ -241,25 +240,6 @@ namespace SharpCraft
 
                     break;
             }
-        }
-
-        char MaxVectorComponent(Vector3 vector)
-        {
-            float max = Math.Abs(vector.X);
-            char component = 'X';
-
-            if (max < Math.Abs(vector.Y))
-            {
-                max = Math.Abs(vector.Y);
-                component = 'Y';
-            }
-
-            if (max < Math.Abs(vector.Z))
-            {
-                component = 'Z';
-            }
-
-            return component;
         }
     }
 }

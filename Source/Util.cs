@@ -82,6 +82,25 @@ namespace SharpCraft
             return index;
         }
 
+        public static char MaxVectorComponent(Vector3 vector)
+        {
+            float max = Math.Abs(vector.X);
+            char component = 'X';
+
+            if (max < Math.Abs(vector.Y))
+            {
+                max = Math.Abs(vector.Y);
+                component = 'Y';
+            }
+
+            if (max < Math.Abs(vector.Z))
+            {
+                component = 'Z';
+            }
+
+            return component;
+        }
+
         //Input utility functions
         public static bool KeyPressed(Keys key, KeyboardState currentKeyboardState, KeyboardState previousKeyboardState)
         {
