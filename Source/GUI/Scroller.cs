@@ -19,14 +19,14 @@ namespace SharpCraft.GUI
         int maxIndex;
 
 
-        public Scroller(SpriteBatch _spriteBatch, Texture2D _texture, int _maxIndex, int _step, Rectangle _rect)
+        public Scroller(SpriteBatch spriteBatch, Texture2D texture, int maxIndex, int step, Rectangle rect)
         {
-            spriteBatch = _spriteBatch;
-            texture = _texture;
-            rect = _rect;
+            this.spriteBatch = spriteBatch;
+            this.texture = texture;
+            this.rect = rect;
 
-            maxIndex = _maxIndex;
-            step = _step;
+            this.maxIndex = maxIndex;
+            this.step = step;
 
             Start = 0;
             End = maxIndex > 5 ? 5: maxIndex;

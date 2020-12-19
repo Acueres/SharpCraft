@@ -43,12 +43,12 @@ namespace SharpCraft.GUI
         Rectangle selector, selectedItem;
 
 
-        public Inventory(MainGame _game, SpriteBatch _spriteBatch, SpriteFont _font,
+        public Inventory(MainGame game, SpriteBatch spriteBatch, SpriteFont font,
             Parameters parameters, Action a = null)
         {
-            game = _game;
-            spriteBatch = _spriteBatch;
-            font = _font;
+            this.game = game;
+            this.spriteBatch = spriteBatch;
+            this.font = font;
             action = a;
 
             menuTextures = Assets.MenuTextures;

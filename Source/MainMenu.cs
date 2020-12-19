@@ -17,7 +17,7 @@ namespace SharpCraft
         public Save CurrentSave { get; private set; }
 
         MainGame game;
-        GraphicsDeviceManager graphics;
+        GraphicsDevice graphics;
         SpriteBatch spriteBatch;
 
         Parameters newWorldParameters;
@@ -62,12 +62,12 @@ namespace SharpCraft
         SaveGrid saveGrid;
 
 
-        public MainMenu(MainGame _game, GraphicsDeviceManager _graphics)
+        public MainMenu(MainGame game, GraphicsDevice graphics)
         {
-            game = _game;
+            this.game = game;
             game.IsMouseVisible = true;
-            graphics = _graphics;
-            spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
+            this.graphics = graphics;
+            spriteBatch = new SpriteBatch(graphics);
 
             menuTextures = Assets.MenuTextures;
 
@@ -82,7 +82,7 @@ namespace SharpCraft
             previousKeyboardState = Keyboard.GetState();
             previousMouseState = Mouse.GetState();
 
-            saves = Save.LoadAll(graphics.GraphicsDevice);
+            saves = Save.LoadAll(graphics);
 
             InitializeGUI();
         }

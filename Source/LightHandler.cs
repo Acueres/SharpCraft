@@ -58,7 +58,7 @@ namespace SharpCraft
         }
 
 
-        public LightHandler(int _size)
+        public LightHandler(int size)
         {
             lightQueue = new Queue<LightNode>(1000);
             lightList = new List<LightNode>(1000);
@@ -66,7 +66,7 @@ namespace SharpCraft
             nodes = new LightNode[6];
             lightValues = new byte[6];
 
-            size = _size;
+            this.size = size;
             height = 128;
             last = size - 1;
 
@@ -238,7 +238,7 @@ namespace SharpCraft
 
         void Repropagate(bool channel)
         {
-            FloodFill(channel, recalculate: true);
+            FloodFill(channel, repropagate: true);
 
             foreach (Chunk chunk in chunksToUpdate)
             {
@@ -312,14 +312,14 @@ namespace SharpCraft
             }
         }
 
-        void FloodFill(bool channel, bool recalculate = false)
+        void FloodFill(bool channel, bool repropagate = false)
         {
             LightNode node;
             while (lightQueue.Count > 0)
             {
                 node = lightQueue.Dequeue();
 
-                if (recalculate)
+                if (repropagate)
                 {
                     chunksToUpdate.Add(node.Chunk);
                 }

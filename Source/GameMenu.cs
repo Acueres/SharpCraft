@@ -21,7 +21,7 @@ namespace SharpCraft
         }
 
         MainGame game;
-        GraphicsDeviceManager graphics;
+        GraphicsDevice graphics;
         SpriteBatch spriteBatch;
 
         Inventory inventory;
@@ -57,12 +57,12 @@ namespace SharpCraft
         Vector2 screenCenter;
 
 
-        public GameMenu(MainGame game, GraphicsDeviceManager graphics, Time time,
+        public GameMenu(MainGame game, GraphicsDevice graphics, Time time,
             ScreenshotTaker screenshotTaker, Parameters parameters)
         {
             this.game = game;
             this.graphics = graphics;
-            spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
+            spriteBatch = new SpriteBatch(graphics);
 
             this.time = time;
             this.screenshotTaker = screenshotTaker;
@@ -120,7 +120,7 @@ namespace SharpCraft
             crosshair = new Rectangle((screenWidth / 2) - 15, (screenHeight / 2) - 15, 30, 30);
 
             screenShading = new Rectangle(0, 0, screenWidth, screenHeight);
-            screenShadingTexture = new Texture2D(graphics.GraphicsDevice, screenWidth, screenHeight);
+            screenShadingTexture = new Texture2D(graphics, screenWidth, screenHeight);
 
             Color[] darkBackGroundColor = new Color[screenWidth * game.Window.ClientBounds.Height];
             for (int i = 0; i < darkBackGroundColor.Length; i++)
@@ -206,7 +206,7 @@ namespace SharpCraft
 
             spriteBatch.End();
 
-            graphics.GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+            graphics.DepthStencilState = DepthStencilState.Default;
         }
 
         void MainControl(KeyboardState currentKeyboardState)

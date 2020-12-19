@@ -33,11 +33,11 @@ namespace SharpCraft.GUI
         int page;
 
 
-        public SaveGrid(GraphicsDeviceManager graphics, SpriteBatch _spriteBatch, int screenWidth, int elementWidth,
-            int elementHeight, List<Save> _saves, SpriteFont font)
+        public SaveGrid(GraphicsDevice graphics, SpriteBatch spriteBatch, int screenWidth, int elementWidth,
+            int elementHeight, List<Save> saves, SpriteFont font)
         {
-            spriteBatch = _spriteBatch;
-            saves = _saves;
+            this.spriteBatch = spriteBatch;
+            this.saves = saves;
 
             var menuTextures = Assets.MenuTextures;
 
@@ -64,7 +64,7 @@ namespace SharpCraft.GUI
                 });
 
             shading = new Rectangle(0, 90, screenWidth, 260);
-            shadingTexture = new Texture2D(graphics.GraphicsDevice, screenWidth, 260);
+            shadingTexture = new Texture2D(graphics, screenWidth, 260);
 
             Color[] darkBackGroundColor = new Color[screenWidth * 260];
             for (int i = 0; i < darkBackGroundColor.Length; i++)

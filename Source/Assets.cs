@@ -25,6 +25,8 @@ namespace SharpCraft
         public static IList<Texture2D> BlockTextures { get; private set; }
         public static IList<SpriteFont> Fonts { get; private set; }
 
+        public static Texture2D Sky;
+
         public static Effect Effect { get; private set; }
 
         class MultifaceData
@@ -55,6 +57,8 @@ namespace SharpCraft
                 menuTextures.Add(t, content.Load<Texture2D>("Textures/Menu/" + t));
             }
 
+            MenuTextures = new ReadOnlyDictionary<string, Texture2D>(menuTextures);
+
             var fonts = new SpriteFont[2];
 
             fonts[0] = content.Load<SpriteFont>("Fonts/font14");
@@ -64,7 +68,7 @@ namespace SharpCraft
 
             Effect = content.Load<Effect>("Shaders/BlockEffect");
 
-            MenuTextures = new ReadOnlyDictionary<string, Texture2D>(menuTextures);
+            Sky = content.Load<Texture2D>("Textures/Environment/sky");
         }
 
         static void LoadBlocks(ContentManager content)

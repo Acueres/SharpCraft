@@ -20,33 +20,33 @@ namespace SharpCraft.GUI
         Color color;
 
 
-        public Label(SpriteBatch _spriteBatch, Texture2D _texture, Rectangle _rect,
-                     string _text, SpriteFont _font, Vector2 _textPosition, Color _color)
+        public Label(SpriteBatch spriteBatch, Texture2D texture, Rectangle rect,
+                     string text, SpriteFont font, Vector2 textPosition, Color color)
         {
-            spriteBatch = _spriteBatch;
-            texture = _texture;
-            rect = _rect;
-            text = _text;
-            font = _font;
-            textPosition = _textPosition;
-            color = _color;
+            this.spriteBatch = spriteBatch;
+            this.texture = texture;
+            this.rect = rect;
+            this.text = text;
+            this.font = font;
+            this.textPosition = textPosition;
+            this.color = color;
         }
 
-        public Label(SpriteBatch _spriteBatch, Texture2D _texture, Rectangle _rect, Color _color)
+        public Label(SpriteBatch spriteBatch, Texture2D texture, Rectangle rect, Color color)
         {
-            spriteBatch = _spriteBatch;
-            texture = _texture;
-            rect = _rect;
-            color = _color;
+            this.spriteBatch = spriteBatch;
+            this.texture = texture;
+            this.rect = rect;
+            this.color = color;
         }
 
-        public Label(SpriteBatch _spriteBatch, string _text, SpriteFont _font, Vector2 _textPosition, Color _color)
+        public Label(SpriteBatch spriteBatch, string text, SpriteFont font, Vector2 textPosition, Color color)
         {
-            spriteBatch = _spriteBatch;
-            text = _text;
-            font = _font;
-            textPosition = _textPosition;
-            color = _color;
+            this.spriteBatch = spriteBatch;
+            this.text = text;
+            this.font = font;
+            this.textPosition = textPosition;
+            this.color = color;
         }
 
         public override void Draw(string append)

@@ -13,7 +13,7 @@ namespace SharpCraft
     {
         //Legacy rendering code
         public static void DrawCubeSide(VertexPositionTexture[] side, Texture2D texture,
-            GraphicsDeviceManager graphics, BasicEffect effect, Matrix view, Matrix projection, Vector3 position)
+            GraphicsDevice graphics, BasicEffect effect, Matrix view, Matrix projection, Vector3 position)
         {
             effect.TextureEnabled = true;
             effect.Texture = texture;
@@ -26,7 +26,7 @@ namespace SharpCraft
             {
                 pass.Apply();
 
-                graphics.GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleList, side, 0, 2);
+                graphics.DrawUserPrimitives(PrimitiveType.TriangleList, side, 0, 2);
             }
         }
 

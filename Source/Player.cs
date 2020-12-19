@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 
@@ -61,7 +62,7 @@ namespace SharpCraft
         Vector3 boundMax;
 
 
-        public Player(MainGame game, GraphicsDeviceManager graphics, Parameters parameters)
+        public Player(MainGame game, GraphicsDevice graphics, Parameters parameters)
         {
             Camera = new Camera(game, graphics, Position, parameters.Direction);
 

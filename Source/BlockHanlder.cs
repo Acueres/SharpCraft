@@ -23,19 +23,19 @@ namespace SharpCraft
         Vector3 position;
 
 
-        public BlockHanlder(MainGame _game, Player _player, Dictionary<Vector3, Chunk> _region,
-            GameMenu _gameMenu, DatabaseHandler _databaseHandler, LightHandler _lightHandler, int _size)
+        public BlockHanlder(MainGame game, Player player, Dictionary<Vector3, Chunk> region,
+            GameMenu gameMenu, DatabaseHandler databaseHandler, LightHandler lightHandler, int size)
         {
-            game = _game;
-            player = _player;
-            region = _region;
-            gameMenu = _gameMenu;
-            databaseHandler = _databaseHandler;
-            lightHandler = _lightHandler;
+            this.game = game;
+            this.player = player;
+            this.region = region;
+            this.gameMenu = gameMenu;
+            this.databaseHandler = databaseHandler;
+            this.lightHandler = lightHandler;
 
             lightSources = Assets.LightSources;
 
-            size = _size;
+            this.size = size;
             last = size - 1;
         }
 
@@ -44,13 +44,13 @@ namespace SharpCraft
             y = -1;
         }
 
-        public void Set(int _x, int _y, int _z, int _index, Vector3 _position)
+        public void Set(int x, int y, int z, int index, Vector3 position)
         {
-            x = _x;
-            y = _y;
-            z = _z;
-            index = _index;
-            position = _position;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.index = index;
+            this.position = position;
         }
 
         public void Update(BlockSelector blockSelector, ChunkHandler chunkHandler)

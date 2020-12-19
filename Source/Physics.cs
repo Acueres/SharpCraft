@@ -33,9 +33,9 @@ namespace SharpCraft
         Dictionary<Vector3, int> faceNormals;
 
 
-        public Physics(Player _player)
+        public Physics(Player player)
         {
-            player = _player;
+            this.player = player;
 
             maxSpeed = 0.055f;
             acceleration = 0.02f;

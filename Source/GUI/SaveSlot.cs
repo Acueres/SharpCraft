@@ -15,13 +15,12 @@ namespace SharpCraft.GUI
         Rectangle rect;
 
 
-        public SaveSlot(SpriteBatch _spriteBatch, int x, int width, int height,
-                        Texture2D _selector, SpriteFont _font)
+        public SaveSlot(SpriteBatch spriteBatch, int x, int width, int height,
+                        Texture2D selector, SpriteFont font)
         {
-            spriteBatch = _spriteBatch;
-            selector = _selector;
-
-            font = _font;
+            this.spriteBatch = spriteBatch;
+            this.selector = selector;
+            this.font = font;
 
             rect = new Rectangle(x, 0, width, height);
         }

@@ -1,6 +1,7 @@
 ﻿using System;
 
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 
 
@@ -11,8 +12,6 @@ namespace SharpCraft.GUI
         SpriteBatch spriteBatch;
 
         Action action;
-
-        Point currentMouseLoc;
 
         Texture2D texture;
         Texture2D selector;
@@ -27,23 +26,23 @@ namespace SharpCraft.GUI
         Vector2 textPosition;
 
 
-        public Button(GraphicsDeviceManager graphics, SpriteBatch _spriteBatch, string _text,
-                      SpriteFont _font, int x, int y, int width, int height,
-                      Texture2D _texture, Texture2D _selector, Action a = null)
+        public Button(GraphicsDevice graphics, SpriteBatch spriteBatch, string text,
+                      SpriteFont font, int x, int y, int width, int height,
+                      Texture2D texture, Texture2D selector, Action a = null)
         {
-            spriteBatch = _spriteBatch;
-            texture = _texture;
-            selector = _selector;
-            font = _font;
+            this.spriteBatch = spriteBatch;
+            this.texture = texture;
+            this.selector = selector;
+            this.font = font;
             action = a;
 
             rect = new Rectangle(x, y, width, height);
 
-            baseText = _text;
+            baseText = text;
 
             textPosition = new Vector2(x + width / 2, y + height / 4);
 
-            shading = new Texture2D(graphics.GraphicsDevice, rect.Width, rect.Height);
+            shading = new Texture2D(graphics, rect.Width, rect.Height);
             Color[] shadingColor = new Color[rect.Width * rect.Height];
             for (int i = 0; i < shadingColor.Length; i++)
             {
@@ -59,6 +58,9 @@ namespace SharpCraft.GUI
 
         public override void Draw(string data)
         {
+            MouseState currentMouseState = Mouse.GetState();
+            Point mouseLoc = new Point(currentMouseState.X, currentMouseState.Y);
+
             string text = baseText + $"{data}";
             Vector2 textSize = font.MeasureString(text) / 2;
             textSize.Y = 0;
@@ -70,7 +72,7 @@ namespace SharpCraft.GUI
             {
                 spriteBatch.Draw(shading, rect, Color.White);
             }
-            else if (rect.Contains(currentMouseLoc))
+            else if (rect.Contains(mouseLoc))
             {
                 spriteBatch.Draw(selector, rect, Color.White);
             }
@@ -88,8 +90,6 @@ namespace SharpCraft.GUI
                 return;
             }
 
-            currentMouseLoc = mouseLoc;
-
             if (!Inactive && rect.Contains(mouseLoc) && click)
             {
                 action();
@@ -98,7 +98,6 @@ namespace SharpCraft.GUI
 
         public override bool Clicked(Point mouseLoc, bool click)
         {
-            currentMouseLoc = mouseLoc;
             return !Inactive && rect.Contains(mouseLoc) && click;
         }
     }

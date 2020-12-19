@@ -56,7 +56,7 @@ namespace SharpCraft
 
             Assets.Load(Content);
 
-            mainMenu = new MainMenu(this, graphics);
+            mainMenu = new MainMenu(this, GraphicsDevice);
 
             base.Initialize();
         }
@@ -95,13 +95,13 @@ namespace SharpCraft
 
                             ScreenshotTaker screenshotTaker = new ScreenshotTaker(GraphicsDevice, Window.ClientBounds.Width,
                                                                                   Window.ClientBounds.Height);
-                            BlockSelector blockSelector = new BlockSelector(graphics);
+                            BlockSelector blockSelector = new BlockSelector(GraphicsDevice);
 
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName);
-                            gameMenu = new GameMenu(this, graphics, time, screenshotTaker, currentSave.Parameters);
+                            gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters);
                             world = new World(gameMenu, databaseHandler, blockSelector, currentSave.Parameters);
-                            player = new Player(this, graphics, currentSave.Parameters);
-                            renderer = new Renderer(this, graphics, time, world.Region, screenshotTaker, blockSelector);
+                            player = new Player(this, GraphicsDevice, currentSave.Parameters);
+                            renderer = new Renderer(this, GraphicsDevice, time, world.Region, screenshotTaker, blockSelector);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 

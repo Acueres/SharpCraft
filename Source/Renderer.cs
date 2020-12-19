@@ -10,7 +10,7 @@ namespace SharpCraft
     class Renderer
     {
         MainGame game;
-        GraphicsDeviceManager graphics;
+        GraphicsDevice graphics;
         Effect effect;
         Dictionary<Vector3, Chunk> region;
         ScreenshotTaker screenshotTaker;
@@ -28,7 +28,7 @@ namespace SharpCraft
         DynamicVertexBuffer buffer;
 
 
-        public Renderer(MainGame game, GraphicsDeviceManager graphics, Time _time,
+        public Renderer(MainGame game, GraphicsDevice graphics, Time _time,
             Dictionary<Vector3, Chunk> region, ScreenshotTaker screenshotTaker,  BlockSelector blockSelector)
         {
             this.game = game;
@@ -46,7 +46,7 @@ namespace SharpCraft
 
             blockTextures = Assets.BlockTextures;
 
-            atlas = new Texture2D(graphics.GraphicsDevice, 64, blockTextures.Count * 64);
+            atlas = new Texture2D(graphics, 64, blockTextures.Count * 64);
             Color[] atlasData = new Color[atlas.Width * atlas.Height];
 
             for (int i = 0; i < blockTextures.Count; i++)
@@ -61,7 +61,7 @@ namespace SharpCraft
             }
             atlas.SetData(atlasData);
 
-            buffer = new DynamicVertexBuffer(graphics.GraphicsDevice, typeof(VertexPositionTextureLight),
+            buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
                         (int)2e4, BufferUsage.WriteOnly);
         }
 
@@ -85,7 +85,7 @@ namespace SharpCraft
                 time.Update();
             }
 
-            graphics.GraphicsDevice.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
+            graphics.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
 
             //Drawing opaque blocks
             for (int i = 0; i < activeChunks.Length; i++)
@@ -102,12 +102,12 @@ namespace SharpCraft
                     effect.Parameters["Alpha"].SetValue(1f);
 
                     buffer.SetData(currentChunk.Vertices);
-                    graphics.GraphicsDevice.SetVertexBuffer(buffer);
+                    graphics.SetVertexBuffer(buffer);
 
                     foreach (EffectPass pass in effect.CurrentTechnique.Passes)
                     {
                         pass.Apply();
-                        graphics.GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, currentChunk.VertexCount / 3);
+                        graphics.DrawPrimitives(PrimitiveType.TriangleList, 0, currentChunk.VertexCount / 3);
                     }
                 }
             }
@@ -122,12 +122,12 @@ namespace SharpCraft
                     effect.Parameters["Alpha"].SetValue(0.7f);
 
                     buffer.SetData(currentChunk.TransparentVertices);
-                    graphics.GraphicsDevice.SetVertexBuffer(buffer);
+                    graphics.SetVertexBuffer(buffer);
 
                     foreach (EffectPass pass in effect.CurrentTechnique.Passes)
                     {
                         pass.Apply();
-                        graphics.GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, currentChunk.TransparentVertexCount / 3);
+                        graphics.DrawPrimitives(PrimitiveType.TriangleList, 0, currentChunk.TransparentVertexCount / 3);
                     }
                 }
             }

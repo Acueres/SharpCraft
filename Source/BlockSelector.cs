@@ -9,7 +9,7 @@ namespace SharpCraft
 {
     class BlockSelector
     {
-        GraphicsDeviceManager graphics;
+        GraphicsDevice graphics;
         Effect effect;
 
         VertexPositionTextureLight[] vertices;
@@ -22,9 +22,9 @@ namespace SharpCraft
         DynamicVertexBuffer buffer;
 
 
-        public BlockSelector(GraphicsDeviceManager _graphics)
+        public BlockSelector(GraphicsDevice graphics)
         {
-            graphics = _graphics;
+            this.graphics = graphics;
 
             vertices = new VertexPositionTextureLight[36];
 
@@ -41,13 +41,13 @@ namespace SharpCraft
             cube = new Cube();
             texture = Assets.MenuTextures["block_selector"];
 
-            buffer = new DynamicVertexBuffer(graphics.GraphicsDevice, typeof(VertexPositionTextureLight),
+            buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
                         36, BufferUsage.WriteOnly);
         }
 
-        public void SetEffect(Effect _effect)
+        public void SetEffect(Effect effect)
         {
-            effect = _effect;
+            this.effect = effect;
         }
 
         public void Draw()
@@ -56,12 +56,12 @@ namespace SharpCraft
             effect.Parameters["Texture"].SetValue(texture);
 
             buffer.SetData(vertices);
-            graphics.GraphicsDevice.SetVertexBuffer(buffer);
+            graphics.SetVertexBuffer(buffer);
 
             foreach (EffectPass pass in effect.CurrentTechnique.Passes)
             {
                 pass.Apply();
-                graphics.GraphicsDevice.DrawPrimitives(PrimitiveType.TriangleList, 0, vertices.Length / 3);
+                graphics.DrawPrimitives(PrimitiveType.TriangleList, 0, vertices.Length / 3);
             }
         }
 

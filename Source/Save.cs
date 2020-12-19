@@ -65,7 +65,7 @@ namespace SharpCraft
             Parameters.Save();
         }
 
-        public static List<Save> LoadAll(GraphicsDevice graphicsDevice)
+        public static List<Save> LoadAll(GraphicsDevice graphics)
         {
             List<Save> saves = new List<Save>();
             string[] saveNames = Directory.GetDirectories("Saves");
@@ -78,16 +78,16 @@ namespace SharpCraft
                 }
 
                 string saveName = saveNames[i].Split('\\')[1];
-                saves.Add(Load(graphicsDevice, saveName));
+                saves.Add(Load(graphics, saveName));
             }
 
             return saves;
         }
 
-        public static Save Load(GraphicsDevice graphicsDevice, string name)
+        public static Save Load(GraphicsDevice graphics, string name)
         {
             using FileStream fileStream = new FileStream(@$"Saves\{name}\save_icon.png", FileMode.Open);
-            Texture2D icon = Texture2D.FromStream(graphicsDevice, fileStream);
+            Texture2D icon = Texture2D.FromStream(graphics, fileStream);
 
             return new Save(icon, name, new Parameters(name));
         }

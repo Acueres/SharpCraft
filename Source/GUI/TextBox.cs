@@ -26,17 +26,17 @@ namespace SharpCraft.GUI
         Vector2 textPosition;
 
 
-        public TextBox(GameWindow _window, GraphicsDeviceManager graphics, SpriteBatch _spriteBatch,
-                      int x, int y, int width, int height, Texture2D _selector, SpriteFont _font)
+        public TextBox(GameWindow window, GraphicsDevice graphics, SpriteBatch spriteBatch,
+                      int x, int y, int width, int height, Texture2D selector, SpriteFont font)
         {
-            window = _window;
-            spriteBatch = _spriteBatch;
-            selector = _selector;
-            font = _font;
+            this. window = window;
+            this.spriteBatch = spriteBatch;
+            this.selector = selector;
+            this.font = font;
 
             rect = new Rectangle(x, y, width, height);
 
-            texture = new Texture2D(graphics.GraphicsDevice, rect.Width, rect.Height);
+            texture = new Texture2D(graphics, rect.Width, rect.Height);
             Color[] textureColor = new Color[rect.Width * rect.Height];
             for (int i = 0; i < textureColor.Length; i++)
             {

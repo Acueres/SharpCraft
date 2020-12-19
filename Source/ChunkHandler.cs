@@ -25,10 +25,10 @@ namespace SharpCraft
         bool[] multiface;
 
 
-        public ChunkHandler(WorldGenerator _worldGenerator, Dictionary<Vector3, Chunk> _region, Parameters parameters)
+        public ChunkHandler(WorldGenerator worldGenerator, Dictionary<Vector3, Chunk> region)
         {
-            worldGenerator = _worldGenerator;
-            region = _region;
+            this.worldGenerator = worldGenerator;
+            this.region = region;
             cube = new Cube();
 
             size = Settings.ChunkSize;

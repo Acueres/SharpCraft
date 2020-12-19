@@ -32,11 +32,11 @@ namespace SharpCraft
         ushort water;
 
 
-        public World(GameMenu _gameMenu, DatabaseHandler _databaseHandler,
-            BlockSelector _blockSelector, Parameters parameters)
+        public World(GameMenu gameMenu, DatabaseHandler databaseHandler,
+            BlockSelector blockSelector, Parameters parameters)
         {
-            gameMenu = _gameMenu;
-            databaseHandler = _databaseHandler;
+            this.gameMenu = gameMenu;
+            this.databaseHandler = databaseHandler;
 
             size = Settings.ChunkSize;
             renderDistance = Settings.RenderDistance;
@@ -45,9 +45,9 @@ namespace SharpCraft
 
             worldGenerator = new WorldGenerator(parameters);
             Region = new Dictionary<Vector3, Chunk>((int)2e3);
-            chunkHandler = new ChunkHandler(worldGenerator, Region, parameters);
+            chunkHandler = new ChunkHandler(worldGenerator, Region);
             lightHandler = new LightHandler(size);
-            blockSelector = _blockSelector;
+            this.blockSelector = blockSelector;
 
             Outline = new VertexPositionTextureLight[36];
 
@@ -59,9 +59,9 @@ namespace SharpCraft
             loadedChunks = new Vector3[n2 * n2];
         }
 
-        public void SetPlayer(MainGame game, Player _player, Parameters parameters)
+        public void SetPlayer(MainGame game, Player player, Parameters parameters)
         {
-            player = _player;
+            this.player = player;
 
             blockHanlder = new BlockHanlder(game, player, Region, gameMenu, databaseHandler, lightHandler, size);
 

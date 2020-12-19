@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 
@@ -34,10 +35,10 @@ namespace SharpCraft
         float rotationSpeed;
 
 
-        public Camera(MainGame _game, GraphicsDeviceManager graphics, Vector3 position, Vector3 _target)
+        public Camera(MainGame game, GraphicsDevice graphics, Vector3 position, Vector3 target)
         {
-            game = _game;
-            target = _target;
+            this.game = game;
+            this.target = target;
 
             Direction = target - position;
             Direction.Normalize();
@@ -50,10 +51,10 @@ namespace SharpCraft
             View = Matrix.CreateLookAt(position, target, Vector3.Up);
 
             Projection = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(70), 
-                (float)graphics.GraphicsDevice.Viewport.Width / graphics.GraphicsDevice.Viewport.Height, 0.1f, 200);
+                (float)graphics.Viewport.Width / graphics.Viewport.Height, 0.1f, 200);
 
-            screenCenter = new Vector2(graphics.GraphicsDevice.Viewport.Width / 2,
-                                       graphics.GraphicsDevice.Viewport.Height / 2);
+            screenCenter = new Vector2(graphics.Viewport.Width / 2,
+                                       graphics.Viewport.Height / 2);
             Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
 
             previousMouseState = Mouse.GetState();
