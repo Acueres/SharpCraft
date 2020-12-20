@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Microsoft.Xna.Framework;
 
@@ -115,20 +117,32 @@ namespace SharpCraft
 
             GenerateRegion(center);
 
+            Chunk chunk;
+
             for (int i = 0; i < ActiveChunks.Length; i++)
             {
-                if (Region[ActiveChunks[i]].Initialize)
+                chunk = Region[ActiveChunks[i]];
+
+                if (chunk.Initialize)
                 {
-                    chunkHandler.Initialize(Region[ActiveChunks[i]]);
-                    lightHandler.Initialize(Region[ActiveChunks[i]]);
+                    Task lightingUpdate = Task.Run(() =>
+                    {
+                        lightHandler.Initialize(chunk);
+                    });
+
+                    chunkHandler.Initialize(chunk);
+
+                    lightingUpdate.Wait();
                 }
             }
 
             for (int i = 0; i < ActiveChunks.Length; i++)
             {
-                if (Region[ActiveChunks[i]].GenerateMesh)
+                chunk = Region[ActiveChunks[i]];
+
+                if (chunk.GenerateMesh)
                 {
-                    chunkHandler.GenerateMesh(Region[ActiveChunks[i]]);
+                    chunkHandler.GenerateMesh(chunk);
                 }
             }
         }
