@@ -51,12 +51,14 @@ namespace SharpCraft
                 connection.Close();
             }
 
+            string saveName = Parameters.SaveName;
             string worldType = Parameters.WorldType;
             int seed = Parameters.Seed;
             DateTime date = Parameters.Date;
 
             Parameters = new Parameters
             {
+                SaveName = saveName,
                 WorldType = worldType,
                 Seed = seed,
                 Date = date
