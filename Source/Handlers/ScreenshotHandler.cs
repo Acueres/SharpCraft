@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace SharpCraft
 {
-    class ScreenshotTaker
+    class ScreenshotHandler
     {
         public bool TakeScreenshot;
 
@@ -15,7 +15,7 @@ namespace SharpCraft
         int screenWidth, screenHeight;
 
 
-        public ScreenshotTaker(GraphicsDevice graphics, int screenWidth, int screenHeight)
+        public ScreenshotHandler(GraphicsDevice graphics, int screenWidth, int screenHeight)
         {
             this.graphics = graphics;
             this.screenWidth = screenWidth;

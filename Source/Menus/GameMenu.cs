@@ -26,7 +26,7 @@ namespace SharpCraft
 
         Inventory inventory;
         Time time;
-        ScreenshotTaker screenshotTaker;
+        ScreenshotHandler screenshotHandler;
 
         Rectangle crosshair;
 
@@ -58,14 +58,14 @@ namespace SharpCraft
 
 
         public GameMenu(MainGame game, GraphicsDevice graphics, Time time,
-            ScreenshotTaker screenshotTaker, Parameters parameters)
+            ScreenshotHandler screenshotTaker, Parameters parameters)
         {
             this.game = game;
             this.graphics = graphics;
             spriteBatch = new SpriteBatch(graphics);
 
             this.time = time;
-            this.screenshotTaker = screenshotTaker;
+            this.screenshotHandler = screenshotTaker;
 
             menuTextures = Assets.MenuTextures;
 
@@ -233,7 +233,7 @@ namespace SharpCraft
 
             else if (Util.KeyPressed(Keys.F2, currentKeyboardState, previousKeyboardState))
             {
-                screenshotTaker.TakeScreenshot = true;
+                screenshotHandler.TakeScreenshot = true;
             }
 
             else if (Util.KeyPressed(Keys.F3, currentKeyboardState, previousKeyboardState))

@@ -11,25 +11,6 @@ namespace SharpCraft
 {
     static class Util
     {
-        //Legacy rendering code
-        public static void DrawCubeSide(VertexPositionTexture[] side, Texture2D texture,
-            GraphicsDevice graphics, BasicEffect effect, Matrix view, Matrix projection, Vector3 position)
-        {
-            effect.TextureEnabled = true;
-            effect.Texture = texture;
-
-            effect.World = Matrix.CreateTranslation(position);
-            effect.View = view;
-            effect.Projection = projection;
-
-            foreach (var pass in effect.CurrentTechnique.Passes)
-            {
-                pass.Apply();
-
-                graphics.DrawUserPrimitives(PrimitiveType.TriangleList, side, 0, 2);
-            }
-        }
-
         public static string Title(string str)
         {
             if (string.IsNullOrEmpty(str))

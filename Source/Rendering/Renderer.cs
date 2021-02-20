@@ -13,7 +13,7 @@ namespace SharpCraft
         GraphicsDevice graphics;
         Effect effect;
         Dictionary<Vector3, Chunk> region;
-        ScreenshotTaker screenshotTaker;
+        ScreenshotHandler screenshotHandler;
         BlockSelector blockSelector;
 
         Time time;
@@ -29,13 +29,13 @@ namespace SharpCraft
 
 
         public Renderer(MainGame game, GraphicsDevice graphics, Time _time,
-            Dictionary<Vector3, Chunk> region, ScreenshotTaker screenshotTaker,  BlockSelector blockSelector)
+            Dictionary<Vector3, Chunk> region, ScreenshotHandler screenshotTaker,  BlockSelector blockSelector)
         {
             this.game = game;
             this.graphics = graphics;
             effect = Assets.Effect.Clone();
             this.region = region;
-            this.screenshotTaker = screenshotTaker;
+            this.screenshotHandler = screenshotTaker;
             this.blockSelector = blockSelector;
 
             blockSelector.SetEffect(effect);
@@ -132,9 +132,9 @@ namespace SharpCraft
                 }
             }
 
-            if (screenshotTaker.TakeScreenshot)
+            if (screenshotHandler.TakeScreenshot)
             {
-                screenshotTaker.Screenshot(DateTime.Now.ToString());
+                screenshotHandler.Screenshot(DateTime.Now.ToString());
             }
 
             blockSelector.Draw();

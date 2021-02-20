@@ -93,15 +93,15 @@ namespace SharpCraft
 
                             time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
 
-                            ScreenshotTaker screenshotTaker = new ScreenshotTaker(GraphicsDevice, Window.ClientBounds.Width,
+                            ScreenshotHandler screenshotHandler = new ScreenshotHandler(GraphicsDevice, Window.ClientBounds.Width,
                                                                                   Window.ClientBounds.Height);
                             BlockSelector blockSelector = new BlockSelector(GraphicsDevice);
 
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName);
-                            gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters);
+                            gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters);
                             world = new World(gameMenu, databaseHandler, blockSelector, currentSave.Parameters);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
-                            renderer = new Renderer(this, GraphicsDevice, time, world.Region, screenshotTaker, blockSelector);
+                            renderer = new Renderer(this, GraphicsDevice, time, world.Region, screenshotHandler, blockSelector);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 
@@ -110,7 +110,7 @@ namespace SharpCraft
                                 player.Update(gameTime);
                                 world.Update();
                                 renderer.Draw(world.ActiveChunks, player);
-                                screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
+                                screenshotHandler.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }
 
                             break;

@@ -40,3 +40,18 @@
 /Assets Editor/birch_log.png
 /Assets Editor/birch_bark.png
 /Assets Editor/bedrock.png
+/.vs/SharpCraft/DesignTimeBuild
+/.vs/SharpCraft/v16/.suo
+/.vs/SharpCraft/v16/Browse.VC.db
+/Assets Editor
+/bin
+/obj
+/Properties
+/SharpCraft Beta
+/SharpCraft Pre-Alpha
+/.editorconfig
+/SharpCraft.sln
+/SharpCraft.csproj
+/icon.ico
+/DevLog.txt
+/Source/World/FastNoiseLite.cs
