@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
 
-namespace SharpCraft
+namespace SharpCraft.Utility
 {
     static class Util
     {

@@ -5,8 +5,10 @@ using System.Runtime.InteropServices;
 
 using Microsoft.Xna.Framework;
 
+using SharpCraft.Rendering;
 
-namespace SharpCraft
+
+namespace SharpCraft.World
 {
     public class Chunk : IDisposable
     {

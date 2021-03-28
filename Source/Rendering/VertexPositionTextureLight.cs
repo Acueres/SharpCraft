@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 
 
-namespace SharpCraft
+namespace SharpCraft.Rendering
 {
     public struct VertexPositionTextureLight : IVertexType
     {

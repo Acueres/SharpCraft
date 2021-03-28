@@ -2,6 +2,8 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
+using SharpCraft.Utility;
+
 
 namespace SharpCraft
 {

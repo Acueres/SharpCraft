@@ -4,8 +4,12 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
+using SharpCraft.Handlers;
+using SharpCraft.World;
+using SharpCraft.Utility;
 
-namespace SharpCraft
+
+namespace SharpCraft.Rendering
 {
     class Renderer
     {

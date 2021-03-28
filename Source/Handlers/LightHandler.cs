@@ -3,8 +3,11 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
+using SharpCraft.World;
+using SharpCraft.Utility;
 
-namespace SharpCraft
+
+namespace SharpCraft.Handlers
 {
     class LightHandler
     {
@@ -353,7 +356,7 @@ namespace SharpCraft
 
             if (y > 0 &&
                 Transparent(chunk.Blocks[y - 1][x][z]) &&
-                CompareValues(chunk.GetLight(y - 1, x, z, channel), light, amount: channel ? 0: 1))
+                CompareValues(chunk.GetLight(y - 1, x, z, channel), light, amount: (byte)(channel ? 0: 1)))
             {
                 if (channel)
                 {

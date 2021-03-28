@@ -4,8 +4,13 @@ using System.Collections.ObjectModel;
 
 using Microsoft.Xna.Framework;
 
+using SharpCraft.Models;
+using SharpCraft.Rendering;
+using SharpCraft.World;
+using SharpCraft.Utility;
 
-namespace SharpCraft
+
+namespace SharpCraft.Handlers
 {
     class ChunkHandler
     {

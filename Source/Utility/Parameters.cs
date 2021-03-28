@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 
 
-namespace SharpCraft
+namespace SharpCraft.Utility
 {
     public class Parameters
     {

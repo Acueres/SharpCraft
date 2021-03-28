@@ -3,8 +3,14 @@ using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 
+using SharpCraft.Menu;
+using SharpCraft.Rendering;
+using SharpCraft.World;
 
-namespace SharpCraft
+using SharpCraft.Utility;
+
+
+namespace SharpCraft.Handlers
 {
     class BlockHanlder
     {

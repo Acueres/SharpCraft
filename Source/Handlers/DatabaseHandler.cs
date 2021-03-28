@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 using Microsoft.Xna.Framework;
 
+using SharpCraft.World;
 
-namespace SharpCraft
+
+namespace SharpCraft.Handlers
 {
     class DatabaseHandler
     {

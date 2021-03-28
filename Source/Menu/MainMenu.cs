@@ -7,10 +7,12 @@ using System.IO;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+
 using SharpCraft.GUI;
+using SharpCraft.Utility;
 
 
-namespace SharpCraft
+namespace SharpCraft.Menu
 {
     class MainMenu
     {

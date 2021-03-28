@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 
 
-namespace SharpCraft
+namespace SharpCraft.Utility
 {
     static class Settings
     {

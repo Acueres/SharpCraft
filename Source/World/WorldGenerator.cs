@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
+using SharpCraft.Utility;
 
-namespace SharpCraft
+
+namespace SharpCraft.World
 {
     class WorldGenerator
     {

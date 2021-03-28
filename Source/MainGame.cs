@@ -3,6 +3,12 @@ using System.IO;
 
 using Microsoft.Xna.Framework;
 
+using SharpCraft.Handlers;
+using SharpCraft.Menu;
+using SharpCraft.Rendering;
+using SharpCraft.World;
+using SharpCraft.Utility;
+
 
 namespace SharpCraft
 {
@@ -23,7 +29,7 @@ namespace SharpCraft
         GraphicsDeviceManager graphics;
 
         Player player;
-        World world;
+        WorldManager world;
         GameMenu gameMenu;
         MainMenu mainMenu;
         Renderer renderer;
@@ -99,7 +105,7 @@ namespace SharpCraft
 
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters);
-                            world = new World(gameMenu, databaseHandler, blockSelector, currentSave.Parameters);
+                            world = new WorldManager(gameMenu, databaseHandler, blockSelector, currentSave.Parameters);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
                             renderer = new Renderer(this, GraphicsDevice, time, world.Region, screenshotHandler, blockSelector);
 
