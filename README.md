@@ -9,7 +9,7 @@ Download https://drive.google.com/file/d/1yeob8fMmDjdBdaioYU_pte8hCNi4kHbm/view?
 * Basic lighting system with daylight cycle
 * World changes persisted in a SQLite database
 
-# Screenshots
+### Screenshots
 
 ![mountains](https://user-images.githubusercontent.com/72624262/116400359-9f565b00-a832-11eb-8ca7-19adef3fdd7d.png)
 ![river](https://user-images.githubusercontent.com/72624262/116400353-9d8c9780-a832-11eb-9806-c86a1c42ee27.png)
