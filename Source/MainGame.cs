@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 
 using Microsoft.Xna.Framework;
 
@@ -72,7 +73,7 @@ namespace SharpCraft
             Content.Unload();
         }
 
-        protected override void Update(GameTime gameTime)
+        protected override async void Update(GameTime gameTime)
         {
             if (IsActive)
             {
@@ -83,7 +84,8 @@ namespace SharpCraft
                             if (!Paused)
                             {
                                 player.Update(gameTime);
-                                world.Update();
+                                await world.UpdateAsync();
+                                world.UpdateBlocks();
                             }
 
                             gameMenu.Update();

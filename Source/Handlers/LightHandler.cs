@@ -4,13 +4,16 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
 using SharpCraft.World;
+using SharpCraft.Models;
 using SharpCraft.Utility;
 
 
 namespace SharpCraft.Handlers
 {
-    class LightHandler
+    public class LightHandler
     {
+        Chunk chunk;
+
         Queue<LightNode> lightQueue;
         List<LightNode> lightList;
 
@@ -60,16 +63,17 @@ namespace SharpCraft.Handlers
             }
         }
 
-
-        public LightHandler(int size)
+        public LightHandler(Chunk chunk)
         {
-            lightQueue = new Queue<LightNode>(1000);
-            lightList = new List<LightNode>(1000);
+            this.chunk = chunk;
+
+            lightQueue = new Queue<LightNode>(100);
+            lightList = new List<LightNode>(100);
 
             nodes = new LightNode[6];
             lightValues = new byte[6];
 
-            this.size = size;
+            size = 16;
             height = 128;
             last = size - 1;
 
@@ -81,7 +85,7 @@ namespace SharpCraft.Handlers
             chunksToUpdate = new HashSet<Chunk>(5);
         }
 
-        public void Initialize(Chunk chunk)
+        public void Initialize()
         {
             bool skylight = true;
             bool blockLight = false;
@@ -111,7 +115,7 @@ namespace SharpCraft.Handlers
             FloodFill(blockLight);
         }
 
-        public void Update(Chunk chunk, int y, int x, int z, ushort? texture, bool sourceRemoved = false)
+        public void Update(int y, int x, int z, ushort? texture, bool sourceRemoved = false)
         {
             bool skylight = true;
             bool blockLight = false;
@@ -119,11 +123,11 @@ namespace SharpCraft.Handlers
             //Propagate light to an empty cell
             if (texture is null)
             {
-                GetNeighborValues(chunk, y, x, z, skylight);
+                GetNeighborValues(y, x, z, skylight);
                 lightQueue.Enqueue(nodes[Util.ArgMax(lightValues)]);
                 Repropagate(skylight);
 
-                GetNeighborValues(chunk, y, x, z, blockLight);
+                GetNeighborValues(y, x, z, blockLight);
                 lightQueue.Enqueue(nodes[Util.ArgMax(lightValues)]);
                 Repropagate(blockLight);
 
@@ -173,7 +177,7 @@ namespace SharpCraft.Handlers
 
                 node.SetLight(0, blockLight);
 
-                GetNeighborValues(node.Chunk, node.Y, node.X, node.Z, blockLight);
+                GetNeighborValues(node.Y, node.X, node.Z, blockLight);
 
                 for (int i = 0; i < 6; i++)
                 {
@@ -211,7 +215,7 @@ namespace SharpCraft.Handlers
                     node.SetLight(0, channel);
                 }
 
-                GetNeighborValues(node.Chunk, node.Y, node.X, node.Z, channel);
+                GetNeighborValues(node.Y, node.X, node.Z, channel);
                 int max = Util.ArgMax(lightValues);
 
                 lightList.Add(nodes[max]);
@@ -251,7 +255,7 @@ namespace SharpCraft.Handlers
             chunksToUpdate.Clear();
         }
 
-        void GetNeighborValues(Chunk chunk, int y, int x, int z, bool channel)
+        void GetNeighborValues(int y, int x, int z, bool channel)
         {
             Array.Clear(nodes, 0, 6);
             Array.Clear(lightValues, 0, 6);

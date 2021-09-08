@@ -1,15 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using Microsoft.Win32.SafeHandles;
+using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 
 using Microsoft.Xna.Framework;
+using Microsoft.Win32.SafeHandles;
 
 using SharpCraft.Rendering;
-using SharpCraft.Models;
+using SharpCraft.World;
+using SharpCraft.Handlers;
 
 
-namespace SharpCraft.World
+namespace SharpCraft.Models
 {
     public class Chunk : IDisposable
     {
@@ -20,6 +22,8 @@ namespace SharpCraft.World
         WorldGenerator worldGenerator;
 
         public NeighborChunks Neighbors;
+
+        public LightHandler LightHandler;
 
         public bool GenerateMesh;
         public bool Initialize;
@@ -98,6 +102,7 @@ namespace SharpCraft.World
 
             this.region = region;
             this.worldGenerator = worldGenerator;
+            LightHandler = new(this);
 
             GenerateMesh = true;
             Initialize = true;
@@ -138,6 +143,14 @@ namespace SharpCraft.World
 
             VertexList = new List<VertexPositionTextureLight>(6 * total);
             TransparentVertexList = new List<VertexPositionTextureLight>(3 * total);
+        }
+
+        public void Start()
+        {
+            if (!Initialize) return;
+
+            Init();
+            LightHandler.Initialize();
         }
 
         public void Init()

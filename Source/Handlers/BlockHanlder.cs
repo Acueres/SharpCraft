@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.World;
+using SharpCraft.Models;
 
 using SharpCraft.Utility;
 
@@ -19,7 +20,6 @@ namespace SharpCraft.Handlers
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
         DatabaseHandler databaseHandler;
-        LightHandler lightHandler;
 
         IList<bool> lightSources;
 
@@ -30,14 +30,13 @@ namespace SharpCraft.Handlers
 
 
         public BlockHanlder(MainGame game, Player player, Dictionary<Vector3, Chunk> region,
-            GameMenu gameMenu, DatabaseHandler databaseHandler, LightHandler lightHandler, int size)
+            GameMenu gameMenu, DatabaseHandler databaseHandler, int size)
         {
             this.game = game;
             this.player = player;
             this.region = region;
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
-            this.lightHandler = lightHandler;
 
             lightSources = Assets.LightSources;
 
@@ -101,7 +100,7 @@ namespace SharpCraft.Handlers
 
             chunk.Active.RemoveAt(index);
 
-            lightHandler.Update(chunk, y, x, z, null, sourceRemoved: lightSource);
+            chunk.LightHandler.Update(y, x, z, null, sourceRemoved: lightSource);
 
             databaseHandler.AddDelta(position, y, x, z, null);
 
@@ -142,7 +141,7 @@ namespace SharpCraft.Handlers
 
             chunk.Blocks[y][x][z] = texture;
 
-            lightHandler.Update(chunk, y, x, z, texture);
+            chunk.LightHandler.Update(y, x, z, texture);
 
             databaseHandler.AddDelta(position, y, x, z, texture);
 

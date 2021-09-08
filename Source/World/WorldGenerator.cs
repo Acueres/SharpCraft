@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Utility;
+using SharpCraft.Models;
 
 
 namespace SharpCraft.World
