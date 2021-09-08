@@ -31,7 +31,7 @@ namespace SharpCraft.World
         GameMenu gameMenu;
         BlockHanlder blockHanlder;
         WorldGenerator worldGenerator;
-        ChunkHandler chunkHandler;
+        //ChunkHandler chunkHandler;
         DatabaseHandler databaseHandler;
         LightHandler lightHandler;
         BlockSelector blockSelector;
@@ -60,7 +60,7 @@ namespace SharpCraft.World
 
             worldGenerator = new WorldGenerator(parameters);
             region = new Dictionary<Vector3, Chunk>((int)2e3);
-            chunkHandler = new ChunkHandler(worldGenerator, region);
+            //chunkHandler = new ChunkHandler(worldGenerator, region);
             lightHandler = new LightHandler(size);
             this.blockSelector = blockSelector;
 
@@ -143,7 +143,7 @@ namespace SharpCraft.World
                         lightHandler.Initialize(chunk);
                     });
 
-                    chunkHandler.Initialize(chunk);
+                    chunk.Init();
 
                     lightingUpdate.Wait();
                 }
@@ -155,7 +155,7 @@ namespace SharpCraft.World
 
                 if (chunk.GenerateMesh)
                 {
-                    chunkHandler.GenerateMesh(chunk);
+                    chunk.MakeMesh();
                 }
             }
         }
@@ -193,7 +193,7 @@ namespace SharpCraft.World
                     Vector3 position = center - new Vector3(i, 0, j);
                     if (region[position] is null)
                     {
-                        region[position] = worldGenerator.GenerateChunk(position);
+                        region[position] = worldGenerator.GenerateChunk(position, region);
                         databaseHandler.ApplyDelta(region[position]);
                     }
 
@@ -218,7 +218,6 @@ namespace SharpCraft.World
             {
                 if (region[inactiveChunks[i]] != null)
                 {
-                    chunkHandler.Dereference(region[inactiveChunks[i]]);
                     region[inactiveChunks[i]].Dispose();
                 }
 
@@ -281,7 +280,7 @@ namespace SharpCraft.World
                         }
                         else
                         {
-                            chunkHandler.GetVisibleFaces(visibleFaces, region[position], y, x, z);
+                            chunk.GetVisibleFaces(visibleFaces, y, x, z);
                             player.Physics.Collision(blockPosition, visibleFaces);
                         }
                     }
@@ -298,7 +297,7 @@ namespace SharpCraft.World
                 }
             }
 
-            blockHanlder.Update(blockSelector, chunkHandler);
+            blockHanlder.Update(blockSelector);
 
             nearChunks.Clear();
         }

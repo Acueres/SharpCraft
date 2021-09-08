@@ -19,6 +19,7 @@ namespace SharpCraft
         public static ReadOnlyDictionary<ushort, string> BlockNames { get; private set; }
         public static ReadOnlyDictionary<string, ushort> BlockIndices { get; private set; }
         public static ReadOnlyDictionary<ushort, ushort[]> MultifaceBlocks { get; private set; }
+        public static bool[] Multiface { get; private set; }
         public static ReadOnlyDictionary<ushort, byte> LightValues { get; private set; }
 
         public static IList<bool> TransparentBlocks { get; private set; }
@@ -152,6 +153,15 @@ namespace SharpCraft
             LightSources = Array.AsReadOnly(lightSources);
 
             BlockTextures = Array.AsReadOnly(blockTextures);
+
+            Multiface = new bool[BlockTextures.Count];
+            for (ushort i = 0; i < Multiface.Length; i++)
+            {
+                if (multifaceBlocks.ContainsKey(i))
+                {
+                    Multiface[i] = true;
+                }
+            }
         }
     }
 }

@@ -59,7 +59,7 @@ namespace SharpCraft.Handlers
             this.position = position;
         }
 
-        public void Update(BlockSelector blockSelector, ChunkHandler chunkHandler)
+        public void Update(BlockSelector blockSelector)
         {
             if (player.LeftClick && !game.ExitedMenu)
             {
@@ -76,7 +76,7 @@ namespace SharpCraft.Handlers
             if (y != -1 && region[position].Blocks[y][x][z] != null)
             {
                 bool[] visibleFaces = new bool[6];
-                chunkHandler.GetVisibleFaces(visibleFaces, region[position], y, x, z);
+                region[position].GetVisibleFaces(visibleFaces, y, x, z);
 
                 blockSelector.Update(visibleFaces, new Vector3(x, y, z) - position, player.Camera.Direction);
             }

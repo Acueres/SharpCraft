@@ -6,12 +6,14 @@ using SharpCraft.Rendering;
 
 namespace SharpCraft.Models
 {
-    class Cube
+    static class Cube
     {
-        public VertexPositionTextureLight[][] Faces;
+        public static VertexPositionTextureLight[][] Faces { get; set; }
 
-        public Cube(float size = 0.5f)
+        static Cube()
         {
+            float size = 0.5f;
+
             VertexPositionTextureLight[] front = new VertexPositionTextureLight[6];
             front[0].Position = new Vector3(-size, -size, size);
             front[1].Position = new Vector3(-size, size, size);
@@ -73,7 +75,7 @@ namespace SharpCraft.Models
             }
         }
 
-        Vector3 FaceNormal(VertexPositionNormalTexture[] vertices)
+        static Vector3 FaceNormal(VertexPositionNormalTexture[] vertices)
         {
             return Vector3.Cross(vertices[1].Position - vertices[0].Position, vertices[2].Position - vertices[0].Position);
         }

@@ -7,7 +7,7 @@ using SharpCraft.Utility;
 
 namespace SharpCraft.World
 {
-    class WorldGenerator
+    public class WorldGenerator
     {
         int size;
         string type;
@@ -80,12 +80,12 @@ namespace SharpCraft.World
             river.SetFrequency(0.001f);
         }
 
-        public Chunk GenerateChunk(Vector3 position)
+        public Chunk GenerateChunk(Vector3 position, Dictionary<Vector3, Chunk> region)
         {
             return type switch
             {
-                "Flat" => Flat(position),
-                _ => Default(position),
+                "Flat" => Flat(position, region),
+                _ => Default(position, region),
             };
         }
 
@@ -103,9 +103,9 @@ namespace SharpCraft.World
             }
         }
         
-        Chunk Default(Vector3 position)
+        Chunk Default(Vector3 position, Dictionary<Vector3, Chunk> region)
         {
-            Chunk chunk = new Chunk(position, size: size);
+            Chunk chunk = new Chunk(position, this, region);
 
             int[,] elevationMap = new int[size, size];
 
@@ -171,9 +171,9 @@ namespace SharpCraft.World
             return height;
         }
 
-        Chunk Flat(Vector3 position)
+        Chunk Flat(Vector3 position, Dictionary<Vector3, Chunk> region)
         {
-            Chunk chunk = new Chunk(position, size: size);
+            Chunk chunk = new Chunk(position, this, region);
 
             for (int y = 0; y < 5; y++)
             {

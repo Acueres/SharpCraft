@@ -19,7 +19,6 @@ namespace SharpCraft.Rendering
 
         Dictionary<int, char> faceMap;
 
-        Cube cube;
         Texture2D texture;
 
         DynamicVertexBuffer buffer;
@@ -41,7 +40,6 @@ namespace SharpCraft.Rendering
                 [5] = 'X'
             };
 
-            cube = new Cube();
             texture = Assets.MenuTextures["block_selector"];
 
             buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
@@ -80,7 +78,7 @@ namespace SharpCraft.Rendering
                 {
                     for (int i = 0; i < 6; i++)
                     {
-                        VertexPositionTextureLight vertex = cube.Faces[face][i];
+                        VertexPositionTextureLight vertex = Cube.Faces[face][i];
 
                         vertex.Position += position;
 
