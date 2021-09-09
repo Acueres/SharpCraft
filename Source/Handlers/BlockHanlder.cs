@@ -100,7 +100,7 @@ namespace SharpCraft.Handlers
 
             chunk.Active.RemoveAt(index);
 
-            chunk.LightHandler.Update(y, x, z, null, sourceRemoved: lightSource);
+            chunk.Update(y, x, z, null, sourceRemoved: lightSource);
 
             databaseHandler.AddDelta(position, y, x, z, null);
 
@@ -141,7 +141,7 @@ namespace SharpCraft.Handlers
 
             chunk.Blocks[y][x][z] = texture;
 
-            chunk.LightHandler.Update(y, x, z, texture);
+            chunk.Update(y, x, z, texture);
 
             databaseHandler.AddDelta(position, y, x, z, texture);
 

@@ -11,7 +11,6 @@ using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.Utility;
-using SharpCraft.Models;
 
 
 namespace SharpCraft.World
@@ -131,11 +130,6 @@ namespace SharpCraft.World
 
             for (int i = 0; i < ActiveChunks.Length; i++)
             {
-                region[ActiveChunks[i]].Start();
-            }
-
-            for (int i = 0; i < ActiveChunks.Length; i++)
-            {
                 chunk = region[ActiveChunks[i]];
 
                 if (chunk.GenerateMesh)
@@ -191,7 +185,7 @@ namespace SharpCraft.World
                     Vector3 position = center - new Vector3(i, 0, j);
                     if (region[position] is null)
                     {
-                        region[position] = worldGenerator.GenerateChunk(position, region);
+                        region[position] = new Chunk(position, worldGenerator, region);
                         databaseHandler.ApplyDelta(region[position]);
                     }
 

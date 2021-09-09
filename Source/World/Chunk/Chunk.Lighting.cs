@@ -1,18 +1,18 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 
-using SharpCraft.World;
-using SharpCraft.Models;
 using SharpCraft.Utility;
 
-
-namespace SharpCraft.Handlers
+namespace SharpCraft.World
 {
-    public class LightHandler
+    public sealed partial class Chunk
     {
-        Chunk chunk;
+        byte[][][] LightMap;
+        List<Index> LightSources;
 
         Queue<LightNode> lightQueue;
         List<LightNode> lightList;
@@ -20,9 +20,9 @@ namespace SharpCraft.Handlers
         LightNode[] nodes;
         byte[] lightValues;
 
-        readonly int size;
-        readonly int height;
-        readonly int last;
+        int size;
+        int height;
+        int last;
 
         ReadOnlyDictionary<ushort, byte> lightSourceValues;
 
@@ -63,29 +63,7 @@ namespace SharpCraft.Handlers
             }
         }
 
-        public LightHandler(Chunk chunk)
-        {
-            this.chunk = chunk;
-
-            lightQueue = new Queue<LightNode>(100);
-            lightList = new List<LightNode>(100);
-
-            nodes = new LightNode[6];
-            lightValues = new byte[6];
-
-            size = 16;
-            height = 128;
-            last = size - 1;
-
-            lightSourceValues = Assets.LightValues;
-
-            transparent = Assets.TransparentBlocks;
-            lightSources = Assets.LightSources;
-
-            chunksToUpdate = new HashSet<Chunk>(5);
-        }
-
-        public void Initialize()
+        void InitializeLight()
         {
             bool skylight = true;
             bool blockLight = false;
@@ -95,21 +73,21 @@ namespace SharpCraft.Handlers
             {
                 for (int z = 0; z < size; z++)
                 {
-                    chunk.SetLight(height - 1, x, z, 15, skylight);
-                    lightQueue.Enqueue(new LightNode(chunk, x, height - 1, z));
+                    SetLight(height - 1, x, z, 15, skylight);
+                    lightQueue.Enqueue(new LightNode(this, x, height - 1, z));
                 }
             }
 
             FloodFill(skylight);
 
-            for (int i = 0; i < chunk.LightSources.Count; i++)
+            for (int i = 0; i < LightSources.Count; i++)
             {
-                int y = chunk.LightSources[i].Y;
-                int x = chunk.LightSources[i].X;
-                int z = chunk.LightSources[i].Z;
+                int y = LightSources[i].Y;
+                int x = LightSources[i].X;
+                int z = LightSources[i].Z;
 
-                chunk.SetLight(y, x, z, lightSourceValues[(ushort)chunk.Blocks[y][x][z]], blockLight);
-                lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+                SetLight(y, x, z, lightSourceValues[(ushort)Blocks[y][x][z]], blockLight);
+                lightQueue.Enqueue(new LightNode(this, x, y, z));
             }
 
             FloodFill(blockLight);
@@ -133,7 +111,7 @@ namespace SharpCraft.Handlers
 
                 if (sourceRemoved)
                 {
-                    lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+                    lightQueue.Enqueue(new LightNode(this, x, y, z));
                     RemoveSource();
                 }
             }
@@ -142,16 +120,16 @@ namespace SharpCraft.Handlers
             else
             {
                 bool sourceAdded = false;
-                if (lightSources[(int)chunk.Blocks[y][x][z]])
+                if (lightSources[(int)Blocks[y][x][z]])
                 {
-                    chunk.SetLight(y, x, z, lightSourceValues[(ushort)chunk.Blocks[y][x][z]], blockLight);
+                    SetLight(y, x, z, lightSourceValues[(ushort)Blocks[y][x][z]], blockLight);
                     sourceAdded = true;
                 }
 
-                lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+                lightQueue.Enqueue(new LightNode(this, x, y, z));
                 FloodRemove(skylight);
 
-                lightQueue.Enqueue(new LightNode(chunk, x, y, z));
+                lightQueue.Enqueue(new LightNode(this, x, y, z));
                 if (sourceAdded)
                 {
                     Repropagate(blockLight);
@@ -262,60 +240,60 @@ namespace SharpCraft.Handlers
 
             if (y + 1 < height)
             {
-                nodes[0] = new LightNode(chunk, x, y + 1, z);
-                lightValues[0] = chunk.GetLight(y + 1, x, z, channel);
+                nodes[0] = new LightNode(this, x, y + 1, z);
+                lightValues[0] = GetLight(y + 1, x, z, channel);
             }
 
             if (y > 0)
             {
-                nodes[1] = new LightNode(chunk, x, y - 1, z);
-                lightValues[1] = chunk.GetLight(y - 1, x, z, channel);
+                nodes[1] = new LightNode(this, x, y - 1, z);
+                lightValues[1] = GetLight(y - 1, x, z, channel);
             }
 
 
             if (x == last)
             {
-                nodes[2] = new LightNode(chunk.Neighbors.XNeg, 0, y, z);
-                lightValues[2] = chunk.Neighbors.XNeg.GetLight(y, 0, z, channel);
+                nodes[2] = new LightNode(Neighbors.XNeg, 0, y, z);
+                lightValues[2] = Neighbors.XNeg.GetLight(y, 0, z, channel);
             }
             else
             {
-                nodes[2] = new LightNode(chunk, x + 1, y, z);
-                lightValues[2] = chunk.GetLight(y, x + 1, z, channel);
+                nodes[2] = new LightNode(this, x + 1, y, z);
+                lightValues[2] = GetLight(y, x + 1, z, channel);
             }
 
             if (x == 0)
             {
-                nodes[3] = new LightNode(chunk.Neighbors.XPos, last, y, z);
-                lightValues[3] = chunk.Neighbors.XPos.GetLight(y, last, z, channel);
+                nodes[3] = new LightNode(Neighbors.XPos, last, y, z);
+                lightValues[3] = Neighbors.XPos.GetLight(y, last, z, channel);
             }
             else
             {
-                nodes[3] = new LightNode(chunk, x - 1, y, z);
-                lightValues[3] = chunk.GetLight(y, x - 1, z, channel);
+                nodes[3] = new LightNode(this, x - 1, y, z);
+                lightValues[3] = GetLight(y, x - 1, z, channel);
             }
 
 
             if (z == last)
             {
-                nodes[4] = new LightNode(chunk.Neighbors.ZNeg, x, y, 0);
-                lightValues[4] = chunk.Neighbors.ZNeg.GetLight(y, x, 0, channel);
+                nodes[4] = new LightNode(Neighbors.ZNeg, x, y, 0);
+                lightValues[4] = Neighbors.ZNeg.GetLight(y, x, 0, channel);
             }
             else
             {
-                nodes[4] = new LightNode(chunk, x, y, z + 1);
-                lightValues[4] = chunk.GetLight(y, x, z + 1, channel);
+                nodes[4] = new LightNode(this, x, y, z + 1);
+                lightValues[4] = GetLight(y, x, z + 1, channel);
             }
 
             if (z == 0)
             {
-                nodes[5] = new LightNode(chunk.Neighbors.ZPos, x, y, last);
-                lightValues[5] = chunk.Neighbors.ZPos.GetLight(y, x, last, channel);
+                nodes[5] = new LightNode(Neighbors.ZPos, x, y, last);
+                lightValues[5] = Neighbors.ZPos.GetLight(y, x, last, channel);
             }
             else
             {
-                nodes[5] = new LightNode(chunk, x, y, z - 1);
-                lightValues[5] = chunk.GetLight(y, x, z - 1, channel);
+                nodes[5] = new LightNode(this, x, y, z - 1);
+                lightValues[5] = GetLight(y, x, z - 1, channel);
             }
         }
 
@@ -360,7 +338,7 @@ namespace SharpCraft.Handlers
 
             if (y > 0 &&
                 Transparent(chunk.Blocks[y - 1][x][z]) &&
-                CompareValues(chunk.GetLight(y - 1, x, z, channel), light, amount: (byte)(channel ? 0: 1)))
+                CompareValues(chunk.GetLight(y - 1, x, z, channel), light, amount: (byte)(channel ? 0 : 1)))
             {
                 if (channel)
                 {
@@ -444,6 +422,102 @@ namespace SharpCraft.Handlers
             {
                 chunk.SetLight(y, x, z - 1, nextLight, channel);
                 lightQueue.Enqueue(new LightNode(chunk, x, y, z - 1));
+            }
+        }
+
+        void GetFacesLight(byte[] lightValues, bool[] facesVisible, int y, int x, int z)
+        {
+            if (facesVisible[2])
+            {
+                lightValues[2] = LightMap[y + 1][x][z];
+            }
+
+            if (facesVisible[3])
+            {
+                lightValues[3] = LightMap[y - 1][x][z];
+            }
+
+
+            if (facesVisible[4])
+            {
+                if (x == last)
+                {
+                    if (Neighbors.XNeg != null)
+                        lightValues[4] = Neighbors.XNeg.LightMap[y][0][z];
+                }
+                else
+                {
+                    lightValues[4] = LightMap[y][x + 1][z];
+                }
+            }
+
+            if (facesVisible[5])
+            {
+                if (x == 0)
+                {
+                    if (Neighbors.XPos != null)
+                        lightValues[5] = Neighbors.XPos.LightMap[y][last][z];
+                }
+                else
+                {
+                    lightValues[5] = LightMap[y][x - 1][z];
+                }
+            }
+
+
+            if (facesVisible[0])
+            {
+                if (z == last)
+                {
+                    if (Neighbors.ZNeg != null)
+                        lightValues[0] = Neighbors.ZNeg.LightMap[y][x][0];
+                }
+                else
+                {
+                    lightValues[0] = LightMap[y][x][z + 1];
+                }
+            }
+
+            if (facesVisible[1])
+            {
+                if (z == 0)
+                {
+                    if (Neighbors.ZPos != null)
+                        lightValues[1] = Neighbors.ZPos.LightMap[y][x][last];
+                }
+                else
+                {
+                    lightValues[1] = LightMap[y][x][z - 1];
+                }
+            }
+        }
+
+        public void AddLightSource(int y, int x, int z)
+        {
+            LightSources.Add(new Index(y, x, z));
+        }
+
+        public void SetLight(int y, int x, int z, byte value, bool skylight)
+        {
+            if (skylight)
+            {
+                LightMap[y][x][z] = (byte)((LightMap[y][x][z] & 0xF) | (value << 4));
+            }
+            else
+            {
+                LightMap[y][x][z] = (byte)((LightMap[y][x][z] & 0xF0) | value);
+            }
+        }
+
+        public byte GetLight(int y, int x, int z, bool skylight)
+        {
+            if (skylight)
+            {
+                return (byte)((LightMap[y][x][z] >> 4) & 0xF);
+            }
+            else
+            {
+                return (byte)(LightMap[y][x][z] & 0xF);
             }
         }
 

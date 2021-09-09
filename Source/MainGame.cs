@@ -84,8 +84,9 @@ namespace SharpCraft
                             if (!Paused)
                             {
                                 player.Update(gameTime);
+                                if (player.UpdateOccured)
+                                    world.UpdateBlocks();
                                 await world.UpdateAsync();
-                                world.UpdateBlocks();
                             }
 
                             gameMenu.Update();

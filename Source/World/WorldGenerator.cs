@@ -81,12 +81,16 @@ namespace SharpCraft.World
             river.SetFrequency(0.001f);
         }
 
-        public Chunk GenerateChunk(Vector3 position, Dictionary<Vector3, Chunk> region)
+        public void GenerateChunk(Chunk chunk)
         {
-            return type switch
+            switch (type)
             {
-                "Flat" => Flat(position, region),
-                _ => Default(position, region),
+                case "Flat":
+                    Flat(chunk);
+                    break;
+                default:
+                    Default(chunk);
+                    break;
             };
         }
 
@@ -104,17 +108,15 @@ namespace SharpCraft.World
             }
         }
         
-        Chunk Default(Vector3 position, Dictionary<Vector3, Chunk> region)
+        void Default(Chunk chunk)
         {
-            Chunk chunk = new Chunk(position, this, region);
-
             int[,] elevationMap = new int[size, size];
 
             for (int x = 0; x < size; x++)
             {
                 for (int z = 0; z < size; z++)
                 {
-                    elevationMap[x, z] = GetHeight(position, x, z, out byte biomeData);
+                    elevationMap[x, z] = GetHeight(chunk.Position, x, z, out byte biomeData);
                     chunk.BiomeData[x][z] = biomeData;
                 }
             }
@@ -141,8 +143,6 @@ namespace SharpCraft.World
             }
 
             GenerateTrees(chunk, elevationMap, 5);
-
-            return chunk;
         }
 
         int GetHeight(Vector3 position, int x, int z, out byte biomeData)
@@ -172,10 +172,8 @@ namespace SharpCraft.World
             return height;
         }
 
-        Chunk Flat(Vector3 position, Dictionary<Vector3, Chunk> region)
+        void Flat(Chunk chunk)
         {
-            Chunk chunk = new Chunk(position, this, region);
-
             for (int y = 0; y < 5; y++)
             {
                 for (int x = 0; x < size; x++)
@@ -195,8 +193,6 @@ namespace SharpCraft.World
                     }
                 }
             }
-
-            return chunk;
         }
 
         ushort Fill(int maxY, int currentY, byte biome)
