@@ -72,7 +72,7 @@ namespace SharpCraft.Handlers
                 AddBlock();
             }
 
-            if (y != -1 && region[position].Blocks[y][x][z] != null)
+            if (y != -1 && region[position][x, y, z] != null)
             {
                 bool[] visibleFaces = new bool[6];
                 region[position].GetVisibleFaces(visibleFaces, y, x, z);
@@ -94,13 +94,13 @@ namespace SharpCraft.Handlers
 
             Chunk chunk = region[position];
 
-            bool lightSource = lightSources[(ushort)chunk.Blocks[y][x][z]];
+            bool lightSource = lightSources[(ushort)chunk[x, y, z]];
 
-            chunk.Blocks[y][x][z] = null;
+            chunk[x, y, z] = null;
 
             chunk.Active.RemoveAt(index);
 
-            chunk.Update(y, x, z, null, sourceRemoved: lightSource);
+            chunk.UpdateLight(y, x, z, null, sourceRemoved: lightSource);
 
             databaseHandler.AddDelta(position, y, x, z, null);
 
@@ -128,7 +128,7 @@ namespace SharpCraft.Handlers
             Chunk chunk = region[position];
             ushort? texture;
 
-            if (chunk.Blocks[y][x][z] is null && gameMenu.SelectedItem != null)
+            if (chunk[x, y, z] is null && gameMenu.SelectedItem != null)
             {
                 texture = gameMenu.SelectedItem;
             }
@@ -137,11 +137,9 @@ namespace SharpCraft.Handlers
                 return;
             }
 
-            Console.WriteLine(chunk.GetLight(y, x, z, true));
+            chunk[x, y, z] = texture;
 
-            chunk.Blocks[y][x][z] = texture;
-
-            chunk.Update(y, x, z, texture);
+            chunk.UpdateLight(y, x, z, texture);
 
             databaseHandler.AddDelta(position, y, x, z, texture);
 
@@ -150,9 +148,9 @@ namespace SharpCraft.Handlers
 
         void UpdateAdjacentBlocks(Chunk chunk, int y, int x, int z)
         {
-            chunk.GenerateMesh = true;
+            chunk.UpdateMesh = true;
 
-            if (chunk.Blocks[y][x][z] != null)
+            if (chunk[x, y, z] != null)
             {
                 ActivateBlock(chunk, y, x, z);
             }
@@ -183,14 +181,14 @@ namespace SharpCraft.Handlers
 
         void ActivateBlock(Chunk chunk, int y, int x, int z)
         {
-            if (chunk.Blocks[y][x][z] is null)
+            if (chunk[x, y, z] is null)
             {
                 return;
             }
 
             chunk.AddIndex(y, x, z);
 
-            chunk.GenerateMesh = true;
+            chunk.UpdateMesh = true;
         }
 
         void AdjustIndices(char face, Vector3 vector)

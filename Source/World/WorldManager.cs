@@ -58,8 +58,8 @@ namespace SharpCraft.World
 
             Outline = new VertexPositionTextureLight[36];
 
-            int n1 = 2 * renderDistance + 1;
-            int n2 = (2 * (renderDistance + 2) + 1);
+            int n1 = 2 * renderDistance + 1; //area around the player
+            int n2 = (2 * (renderDistance + 2) + 1); //buffer of 2 chunks
             ActiveChunks = new Vector3[n1 * n1];
             nearChunks = new HashSet<Vector3>(4);
             inactiveChunks = new List<Vector3>(n2 * n2);
@@ -97,7 +97,7 @@ namespace SharpCraft.World
                 busy = true;
                 GetActiveChunks();
                 UpdateChunks();
-                UnloadChunks();
+                RemoveInactiveChunks();
                 busy = false;
             });
         }
@@ -108,7 +108,7 @@ namespace SharpCraft.World
 
             GetActiveChunks();
             UpdateChunks();
-            UnloadChunks();
+            RemoveInactiveChunks();
             UpdateBlocks();
         }
 
@@ -131,11 +131,7 @@ namespace SharpCraft.World
             for (int i = 0; i < ActiveChunks.Length; i++)
             {
                 chunk = region[ActiveChunks[i]];
-
-                if (chunk.GenerateMesh)
-                {
-                    chunk.MakeMesh();
-                }
+                chunk.Update();
             }
         }
 
@@ -195,7 +191,7 @@ namespace SharpCraft.World
             }
         }
 
-        void UnloadChunks()
+        void RemoveInactiveChunks()
         {
             for (int i = 0; i < inactiveChunks.Count; i++)
             {
@@ -214,6 +210,7 @@ namespace SharpCraft.World
                 }
 
                 region[inactiveChunks[i]] = null;
+                region.Remove(inactiveChunks[i]);
             }
 
             inactiveChunks.Clear();
@@ -261,7 +258,7 @@ namespace SharpCraft.World
 
                     if (player.Bound.Intersects(blockBounds))
                     {
-                        if (chunk.Blocks[y][x][z] == water)
+                        if (chunk[x, y, z] == water)
                         {
                             if (!player.Swimming)
                             {

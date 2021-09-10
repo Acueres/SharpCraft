@@ -12,6 +12,8 @@ namespace SharpCraft.World
 {
     public sealed partial class Chunk
     {
+        public bool UpdateMesh { private get; set; }
+
         public VertexPositionTextureLight[] Vertices;
         public VertexPositionTextureLight[] TransparentVertices;
 
@@ -21,7 +23,7 @@ namespace SharpCraft.World
         public int VertexCount;
         public int TransparentVertexCount;
 
-        public void UpdateMesh()
+        /*public void UpdateMesh()
         {
             Vertices = VertexList.ToArray();
             TransparentVertices = TransparentVertexList.ToArray();
@@ -33,7 +35,7 @@ namespace SharpCraft.World
             TransparentVertexList.Clear();
 
             GenerateMesh = false;
-        }
+        }*/
 
         public void MakeMesh()
         {
@@ -55,12 +57,21 @@ namespace SharpCraft.World
                 {
                     if (visibleFaces[face])
                     {
-                        AddFaceMesh(Blocks[y][x][z], face, lightValues[face], blockPosition);
+                        AddFaceMesh(blocks[y][x][z], face, lightValues[face], blockPosition);
                     }
                 }
             }
 
-            UpdateMesh();
+            Vertices = VertexList.ToArray();
+            TransparentVertices = TransparentVertexList.ToArray();
+
+            VertexCount = VertexList.Count;
+            TransparentVertexCount = TransparentVertexList.Count;
+
+            VertexList.Clear();
+            TransparentVertexList.Clear();
+
+            UpdateMesh = false;
         }
 
         void AddFaceMesh(ushort? texture, int face, byte light, Vector3 blockPosition)
@@ -84,7 +95,7 @@ namespace SharpCraft.World
             }
         }
 
-        void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort? texture)
+        static void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort? texture)
         {
             int size = 16;
             int textureCount = Assets.BlockTextures.Count;

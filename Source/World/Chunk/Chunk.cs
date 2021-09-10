@@ -17,11 +17,13 @@ namespace SharpCraft.World
 
         public NeighborChunks Neighbors;
 
-        public bool GenerateMesh;
-
         public void Dispose() => Dispose(true);
         SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
         bool disposed = false;
+
+        int size;
+        int height;
+        int last;
 
         public class NeighborChunks
         {
@@ -82,14 +84,14 @@ namespace SharpCraft.World
             //Only about ~5% of all blocks are visible
             int total = (int)(0.05 * size * size * height);
 
-            Blocks = new ushort?[height][][];
+            blocks = new ushort?[height][][];
             for (int y = 0; y < height; y++)
             {
-                Blocks[y] = new ushort?[size][];
+                blocks[y] = new ushort?[size][];
 
                 for (int x = 0; x < size; x++)
                 {
-                    Blocks[y][x] = new ushort?[size];
+                    blocks[y][x] = new ushort?[size];
                 }
             }
 
@@ -114,27 +116,41 @@ namespace SharpCraft.World
 
             lightSourceValues = Assets.LightValues;
 
-            transparent = Assets.TransparentBlocks;
-            lightSources = Assets.LightSources;
+            isTransparent = Assets.TransparentBlocks;
+            isLightSource = Assets.LightSources;
 
             chunksToUpdate = new HashSet<Chunk>(5);
 
-            LightMap = new byte[height][][];
+            lightMap = new byte[height][][];
             for (int y = 0; y < height; y++)
             {
-                LightMap[y] = new byte[size][];
+                lightMap[y] = new byte[size][];
 
                 for (int x = 0; x < size; x++)
                 {
-                    LightMap[y][x] = new byte[size];
+                    lightMap[y][x] = new byte[size];
                 }
             }
 
-            LightSources = new List<Index>(100);
+            lightSources = new List<Index>(100);
 
             Initialize();
             InitializeLight();
             MakeMesh();
+        }
+
+        public ushort? this[int x, int y, int z]
+        {
+            get => blocks[y][x][z];
+            set => blocks[y][x][z] = value;
+        }
+
+        public void Update()
+        {
+            if (UpdateMesh)
+            {
+                MakeMesh();
+            }
         }
 
         public void Dereference()

@@ -129,14 +129,14 @@ namespace SharpCraft.World
                     {
                         ushort texture = Fill(elevationMap[x, z], y, chunk.BiomeData[x][z]);
 
-                        chunk.Blocks[y][x][z] = texture;
+                        chunk[x, y, z] = texture;
                     }
 
                     if (chunk.BiomeData[x][z] == 0)
                     {
                         for (int i = elevationMap[x, z]; i < waterLevel; i++)
                         {
-                            chunk.Blocks[i][x][z] = water;
+                            chunk[x, i, z] = water;
                         }
                     }
                 }
@@ -189,7 +189,7 @@ namespace SharpCraft.World
                         else
                             texture = dirt;
 
-                        chunk.Blocks[y][x][z] = texture;
+                        chunk[x, y, z] = texture;
                     }
                 }
             }
@@ -332,8 +332,8 @@ namespace SharpCraft.World
 
         void MakeTree(Chunk chunk, ushort wood, int y, int x, int z)
         {
-            if (chunk.Blocks[y - 1][x][z] != grass &&
-                chunk.Blocks[y - 1][x][z] != dirt)
+            if (chunk[x, y - 1, z] != grass &&
+                chunk[x, y - 1, z] != dirt)
             {
                 return;
             }
@@ -345,45 +345,45 @@ namespace SharpCraft.World
 
             for (int i = y; i < y + height; i++)
             {
-                chunk.Blocks[i][x][z] = wood;
+                chunk[x, i, z] = wood;
             }
 
             for (int i = x - 1; i < x + 2; i++)
             {
                 for (int j = z - 1; j < z + 2; j++)
                 {
-                    if (chunk.Blocks[level1][i][j] is null)
+                    if (chunk[i, level1, j] is null)
                     {
-                        chunk.Blocks[level1][i][j] = leaves;
+                        chunk[i, level1, j] = leaves;
                     }
                 }
             }
 
-            if (chunk.Blocks[level2][x][z] is null)
+            if (chunk[x, level2, z] is null)
             {
-                chunk.Blocks[level2][x][z] = leaves;
+                chunk[x, level2, z] = leaves;
             }
-            if (chunk.Blocks[level3][x][z] is null)
+            if (chunk[x, level3, z] is null)
             {
-                chunk.Blocks[level3][x][z] = leaves;
-            }
-
-            if (chunk.Blocks[level2][x - 1][z] is null)
-            {
-                chunk.Blocks[level2][x - 1][z] = leaves;
-            }
-            if (chunk.Blocks[level2][x + 1][z] is null)
-            {
-                chunk.Blocks[level2][x + 1][z] = leaves;
+                chunk[x, level3, z] = leaves;
             }
 
-            if (chunk.Blocks[level2][x][z - 1] is null)
+            if (chunk[x - 1, level2, z] is null)
             {
-                chunk.Blocks[level2][x][z - 1] = leaves;
+                chunk[x - 1, level2, z] = leaves;
             }
-            if (chunk.Blocks[level2][x][z + 1] is null)
+            if (chunk[x + 1, level2, z] is null)
             {
-                chunk.Blocks[level2][x][z + 1] = leaves;
+                chunk[x + 1, level2, z] = leaves;
+            }
+
+            if (chunk[x, level2, z - 1] is null)
+            {
+                chunk[x, level2, z - 1] = leaves;
+            }
+            if (chunk[x, level2, z + 1] is null)
+            {
+                chunk[x, level2, z + 1] = leaves;
             }
         }
     }
