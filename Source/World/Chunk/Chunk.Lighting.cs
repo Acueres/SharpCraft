@@ -6,13 +6,14 @@ using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 
 using SharpCraft.Utility;
+using SharpCraft.Models;
 
 namespace SharpCraft.World
 {
     public sealed partial class Chunk
     {
         byte[][][] lightMap;
-        List<Index> lightSources;
+        List<BlockIndex> lightSources;
 
         Queue<LightNode> lightQueue;
         List<LightNode> lightList;
@@ -26,38 +27,6 @@ namespace SharpCraft.World
         IList<bool> isLightSource;
 
         HashSet<Chunk> chunksToUpdate;
-
-        struct LightNode
-        {
-            public Chunk Chunk;
-            public int X;
-            public int Y;
-            public int Z;
-
-
-            public LightNode(Chunk chunk, int x, int y, int z)
-            {
-                Chunk = chunk;
-                X = x;
-                Y = y;
-                Z = z;
-            }
-
-            public ushort? GetTexture()
-            {
-                return Chunk.blocks[Y][X][Z];
-            }
-
-            public byte GetLight(bool channel)
-            {
-                return Chunk.GetLight(Y, X, Z, channel);
-            }
-
-            public void SetLight(byte value, bool channel)
-            {
-                Chunk.SetLight(Y, X, Z, value, channel);
-            }
-        }
 
         void InitializeLight()
         {
@@ -421,8 +390,34 @@ namespace SharpCraft.World
             }
         }
 
-        void GetFacesLight(byte[] lightValues, bool[] facesVisible, int y, int x, int z)
+        byte[] GetFacesLight(byte[] lightValues, bool[] facesVisible, int y, int x, int z)
         {
+            if (facesVisible[0])
+            {
+                if (z == last)
+                {
+                    if (Neighbors.ZNeg != null)
+                        lightValues[0] = Neighbors.ZNeg.lightMap[y][x][0];
+                }
+                else
+                {
+                    lightValues[0] = lightMap[y][x][z + 1];
+                }
+            }
+
+            if (facesVisible[1])
+            {
+                if (z == 0)
+                {
+                    if (Neighbors.ZPos != null)
+                        lightValues[1] = Neighbors.ZPos.lightMap[y][x][last];
+                }
+                else
+                {
+                    lightValues[1] = lightMap[y][x][z - 1];
+                }
+            }
+
             if (facesVisible[2])
             {
                 lightValues[2] = lightMap[y + 1][x][z];
@@ -460,37 +455,12 @@ namespace SharpCraft.World
                 }
             }
 
-
-            if (facesVisible[0])
-            {
-                if (z == last)
-                {
-                    if (Neighbors.ZNeg != null)
-                        lightValues[0] = Neighbors.ZNeg.lightMap[y][x][0];
-                }
-                else
-                {
-                    lightValues[0] = lightMap[y][x][z + 1];
-                }
-            }
-
-            if (facesVisible[1])
-            {
-                if (z == 0)
-                {
-                    if (Neighbors.ZPos != null)
-                        lightValues[1] = Neighbors.ZPos.lightMap[y][x][last];
-                }
-                else
-                {
-                    lightValues[1] = lightMap[y][x][z - 1];
-                }
-            }
+            return lightValues;
         }
 
         public void AddLightSource(int y, int x, int z)
         {
-            lightSources.Add(new Index(y, x, z));
+            lightSources.Add(new BlockIndex(y, x, z));
         }
 
         public void SetLight(int y, int x, int z, byte value, bool skylight)

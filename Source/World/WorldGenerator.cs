@@ -94,6 +94,11 @@ namespace SharpCraft.World
             };
         }
 
+        public ushort? Peek(Vector3 position, BlockIndex index)
+        {
+            return Peek(position, index.Y, index.X, index.Z);
+        }
+
         public ushort? Peek(Vector3 position, int y, int x, int z)
         {
             int height = GetHeight(position, x, z, out _);
@@ -102,10 +107,8 @@ namespace SharpCraft.World
             {
                 return 0;
             }
-            else
-            {
-                return null;
-            }
+
+            return null;
         }
         
         void Default(Chunk chunk)

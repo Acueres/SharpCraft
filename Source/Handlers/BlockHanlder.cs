@@ -186,7 +186,7 @@ namespace SharpCraft.Handlers
                 return;
             }
 
-            chunk.AddIndex(y, x, z);
+            chunk.AddIndex(new(x, y, z));
 
             chunk.UpdateMesh = true;
         }

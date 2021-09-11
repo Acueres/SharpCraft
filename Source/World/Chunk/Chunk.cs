@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Win32.SafeHandles;
 
 using SharpCraft.Rendering;
+using SharpCraft.Models;
 
 
 namespace SharpCraft.World
@@ -28,44 +29,6 @@ namespace SharpCraft.World
         public class NeighborChunks
         {
             public Chunk ZNeg, ZPos, XNeg, XPos;
-        }
-
-        public struct Index
-        {
-            int index;
-
-            const int size = 16;
-            const int size2 = 16 * 16;
-
-            public int X
-            {
-                get
-                {
-                    return index % size;
-                }
-            }
-
-            public int Y
-            {
-                get
-                {
-                    return index / size2;
-                }
-            }
-
-            public int Z
-            {
-                get
-                {
-                    return (index % size2) / size;
-                }
-            }
-
-
-            public Index(int y, int x, int z)
-            {
-                index = x + z * size + y * size2;
-            }
         }
 
         public Chunk(Vector3 position, WorldGenerator worldGenerator, Dictionary<Vector3, Chunk> region, int size = 16, int height = 128)
@@ -101,7 +64,7 @@ namespace SharpCraft.World
                 BiomeData[x] = new byte[size];
             }
 
-            Active = new List<Index>(total);
+            Active = new List<BlockIndex>(total);
 
             //Initialize mesh
             VertexList = new List<VertexPositionTextureLight>(6 * total);
@@ -132,7 +95,7 @@ namespace SharpCraft.World
                 }
             }
 
-            lightSources = new List<Index>(100);
+            lightSources = new List<BlockIndex>(100);
 
             Initialize();
             InitializeLight();
@@ -143,6 +106,12 @@ namespace SharpCraft.World
         {
             get => blocks[y][x][z];
             set => blocks[y][x][z] = value;
+        }
+
+        public ushort? this[BlockIndex index]
+        {
+            get => blocks[index.Y][index.X][index.Z];
+            set => blocks[index.Y][index.X][index.Z] = value;
         }
 
         public void Update()
@@ -209,11 +178,11 @@ namespace SharpCraft.World
             }
         }
 
-        public void AddIndex(int y, int x, int z)
+        public void AddIndex(BlockIndex index)
         {
-            if (!Active.Contains(new Index(y, x, z))) 
+            if (!Active.Contains(index))
             {
-                Active.Add(new Index(y, x, z));
+                Active.Add(index);
             }
         }
 

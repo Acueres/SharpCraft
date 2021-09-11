@@ -269,7 +269,7 @@ namespace SharpCraft.World
                         }
                         else
                         {
-                            chunk.GetVisibleFaces(visibleFaces, y, x, z);
+                            visibleFaces = chunk.GetVisibleFaces(visibleFaces, y, x, z);
                             player.Physics.Collision(blockPosition, visibleFaces);
                         }
                     }

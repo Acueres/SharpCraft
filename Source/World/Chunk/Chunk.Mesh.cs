@@ -50,8 +50,8 @@ namespace SharpCraft.World
 
                 Vector3 blockPosition = new Vector3(x, y, z) - Position;
 
-                GetVisibleFaces(visibleFaces, y, x, z);
-                GetFacesLight(lightValues, visibleFaces, y, x, z);
+                visibleFaces = GetVisibleFaces(visibleFaces, y, x, z);
+                lightValues = GetFacesLight(lightValues, visibleFaces, y, x, z);
 
                 for (int face = 0; face < 6; face++)
                 {
