@@ -22,46 +22,47 @@ namespace SharpCraft.World
         SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
         bool disposed = false;
 
-        int size;
-        int height;
-        int last;
+        public const int SIZE = 16;
+        public const int HEIGHT = 128;
+        public static int LAST { get; private set; }
 
         public class NeighborChunks
         {
             public Chunk ZNeg, ZPos, XNeg, XPos;
         }
 
-        public Chunk(Vector3 position, WorldGenerator worldGenerator, Dictionary<Vector3, Chunk> region, int size = 16, int height = 128)
+        static Chunk()
+        {
+            LAST = SIZE - 1;
+        }
+
+        public Chunk(Vector3 position, WorldGenerator worldGenerator, Dictionary<Vector3, Chunk> region)
         {
             Position = position;
 
             Neighbors = new NeighborChunks();
 
-            this.size = size;
-            this.height = height;
-            last = size - 1;
-
             this.region = region;
             this.worldGenerator = worldGenerator;
 
             //Only about ~5% of all blocks are visible
-            int total = (int)(0.05 * size * size * height);
+            int total = (int)(0.05 * SIZE * SIZE * HEIGHT);
 
-            blocks = new ushort?[height][][];
-            for (int y = 0; y < height; y++)
+            blocks = new ushort?[HEIGHT][][];
+            for (int y = 0; y < HEIGHT; y++)
             {
-                blocks[y] = new ushort?[size][];
+                blocks[y] = new ushort?[SIZE][];
 
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < SIZE; x++)
                 {
-                    blocks[y][x] = new ushort?[size];
+                    blocks[y][x] = new ushort?[SIZE];
                 }
             }
 
-            BiomeData = new byte[size][];
+            BiomeData = new byte[SIZE][];
             for (int x = 0; x < BiomeData.Length; x++)
             {
-                BiomeData[x] = new byte[size];
+                BiomeData[x] = new byte[SIZE];
             }
 
             Active = new List<BlockIndex>(total);
@@ -84,14 +85,14 @@ namespace SharpCraft.World
 
             chunksToUpdate = new HashSet<Chunk>(5);
 
-            lightMap = new byte[height][][];
-            for (int y = 0; y < height; y++)
+            lightMap = new byte[HEIGHT][][];
+            for (int y = 0; y < HEIGHT; y++)
             {
-                lightMap[y] = new byte[size][];
+                lightMap[y] = new byte[SIZE][];
 
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < SIZE; x++)
                 {
-                    lightMap[y][x] = new byte[size];
+                    lightMap[y][x] = new byte[SIZE];
                 }
             }
 
@@ -99,7 +100,7 @@ namespace SharpCraft.World
 
             Initialize();
             InitializeLight();
-            MakeMesh();
+            CalculateMesh();
         }
 
         public ushort? this[int x, int y, int z]
@@ -108,17 +109,11 @@ namespace SharpCraft.World
             set => blocks[y][x][z] = value;
         }
 
-        public ushort? this[BlockIndex index]
-        {
-            get => blocks[index.Y][index.X][index.Z];
-            set => blocks[index.Y][index.X][index.Z] = value;
-        }
-
         public void Update()
         {
             if (UpdateMesh)
             {
-                MakeMesh();
+                CalculateMesh();
             }
         }
 

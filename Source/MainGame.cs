@@ -9,6 +9,7 @@ using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.World;
 using SharpCraft.Utility;
+using SharpCraft.Models;
 
 
 namespace SharpCraft
@@ -55,6 +56,8 @@ namespace SharpCraft
 
         protected override void Initialize()
         {
+            Tests.Run();
+
             State = GameState.MainMenu;
             Paused = false;
             ExitedMenu = false;

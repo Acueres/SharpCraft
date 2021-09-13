@@ -23,21 +23,7 @@ namespace SharpCraft.World
         public int VertexCount;
         public int TransparentVertexCount;
 
-        /*public void UpdateMesh()
-        {
-            Vertices = VertexList.ToArray();
-            TransparentVertices = TransparentVertexList.ToArray();
-
-            VertexCount = VertexList.Count;
-            TransparentVertexCount = TransparentVertexList.Count;
-
-            VertexList.Clear();
-            TransparentVertexList.Clear();
-
-            GenerateMesh = false;
-        }*/
-
-        public void MakeMesh()
+        public void CalculateMesh()
         {
             bool[] visibleFaces = new bool[6];
             byte[] lightValues = new byte[6];
@@ -57,7 +43,7 @@ namespace SharpCraft.World
                 {
                     if (visibleFaces[face])
                     {
-                        AddFaceMesh(blocks[y][x][z], face, lightValues[face], blockPosition);
+                        AddFaceMesh(this[x, y, z], face, lightValues[face], blockPosition);
                     }
                 }
             }

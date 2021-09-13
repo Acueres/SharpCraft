@@ -31,15 +31,13 @@ namespace SharpCraft.World
 
             bool[] visibleFaces = new bool[6];
 
-            int height = blocks.Length;
-
-            for (int y = 0; y < height; y++)
+            for (int y = 0; y < HEIGHT; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < SIZE; x++)
                 {
-                    for (int z = 0; z < size; z++)
+                    for (int z = 0; z < SIZE; z++)
                     {
-                        if (blocks[y][x][z] is null)
+                        if (this[x, y, z] is null)
                         {
                             continue;
                         }
@@ -68,8 +66,6 @@ namespace SharpCraft.World
         public bool[] GetVisibleFaces(bool[] visibleFaces, int y, int x, int z,
                                     bool calculateOpacity = true)
         {
-            var isTransparent = Assets.TransparentBlocks;
-
             Array.Clear(visibleFaces, 0, 6);
 
             ushort? adjacentBlock;
@@ -77,10 +73,10 @@ namespace SharpCraft.World
             bool blockOpaque = true;
             if (calculateOpacity)
             {
-                blockOpaque = !isTransparent[(int)blocks[y][x][z]];
+                blockOpaque = !isTransparent[(int)this[x, y, z]];
             }
 
-            if (z == last)
+            if (z == LAST)
             {
                 if (Neighbors.ZNeg != null)
                 {
@@ -88,13 +84,13 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    Vector3 zNeg = Position + new Vector3(0, 0, -size);
+                    Vector3 zNeg = Position + new Vector3(0, 0, -SIZE);
                     adjacentBlock = worldGenerator.Peek(zNeg, y, x, 0);
                 }
             }
             else
             {
-                adjacentBlock = blocks[y][x][z + 1];
+                adjacentBlock = this[x, y, z + 1];
             }
             visibleFaces[0] = adjacentBlock is null || (isTransparent[(int)adjacentBlock] && blockOpaque);
 
@@ -102,34 +98,34 @@ namespace SharpCraft.World
             {
                 if (Neighbors.ZPos != null)
                 {
-                    adjacentBlock = Neighbors.ZPos[x, y, last];
+                    adjacentBlock = Neighbors.ZPos[x, y, LAST];
                 }
                 else
                 {
-                    Vector3 zPos = Position + new Vector3(0, 0, size);
-                    adjacentBlock = worldGenerator.Peek(zPos, y, x, last);
+                    Vector3 zPos = Position + new Vector3(0, 0, SIZE);
+                    adjacentBlock = worldGenerator.Peek(zPos, y, x, LAST);
                 }
             }
             else
             {
-                adjacentBlock = blocks[y][x][z - 1];
+                adjacentBlock = this[x, y, z - 1];
             }
             visibleFaces[1] = adjacentBlock is null || (isTransparent[(int)adjacentBlock] && blockOpaque);
 
-            if (y + 1 < height)
+            if (y + 1 < HEIGHT)
             {
-                adjacentBlock = blocks[y + 1][x][z];
+                adjacentBlock = this[x, y + 1, z];
                 visibleFaces[2] = adjacentBlock is null || (isTransparent[(int)adjacentBlock] && blockOpaque);
             }
 
             if (y > 0)
             {
-                adjacentBlock = blocks[y - 1][x][z];
+                adjacentBlock = this[x, y - 1, z];
                 visibleFaces[3] = adjacentBlock is null || (isTransparent[(int)adjacentBlock] && blockOpaque);
             }
 
 
-            if (x == last)
+            if (x == LAST)
             {
                 if (Neighbors.XNeg != null)
                 {
@@ -137,13 +133,13 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    Vector3 xNeg = Position + new Vector3(-size, 0, 0);
+                    Vector3 xNeg = Position + new Vector3(-SIZE, 0, 0);
                     adjacentBlock = worldGenerator.Peek(xNeg, y, 0, z);
                 }
             }
             else
             {
-                adjacentBlock = blocks[y][x + 1][z];
+                adjacentBlock = this[x + 1, y, z];
             }
             visibleFaces[4] = adjacentBlock is null || (isTransparent[(int)adjacentBlock] && blockOpaque);
 
@@ -151,17 +147,17 @@ namespace SharpCraft.World
             {
                 if (Neighbors.XPos != null)
                 {
-                    adjacentBlock = Neighbors.XPos[last, y, z];
+                    adjacentBlock = Neighbors.XPos[LAST, y, z];
                 }
                 else
                 {
-                    Vector3 xPos = Position + new Vector3(size, 0, 0);
-                    adjacentBlock = worldGenerator.Peek(xPos, y, last, z);
+                    Vector3 xPos = Position + new Vector3(SIZE, 0, 0);
+                    adjacentBlock = worldGenerator.Peek(xPos, y, LAST, z);
                 }
             }
             else
             {
-                adjacentBlock = blocks[y][x - 1][z];
+                adjacentBlock = this[x - 1, y, z];
             }
             visibleFaces[5] = adjacentBlock is null || (isTransparent[(int)adjacentBlock] && blockOpaque);
 
