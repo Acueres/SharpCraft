@@ -1,3 +1,3 @@
 ﻿
-using var game = new SharpCraft.Game1();
+using var game = new SharpCraft.MainGame();
 game.Run();

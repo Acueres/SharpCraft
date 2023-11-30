@@ -50,7 +50,7 @@ namespace SharpCraft
             LoadBlocks(content);
 
             //Load menu textures
-            var textureNames = Directory.GetFiles("Assets/Textures/Menu", ".").ToArray();
+            var textureNames = Directory.GetFiles("Content/Textures/Menu", ".").ToArray();
 
             for (int i = 0; i < textureNames.Length; i++)
             {
@@ -67,7 +67,7 @@ namespace SharpCraft
 
             Fonts = Array.AsReadOnly(fonts);
 
-            Effect = content.Load<Effect>("Shaders/BlockEffect");
+            Effect = content.Load<Effect>("Effects/BlockEffect");
         }
 
         static void LoadBlocks(ContentManager content)
@@ -78,20 +78,20 @@ namespace SharpCraft
             var lightValues = new Dictionary<ushort, byte>(100);
 
             List<MultifaceData> blockFacesData;
-            using (StreamReader r = new StreamReader("Assets/multiface_blocks.json"))
+            using (StreamReader r = new StreamReader("Content/multiface_blocks.json"))
             {
                 string json = r.ReadToEnd();
                 blockFacesData = JsonConvert.DeserializeObject<List<MultifaceData>>(json);
             }
 
             List<BlockData> blockData;
-            using (StreamReader r = new StreamReader("Assets/blocks.json"))
+            using (StreamReader r = new StreamReader("Content/blocks.json"))
             {
                 string json = r.ReadToEnd();
                 blockData = JsonConvert.DeserializeObject<List<BlockData>>(json);
             }
 
-            var blockTextureNames = Directory.GetFiles("Assets/Textures/Blocks", ".");
+            var blockTextureNames = Directory.GetFiles("Content/Textures/Blocks", ".");
             var blockTextures = new Texture2D[blockTextureNames.Length];
 
             for (int i = 0; i < blockTextureNames.Length; i++)

@@ -70,7 +70,7 @@ namespace SharpCraft.Utility
         public static List<Save> LoadAll(GraphicsDevice graphics)
         {
             List<Save> saves = new List<Save>();
-            string[] saveNames = Directory.GetDirectories("Saves");
+            string[] saveNames = Directory.Exists("Saves") ? Directory.GetDirectories("Saves") : Array.Empty<string>();
 
             for (int i = 0; i < saveNames.Length; i++)
             {

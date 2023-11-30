@@ -94,7 +94,7 @@ namespace SharpCraft.GUI
             inventory = new Label(spriteBatch, menuTextures["inventory"],
                 new Rectangle((screenWidth / 5), 30, 700, 700), Color.White);
 
-            hotbar = new Label(spriteBatch, menuTextures["hotbar"], 
+            hotbar = new Label(spriteBatch, menuTextures["toolbar"],
                 new Rectangle((screenWidth / 2) - 225, screenHeight - 50, 450, 50), new Color(Color.DarkGray, 0.8f));
 
             Texture2D scrollerTexture = new Texture2D(game.GraphicsDevice, 10, 10);

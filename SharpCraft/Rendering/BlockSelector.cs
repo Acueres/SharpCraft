@@ -40,7 +40,7 @@ namespace SharpCraft.Rendering
                 [5] = 'X'
             };
 
-            texture = Assets.MenuTextures["block_selector"];
+            texture = Assets.MenuTextures["block_outline"];
 
             buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
                         36, BufferUsage.WriteOnly);
