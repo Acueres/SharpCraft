@@ -24,6 +24,9 @@ Download https://drive.google.com/file/d/1yeob8fMmDjdBdaioYU_pte8hCNi4kHbm/view?
 * F3 to open debug screen
 * F2 to take screenshot
 
+### License
+MIT
+
 ### Screenshots
 
 ![mountains](https://user-images.githubusercontent.com/72624262/116400359-9f565b00-a832-11eb-8ca7-19adef3fdd7d.png)
