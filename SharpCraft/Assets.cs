@@ -78,14 +78,14 @@ namespace SharpCraft
             var lightValues = new Dictionary<ushort, byte>(100);
 
             List<MultifaceData> blockFacesData;
-            using (StreamReader r = new StreamReader("Content/multiface_blocks.json"))
+            using (StreamReader r = new("Content/multiface_blocks.json"))
             {
                 string json = r.ReadToEnd();
                 blockFacesData = JsonConvert.DeserializeObject<List<MultifaceData>>(json);
             }
 
             List<BlockData> blockData;
-            using (StreamReader r = new StreamReader("Content/blocks.json"))
+            using (StreamReader r = new("Content/blocks.json"))
             {
                 string json = r.ReadToEnd();
                 blockData = JsonConvert.DeserializeObject<List<BlockData>>(json);
@@ -101,7 +101,7 @@ namespace SharpCraft
                 blockIndices.Add(t, (ushort)i);
             }
 
-            string[] sides = { "front", "back", "top", "bottom", "right", "left" };
+            string[] sides = ["front", "back", "top", "bottom", "right", "left"];
 
             foreach (var entry in blockFacesData)
             {

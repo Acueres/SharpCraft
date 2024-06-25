@@ -100,9 +100,9 @@ namespace SharpCraft
 
                             time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
 
-                            ScreenshotHandler screenshotHandler = new ScreenshotHandler(GraphicsDevice, Window.ClientBounds.Width,
+                            ScreenshotHandler screenshotHandler = new(GraphicsDevice, Window.ClientBounds.Width,
                                                                                   Window.ClientBounds.Height);
-                            BlockSelector blockSelector = new BlockSelector(GraphicsDevice);
+                            BlockSelector blockSelector = new(GraphicsDevice);
 
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters);

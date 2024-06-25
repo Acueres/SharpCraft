@@ -148,25 +148,25 @@ namespace SharpCraft.World
                     xNegPosition = Position + new Vector3(-size, 0, 0),
                     xPosPosition = Position + new Vector3(size, 0, 0);
 
-            Neighbors.ZNeg = region.ContainsKey(zNegPosition) ? region[zNegPosition] : null;
+            Neighbors.ZNeg = region.TryGetValue(zNegPosition, out Chunk value) ? value : null;
             if (Neighbors.ZNeg != null && Neighbors.ZNeg.Neighbors.ZPos is null)
             {
                 Neighbors.ZNeg.Neighbors.ZPos = this;
             }
 
-            Neighbors.ZPos = region.ContainsKey(zPosPosition) ? region[zPosPosition] : null;
+            Neighbors.ZPos = region.TryGetValue(zPosPosition, out value) ? value : null;
             if (Neighbors.ZPos != null && Neighbors.ZPos.Neighbors.ZNeg is null)
             {
                 Neighbors.ZPos.Neighbors.ZNeg = this;
             }
 
-            Neighbors.XNeg = region.ContainsKey(xNegPosition) ? region[xNegPosition] : null;
+            Neighbors.XNeg = region.TryGetValue(xNegPosition, out value) ? value : null;
             if (Neighbors.XNeg != null && Neighbors.XNeg.Neighbors.XPos is null)
             {
                 Neighbors.XNeg.Neighbors.XPos = this;
             }
 
-            Neighbors.XPos = region.ContainsKey(xPosPosition) ? region[xPosPosition] : null;
+            Neighbors.XPos = region.TryGetValue(xPosPosition, out value) ? value : null;
             if (Neighbors.XPos != null && Neighbors.XPos.Neighbors.XNeg is null)
             {
                 Neighbors.XPos.Neighbors.XNeg = this;

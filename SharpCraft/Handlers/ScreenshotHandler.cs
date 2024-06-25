@@ -31,7 +31,7 @@ namespace SharpCraft.Handlers
         {
             Color[] colorData = new Color[screenHeight * screenWidth];
             graphics.GetBackBufferData(colorData);
-            Texture2D screenshot = new Texture2D(graphics, screenWidth, screenHeight);
+            Texture2D screenshot = new(graphics, screenWidth, screenHeight);
             screenshot.SetData(colorData);
 
             name = name.Replace('.', '_');

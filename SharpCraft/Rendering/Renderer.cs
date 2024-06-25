@@ -71,7 +71,7 @@ namespace SharpCraft.Rendering
 
         public void Draw(Vector3[] activeChunks, Player player)
         {
-            Vector3 chunkMax = new Vector3(size, 128, size);
+            Vector3 chunkMax = new(size, 128, size);
             Vector3 position;
 
             float lightIntensity = time.LightIntensity;
@@ -97,7 +97,7 @@ namespace SharpCraft.Rendering
                 position = activeChunks[i];
                 currentChunk = region[position];
 
-                BoundingBox chunkBounds = new BoundingBox(-position, chunkMax - position);
+                BoundingBox chunkBounds = new(-position, chunkMax - position);
 
                 chunkVisible[i] = player.Camera.Frustum.Contains(chunkBounds) != ContainmentType.Disjoint;
 

@@ -36,7 +36,7 @@ namespace SharpCraft.Utility
 
             if (count > 1)
             {
-                Random rnd = new Random();
+                Random rnd = new();
                 index = rnd.Next(0, 6);
 
                 while (arr[index] != max)

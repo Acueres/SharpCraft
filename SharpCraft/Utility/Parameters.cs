@@ -23,7 +23,7 @@ namespace SharpCraft.Utility
 
         public Vector3
         Position = Vector3.Zero,
-        Direction = new Vector3(0, -0.5f, -1f);
+        Direction = new(0, -0.5f, -1f);
 
         public ushort?[] Inventory = new ushort?[9];
 
@@ -58,7 +58,7 @@ namespace SharpCraft.Utility
             SaveName = saveName;
 
             SaveParameters data;
-            using (StreamReader r = new StreamReader($@"Saves\{saveName}\parameters.json"))
+            using (StreamReader r = new($@"Saves\{saveName}\parameters.json"))
             {
                 string json = r.ReadToEnd();
                 data = JsonConvert.DeserializeObject<List<SaveParameters>>(json)[0];
@@ -80,8 +80,8 @@ namespace SharpCraft.Utility
         {
             Date = DateTime.Now;
 
-            List<SaveParameters> data = new List<SaveParameters>(1)
-                {
+            List<SaveParameters> data =
+                [
                     new SaveParameters()
                     {
                         Seed = Seed,
@@ -99,7 +99,7 @@ namespace SharpCraft.Utility
                         Minute = Minute,
                         Date = Date
                     }
-                };
+                ];
 
             string json = JsonConvert.SerializeObject(data, Formatting.Indented);
             string path = Directory.GetCurrentDirectory() + $@"\Saves\{SaveName}\parameters.json";

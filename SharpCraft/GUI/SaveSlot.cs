@@ -29,8 +29,8 @@ namespace SharpCraft.GUI
 
         public void DrawAt(int y, Save save, bool selected)
         {
-            Vector2 namePosition = new Vector2(rect.X + 74, y + 10);
-            Vector2 datePosition = new Vector2(rect.X + 74, y + 30);
+            Vector2 namePosition = new(rect.X + 74, y + 10);
+            Vector2 datePosition = new(rect.X + 74, y + 30);
 
             rect.Y = y;
 

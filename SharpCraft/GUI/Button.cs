@@ -59,7 +59,7 @@ namespace SharpCraft.GUI
         public override void Draw(string data)
         {
             MouseState currentMouseState = Mouse.GetState();
-            Point mouseLoc = new Point(currentMouseState.X, currentMouseState.Y);
+            Point mouseLoc = new(currentMouseState.X, currentMouseState.Y);
 
             string text = baseText + $"{data}";
             Vector2 textSize = font.MeasureString(text) / 2;

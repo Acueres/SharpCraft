@@ -24,7 +24,7 @@ namespace SharpCraft.Utility
             if (File.Exists(@"settings.json"))
             {
                 SettingsData data;
-                using (StreamReader r = new StreamReader("settings.json"))
+                using (StreamReader r = new("settings.json"))
                 {
                     string json = r.ReadToEnd();
                     data = JsonConvert.DeserializeObject<List<SettingsData>>(json)[0];
@@ -36,13 +36,13 @@ namespace SharpCraft.Utility
 
         public static void Save()
         {
-            List<SettingsData> data = new List<SettingsData>(1)
-            {
+            List<SettingsData> data =
+            [
                 new SettingsData()
                 {
                     RenderDistance = RenderDistance,
                 }
-            };
+            ];
 
             string json = JsonConvert.SerializeObject(data, Formatting.Indented);
             string path = "settings.json";

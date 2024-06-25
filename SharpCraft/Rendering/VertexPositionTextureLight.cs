@@ -10,8 +10,7 @@ namespace SharpCraft.Rendering
         public Vector2 TextureCoordinate;
         public float Light;
 
-        static readonly VertexDeclaration vertexDeclaration = new VertexDeclaration
-        (
+        static readonly VertexDeclaration vertexDeclaration = new        (
             new VertexElement(0, VertexElementFormat.Vector3, VertexElementUsage.Position, 0),
             new VertexElement(sizeof(float) * 3, VertexElementFormat.Vector2, VertexElementUsage.TextureCoordinate, 0),
             new VertexElement(sizeof(float) * 5, VertexElementFormat.Single, VertexElementUsage.TextureCoordinate, 1)

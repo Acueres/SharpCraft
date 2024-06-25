@@ -97,7 +97,7 @@ namespace SharpCraft.GUI
             hotbar = new Label(spriteBatch, menuTextures["toolbar"],
                 new Rectangle((screenWidth / 2) - 225, screenHeight - 50, 450, 50), new Color(Color.DarkGray, 0.8f));
 
-            Texture2D scrollerTexture = new Texture2D(game.GraphicsDevice, 10, 10);
+            Texture2D scrollerTexture = new(game.GraphicsDevice, 10, 10);
             Color[] scrollerTextureColor = new Color[100];
             for (int i = 0; i < scrollerTextureColor.Length; i++)
             {
@@ -250,9 +250,7 @@ namespace SharpCraft.GUI
                 }
                 else if (hotbarItems[i] != null && draggedTexture != null && clicked)
                 {
-                    ushort? temp = draggedTexture;
-                    draggedTexture = hotbarItems[i];
-                    hotbarItems[i] = temp;
+                    (hotbarItems[i], draggedTexture) = (draggedTexture, hotbarItems[i]);
                     itemSelected = true;
                 }
 

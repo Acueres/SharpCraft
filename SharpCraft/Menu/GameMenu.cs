@@ -136,7 +136,7 @@ namespace SharpCraft.Menu
         {
             MouseState currentMouseState = Mouse.GetState();
             KeyboardState currentKeyboardState = Keyboard.GetState();
-            Point mouseLoc = new Point(currentMouseState.X, currentMouseState.Y);
+            Point mouseLoc = new(currentMouseState.X, currentMouseState.Y);
 
             game.ExitedMenu = false;
 

@@ -62,7 +62,7 @@ namespace SharpCraft.Models
             left[4].Position = new Vector3(-size, size, size);
             left[5].Position = left[2].Position;
 
-            Faces = new VertexPositionTextureLight[][] { front, back, top, bottom, right, left };
+            Faces = [front, back, top, bottom, right, left];
 
             for (int i = 0; i < 6; i++)
             {

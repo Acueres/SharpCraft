@@ -17,7 +17,7 @@ namespace SharpCraft.Utility
         {
             get
             {
-                return new int[] { (int)days, hours, minutes };
+                return [(int)days, hours, minutes];
             }
         }
 

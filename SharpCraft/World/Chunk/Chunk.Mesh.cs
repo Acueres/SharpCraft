@@ -48,8 +48,8 @@ namespace SharpCraft.World
                 }
             }
 
-            Vertices = VertexList.ToArray();
-            TransparentVertices = TransparentVertexList.ToArray();
+            Vertices = [.. VertexList];
+            TransparentVertices = [.. TransparentVertexList];
 
             VertexCount = VertexList.Count;
             TransparentVertexCount = TransparentVertexList.Count;

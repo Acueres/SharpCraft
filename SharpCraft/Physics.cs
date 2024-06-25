@@ -42,18 +42,20 @@ namespace SharpCraft
 
             collisionNormals = new List<Vector3>(2);
 
-            faceNormals = new Dictionary<Vector3, int>();
-            faceNormals.Add(new Vector3(0, 0, -1), 0);
-            faceNormals.Add(new Vector3(0, 0, 1), 1);
-            faceNormals.Add(new Vector3(-1, 0, 0), 4);
-            faceNormals.Add(new Vector3(1, 0, 0), 5);
+            faceNormals = new Dictionary<Vector3, int>
+            {
+                { new Vector3(0, 0, -1), 0 },
+                { new Vector3(0, 0, 1), 1 },
+                { new Vector3(-1, 0, 0), 4 },
+                { new Vector3(1, 0, 0), 5 }
+            };
         }
 
         public void Collision(Vector3 blockPosition, bool[] visibleSides)
         {
             float deltaY = player.Position.Y - blockPosition.Y - 1f;
 
-            Vector3 blockCenterDirection = new Vector3(blockPosition.X - player.Position.X,
+            Vector3 blockCenterDirection = new(blockPosition.X - player.Position.X,
                 0, blockPosition.Z - player.Position.Z);
 
             Vector3 normal = GetNormal(blockCenterDirection);
@@ -83,7 +85,7 @@ namespace SharpCraft
             //Side collision
             if (deltaY < 0.5f)
             {
-                if (faceNormals.ContainsKey(normal) && visibleSides[faceNormals[normal]])
+                if (faceNormals.TryGetValue(normal, out int value) && visibleSides[value])
                 {
                     collisionNormals.Add(normal);
 
@@ -97,7 +99,7 @@ namespace SharpCraft
 
         public void Update(GameTime gameTime)
         {
-            Vector3 positionDelta = new Vector3(0f, 0f, 0f);
+            Vector3 positionDelta = new(0f, 0f, 0f);
 
             KeyboardState currentKeyboardState = Keyboard.GetState();
 

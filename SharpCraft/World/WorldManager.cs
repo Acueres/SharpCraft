@@ -142,7 +142,7 @@ namespace SharpCraft.World
 
             Vector3 center = new(x, 0, z);
 
-            inactiveChunks = loadedChunks.ToList();
+            inactiveChunks = [.. loadedChunks];
 
             LoadRegion(center);
             GenerateRegion(center);
@@ -204,10 +204,7 @@ namespace SharpCraft.World
 
             for (int i = 0; i < inactiveChunks.Count; i++)
             {
-                if (region[inactiveChunks[i]] != null)
-                {
-                    region[inactiveChunks[i]].Dispose();
-                }
+                region[inactiveChunks[i]]?.Dispose();
 
                 region[inactiveChunks[i]] = null;
                 region.Remove(inactiveChunks[i]);
@@ -230,8 +227,8 @@ namespace SharpCraft.World
             nearChunks.Add(new Vector3(GetChunkIndex(player.Position.X + 6), 0, GetChunkIndex(player.Position.Z)));
             nearChunks.Add(new Vector3(GetChunkIndex(player.Position.X - 6), 0, GetChunkIndex(player.Position.Z)));
 
-            Vector3 blockMax = new Vector3(0.5f, 0.5f, 0.5f);
-            Vector3 blockMin = new Vector3(-0.5f, -0.5f, -0.5f);
+            Vector3 blockMax = new(0.5f, 0.5f, 0.5f);
+            Vector3 blockMin = new(-0.5f, -0.5f, -0.5f);
 
             bool[] visibleFaces = new bool[6];
 
@@ -254,7 +251,7 @@ namespace SharpCraft.World
                         continue;
                     }
 
-                    BoundingBox blockBounds = new BoundingBox(blockMin + blockPosition, blockMax + blockPosition);
+                    BoundingBox blockBounds = new(blockMin + blockPosition, blockMax + blockPosition);
 
                     if (player.Bound.Intersects(blockBounds))
                     {

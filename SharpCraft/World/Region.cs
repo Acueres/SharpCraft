@@ -18,7 +18,7 @@ namespace SharpCraft.World
             }
         }
 
-        Dictionary<Vector3, Chunk> map = new();
+        Dictionary<Vector3, Chunk> map = [];
 
         public void InitArea(Vector3 center, int distance)
         {
