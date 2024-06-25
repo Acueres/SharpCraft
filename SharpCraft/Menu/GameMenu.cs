@@ -15,17 +15,12 @@ namespace SharpCraft.Menu
 {
     class GameMenu
     {
-        public ushort? SelectedItem
-        {
-            get
-            {
-                return inventory.SelectedItem;
-            }
-        }
+        public ushort? SelectedItem => inventory.SelectedItem;
 
         MainGame game;
         GraphicsDevice graphics;
         SpriteBatch spriteBatch;
+        readonly AssetServer assetServer;
 
         Inventory inventory;
         Time time;
@@ -54,31 +49,28 @@ namespace SharpCraft.Menu
         KeyboardState previousKeyboardState;
         MouseState previousMouseState;
 
-        ReadOnlyDictionary<string, Texture2D> menuTextures;
-
         int screenWidth, screenHeight;
         Vector2 screenCenter;
 
 
         public GameMenu(MainGame game, GraphicsDevice graphics, Time time,
-            ScreenshotHandler screenshotTaker, Parameters parameters)
+            ScreenshotHandler screenshotTaker, Parameters parameters, AssetServer assetServer)
         {
             this.game = game;
             this.graphics = graphics;
             spriteBatch = new SpriteBatch(graphics);
+            this.assetServer = assetServer;
 
             this.time = time;
-            this.screenshotHandler = screenshotTaker;
-
-            menuTextures = Assets.MenuTextures;
+            screenshotHandler = screenshotTaker;
 
             state = MenuState.Main;
             debugScreen = false;
 
-            font14 = Assets.Fonts[0];
-            font24 = Assets.Fonts[1];
+            font14 = assetServer.GetFont(0);
+            font24 = assetServer.GetFont(1);
 
-            inventory = new Inventory(game, spriteBatch, font14, parameters, () =>
+            inventory = new Inventory(game, spriteBatch, font14, parameters, assetServer, () =>
             {
                 Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
                 game.IsMouseVisible = false;
@@ -98,7 +90,7 @@ namespace SharpCraft.Menu
 
             back = new Button(graphics, spriteBatch, "Back to game", font14,
                 (screenWidth / 2) - 150, 100, 300, 40, 
-                menuTextures["button"], menuTextures["button_selector"], () => 
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () => 
                 {
                     game.Paused = false;
 
@@ -111,7 +103,7 @@ namespace SharpCraft.Menu
 
             quit = new Button(graphics, spriteBatch, "Save & Quit", font14,
                 (screenWidth / 2) - 150, 260, 300, 40,
-                menuTextures["button"], menuTextures["button_selector"], () => 
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () => 
                 {
                     game.Paused = false;
                     game.IsMouseVisible = false;
@@ -184,7 +176,7 @@ namespace SharpCraft.Menu
             {
                 case MenuState.Main:
                     {
-                        spriteBatch.Draw(menuTextures["crosshair"], crosshair, Color.White);
+                        spriteBatch.Draw(assetServer.GetMenuTexture("crosshair"), crosshair, Color.White);
                         break;
                     }
 

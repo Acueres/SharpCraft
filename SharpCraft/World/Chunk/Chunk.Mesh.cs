@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Models;
@@ -43,7 +39,7 @@ namespace SharpCraft.World
                 {
                     if (visibleFaces[face])
                     {
-                        AddFaceMesh(this[x, y, z], face, lightValues[face], blockPosition);
+                        AddFaceMesh((ushort)this[x, y, z], (ushort)face, lightValues[face], blockPosition);
                     }
                 }
             }
@@ -60,18 +56,14 @@ namespace SharpCraft.World
             UpdateMesh = false;
         }
 
-        void AddFaceMesh(ushort? texture, int face, byte light, Vector3 blockPosition)
+        void AddFaceMesh(ushort texture, ushort face, byte light, Vector3 blockPosition)
         {
-            var multiface = Assets.Multiface;
-            var multifaceBlocks = Assets.MultifaceBlocks;
-            var transparent = Assets.TransparentBlocks;
-
-            if (multiface[(int)texture])
+            if (assetServer.IsBlockMultiface(texture))
             {
                 AddData(VertexList,
-                    face, light, blockPosition, multifaceBlocks[(ushort)texture][face]);
+                    face, light, blockPosition, assetServer.GetMultifaceBlockFace(texture, face));
             }
-            else if (transparent[(int)texture])
+            else if (assetServer.IsBlockTransparent(texture))
             {
                 AddData(TransparentVertexList, face, light, blockPosition, texture);
             }
@@ -81,10 +73,10 @@ namespace SharpCraft.World
             }
         }
 
-        static void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort? texture)
+        void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort? texture)
         {
             int size = 16;
-            int textureCount = Assets.BlockTextures.Count;
+            int textureCount = assetServer.GetBlocksCount;
             for (int i = 0; i < 6; i++)
             {
                 VertexPositionTextureLight vertex = Cube.Faces[face][i];

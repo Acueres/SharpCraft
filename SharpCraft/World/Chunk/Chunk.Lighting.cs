@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Collections.ObjectModel;
 
 using SharpCraft.Utility;
 using SharpCraft.Models;
@@ -20,11 +16,6 @@ namespace SharpCraft.World
 
         LightNode[] nodes;
         byte[] lightValues;
-
-        ReadOnlyDictionary<ushort, byte> lightSourceValues;
-
-        IList<bool> isTransparent;
-        IList<bool> isLightSource;
 
         HashSet<Chunk> chunksToUpdate;
 
@@ -51,7 +42,7 @@ namespace SharpCraft.World
                 int x = lightSources[i].X;
                 int z = lightSources[i].Z;
 
-                SetLight(y, x, z, lightSourceValues[(ushort)this[x, y, z]], blockLight);
+                SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z]), blockLight);
                 lightQueue.Enqueue(new LightNode(this, x, y, z));
             }
 
@@ -85,9 +76,9 @@ namespace SharpCraft.World
             else
             {
                 bool sourceAdded = false;
-                if (isLightSource[(int)this[x, y, z]])
+                if (assetServer.IsLightSource((ushort)this[x, y, z]))
                 {
-                    SetLight(y, x, z, lightSourceValues[(ushort)this[x, y, z]], blockLight);
+                    SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z]), blockLight);
                     sourceAdded = true;
                 }
 
@@ -492,12 +483,12 @@ namespace SharpCraft.World
 
         bool Transparent(ushort? texture)
         {
-            return texture is null || isTransparent[(int)texture];
+            return texture is null || assetServer.IsBlockTransparent((ushort)texture);
         }
 
         bool TransparentSolid(ushort? texture)
         {
-            return texture != null && isTransparent[(int)texture];
+            return texture != null && assetServer.IsBlockTransparent((ushort)texture);
         }
     }
 }

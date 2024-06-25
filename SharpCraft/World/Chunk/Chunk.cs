@@ -26,6 +26,8 @@ namespace SharpCraft.World
         public const int HEIGHT = 128;
         public static int LAST { get; private set; }
 
+        readonly AssetServer assetServer;
+
         public class NeighborChunks
         {
             public Chunk ZNeg, ZPos, XNeg, XPos;
@@ -36,7 +38,7 @@ namespace SharpCraft.World
             LAST = SIZE - 1;
         }
 
-        public Chunk(Vector3 position, WorldGenerator worldGenerator, Dictionary<Vector3, Chunk> region)
+        public Chunk(Vector3 position, WorldGenerator worldGenerator, Dictionary<Vector3, Chunk> region, AssetServer assetServer)
         {
             Position = position;
 
@@ -44,6 +46,7 @@ namespace SharpCraft.World
 
             this.region = region;
             this.worldGenerator = worldGenerator;
+            this.assetServer = assetServer;
 
             //Only about ~5% of all blocks are visible
             int total = (int)(0.05 * SIZE * SIZE * HEIGHT);
@@ -77,11 +80,6 @@ namespace SharpCraft.World
 
             nodes = new LightNode[6];
             lightValues = new byte[6];
-
-            lightSourceValues = Assets.LightValues;
-
-            isTransparent = Assets.TransparentBlocks;
-            isLightSource = Assets.LightSources;
 
             chunksToUpdate = new HashSet<Chunk>(5);
 

@@ -35,23 +35,22 @@ namespace SharpCraft.GUI
         int page;
 
 
-        public SaveGrid(GraphicsDevice graphics, SpriteBatch spriteBatch, int screenWidth, int elementWidth,
-            int elementHeight, List<Save> saves, SpriteFont font)
+        public SaveGrid(GraphicsDevice graphics, SpriteBatch spriteBatch, AssetServer assetServer, int screenWidth, int elementWidth,
+            int elementHeight, List<Save> saves)
         {
             this.spriteBatch = spriteBatch;
             this.saves = saves;
 
-            var menuTextures = Assets.MenuTextures;
-
+            SpriteFont font = assetServer.GetFont(0);
             saveSlot = new SaveSlot(spriteBatch, (screenWidth / 2) - 300, 600, 2 * elementHeight,
-                menuTextures["button_selector"], font);
+                assetServer.GetMenuTexture("button_selector"), font);
 
             pageLabel = new Label(spriteBatch, "Page ",
                 font, new Vector2(370, 350), Color.White);
 
             nextPage = new Button(graphics, spriteBatch, "Next", font,
                 400, 380, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     page++;
                     index = 3 * page;
@@ -59,7 +58,7 @@ namespace SharpCraft.GUI
 
             previousPage = new Button(graphics, spriteBatch, "Previous", font,
                 400 - elementWidth / 2, 380, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     page--;
                     index = 3 * page;

@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Linq;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 
 using SharpCraft.Utility;
+using SharpCraft.Models;
 
 
 namespace SharpCraft.GUI
@@ -18,18 +17,15 @@ namespace SharpCraft.GUI
 
         MainGame game;
         SpriteBatch spriteBatch;
+        readonly AssetServer assetServer;
 
         Action action;
-        
-        SpriteFont font;
-        ReadOnlyDictionary<string, Texture2D> menuTextures;
-        IList<Texture2D> blockTextures;
-        ReadOnlyDictionary<ushort, string> blockNames;
 
         Label inventory, hotbar;
         Scroller scroller;
 
         Texture2D blackTexture;
+        SpriteFont font;
 
         int previousScrollValue;
         int activeItemIndex;
@@ -46,16 +42,13 @@ namespace SharpCraft.GUI
 
 
         public Inventory(MainGame game, SpriteBatch spriteBatch, SpriteFont font,
-            Parameters parameters, Action a = null)
+            Parameters parameters, AssetServer assetServer, Action a = null)
         {
             this.game = game;
             this.spriteBatch = spriteBatch;
             this.font = font;
+            this.assetServer = assetServer;
             action = a;
-
-            menuTextures = Assets.MenuTextures;
-            blockNames = Assets.BlockNames;
-            blockTextures = Assets.BlockTextures;
 
             screenWidth = game.Window.ClientBounds.Width;
             screenHeight = game.Window.ClientBounds.Height;
@@ -68,13 +61,13 @@ namespace SharpCraft.GUI
                 hotbarItems = parameters.Inventory;
             }
 
-            int nRows = blockTextures.Count / 9 + 1;
+            int nRows = assetServer.GetBlocksCount / 9 + 1;
             items = new ushort?[nRows, 9];
 
             int col = 0, row = 0;
-            foreach (var blockName in blockNames)
+            foreach (ushort blockIndex in assetServer.GetInteractiveBlockIndices)
             {
-                items[row, col] = blockName.Key;
+                items[row, col] = blockIndex;
                 col++;
 
                 if (col % 9 == 0)
@@ -91,10 +84,10 @@ namespace SharpCraft.GUI
 
             previousScrollValue = 0;
 
-            inventory = new Label(spriteBatch, menuTextures["inventory"],
+            inventory = new Label(spriteBatch, assetServer.GetMenuTexture("inventory"),
                 new Rectangle((screenWidth / 5), 30, 700, 700), Color.White);
 
-            hotbar = new Label(spriteBatch, menuTextures["toolbar"],
+            hotbar = new Label(spriteBatch, assetServer.GetMenuTexture("toolbar"),
                 new Rectangle((screenWidth / 2) - 225, screenHeight - 50, 450, 50), new Color(Color.DarkGray, 0.8f));
 
             Texture2D scrollerTexture = new(game.GraphicsDevice, 10, 10);
@@ -142,7 +135,7 @@ namespace SharpCraft.GUI
                 {
                     if (items[row, j] != null)
                     {
-                        spriteBatch.Draw(blockTextures[(int)items[row, j]],
+                        spriteBatch.Draw(assetServer.GetBlockTexture((ushort)items[row, j]),
                             new Rectangle(screenWidth / 5 + 25 + j * 49, 78 + i * 50, 45, 45), Color.White);
                     }
                 }
@@ -153,7 +146,7 @@ namespace SharpCraft.GUI
             {
                 if (hotbarItems[i] != null)
                 {
-                    spriteBatch.Draw(blockTextures[(int)hotbarItems[i]],
+                    spriteBatch.Draw(assetServer.GetBlockTexture((ushort)hotbarItems[i]),
                         new Rectangle(screenWidth / 5 + 25 + i * 49,
                         screenHeight - 145, 45, 45), Color.White);
                 }
@@ -162,20 +155,20 @@ namespace SharpCraft.GUI
             //Draw the selected dragged texture
             if (draggedTexture != null)
             {
-                spriteBatch.Draw(blockTextures[(int)draggedTexture],
+                spriteBatch.Draw(assetServer.GetBlockTexture((ushort)draggedTexture),
                     new Rectangle(currentMouseState.X, currentMouseState.Y, 45, 45), Color.White);
             }
 
             //Draw the name of the hovered texture
             if (hoveredTexture != null)
             {
-                Vector2 textSize = font.MeasureString(blockNames[(ushort)hoveredTexture]);
+                Vector2 textSize = font.MeasureString(assetServer.GetBlockName((ushort)hoveredTexture));
 
                 spriteBatch.Draw(blackTexture,
                     new Rectangle(currentMouseState.X + 20, currentMouseState.Y,
                     (int)textSize.X, (int)textSize.Y), Color.Black);
 
-                spriteBatch.DrawString(font, blockNames[(ushort)hoveredTexture],
+                spriteBatch.DrawString(font, assetServer.GetBlockName((ushort)hoveredTexture),
                     new Vector2(currentMouseState.X + 20, currentMouseState.Y), Color.White);
 
                 hoveredTexture = null;
@@ -192,25 +185,25 @@ namespace SharpCraft.GUI
 
                 if (hotbarItems[i] != null)
                 {
-                    spriteBatch.Draw(blockTextures[(ushort)hotbarItems[i]], selectedItem, Color.White);
+                    spriteBatch.Draw(assetServer.GetBlockTexture((ushort)hotbarItems[i]), selectedItem, Color.White);
                 }
             }
 
-            //Draw selected tool name
+            //Draw selected item name
             if (hotbarItems[activeItemIndex] != null)
             {
                 int x = (screenWidth / 2) - 225;
                 int y = screenHeight - 50;
-                Vector2 textSize = font.MeasureString(blockNames[(ushort)hotbarItems[activeItemIndex]]);
+                Vector2 textSize = font.MeasureString(assetServer.GetBlockName((ushort)hotbarItems[activeItemIndex]));
 
                 spriteBatch.Draw(blackTexture,
                     new Rectangle(x, y - 20, (int)textSize.X, (int)textSize.Y), Color.Black);
 
-                spriteBatch.DrawString(font, blockNames[(ushort)hotbarItems[activeItemIndex]],
+                spriteBatch.DrawString(font, assetServer.GetBlockName((ushort)hotbarItems[activeItemIndex]),
                     new Vector2(x, y - 20), Color.White);
             }
 
-            spriteBatch.Draw(menuTextures["selector"], selector, Color.White);
+            spriteBatch.Draw(assetServer.GetMenuTexture("selector"), selector, Color.White);
         }
 
         public void Update(KeyboardState currentKeyboardState, KeyboardState previousKeyboardState,

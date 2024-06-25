@@ -35,7 +35,7 @@ namespace SharpCraft.World
                sand, sandstone;
 
 
-        public WorldGenerator(Parameters parameters)
+        public WorldGenerator(Parameters parameters, AssetServer assetServer)
         {
             size = Settings.ChunkSize;
             type = parameters.WorldType;
@@ -45,20 +45,18 @@ namespace SharpCraft.World
 
             int seed = parameters.Seed;
 
-            var blockIndices = Assets.BlockIndices;
-
-            bedrock = blockIndices["Bedrock"];
-            grass = blockIndices["Grass"];
-            stone = blockIndices["Stone"];
-            dirt = blockIndices["Dirt"];
-            snow = blockIndices["Snow Block"];
-            granite = blockIndices["Granite"];
-            leaves = blockIndices["Leaves"];
-            birch = blockIndices["Birch Log"];
-            oak = blockIndices["Oak Log"];
-            water = blockIndices["Water"];
-            sand = blockIndices["Sand"];
-            sandstone = blockIndices["Sandstone"];
+            bedrock = assetServer.GetBlockIndex("bedrock");
+            grass = assetServer.GetBlockIndex("grass_side");
+            stone = assetServer.GetBlockIndex("stone");
+            dirt = assetServer.GetBlockIndex("dirt");
+            snow = assetServer.GetBlockIndex("snow");
+            granite = assetServer.GetBlockIndex("granite");
+            leaves = assetServer.GetBlockIndex("leaves");
+            birch = assetServer.GetBlockIndex("birch_log");
+            oak = assetServer.GetBlockIndex("oak_log");
+            water = assetServer.GetBlockIndex("water");
+            sand = assetServer.GetBlockIndex("sand");
+            sandstone = assetServer.GetBlockIndex("sandstone_top");
 
             rnd = new Random(seed);
 

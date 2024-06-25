@@ -13,20 +13,19 @@ namespace SharpCraft.Handlers
 {
     class DatabaseHandler
     {
+        readonly AssetServer assetServer;
         SQLiteCommand cmd;
         SQLiteConnection connection;
 
-        string insertCommand = @"INSERT OR REPLACE INTO chunks(chunkX, chunkZ, x, y, z, texture)
+        const string insertCommand = @"INSERT OR REPLACE INTO chunks(chunkX, chunkZ, x, y, z, texture)
                                 VALUES(@chunkX, @chunkZ, @x, @y, @z, @texture)";
 
-        string selectCommand = @"SELECT x, y, z, texture FROM chunks
+        const string selectCommand = @"SELECT x, y, z, texture FROM chunks
                                 WHERE [chunkX] = @x AND [chunkZ] = @z";
 
         Queue<SaveData> dataQueue;
 
         Task saveTask;
-
-        IList<bool> lightSources;
 
         struct SaveData
         {
@@ -47,11 +46,11 @@ namespace SharpCraft.Handlers
         }
 
 
-        public DatabaseHandler(MainGame game, string saveName)
+        public DatabaseHandler(MainGame game, string saveName, AssetServer assetServer)
         {
             dataQueue = new Queue<SaveData>(10);
 
-            lightSources = Assets.LightSources;
+            this.assetServer = assetServer;
             
             string path = @"URI=file:" + Directory.GetCurrentDirectory() + $@"\Saves\{saveName}\data.db";
             connection = new SQLiteConnection(path);
@@ -123,7 +122,7 @@ namespace SharpCraft.Handlers
 
                 chunk[x, y, z] = texture;
 
-                if (texture != null && lightSources[(int)texture])
+                if (texture != null && assetServer.IsLightSource((ushort)texture))
                 {
                     chunk.AddLightSource(y, x, z);
                 }

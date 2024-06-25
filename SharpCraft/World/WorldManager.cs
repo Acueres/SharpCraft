@@ -17,7 +17,7 @@ namespace SharpCraft.World
 {
     class WorldManager
     {
-        public Dictionary<Vector3, Chunk> Region { get => region; }
+        public Dictionary<Vector3, Chunk> Region => region;
 
         public Vector3[] ActiveChunks;
         public VertexPositionTextureLight[] Outline;
@@ -28,6 +28,7 @@ namespace SharpCraft.World
         WorldGenerator worldGenerator;
         DatabaseHandler databaseHandler;
         BlockSelector blockSelector;
+        readonly AssetServer assetServer;
 
         Dictionary<Vector3, Chunk> region;
         HashSet<Vector3> nearChunks;
@@ -42,17 +43,18 @@ namespace SharpCraft.World
 
 
         public WorldManager(GameMenu gameMenu, DatabaseHandler databaseHandler,
-            BlockSelector blockSelector, Parameters parameters)
+            BlockSelector blockSelector, Parameters parameters, AssetServer assetServer)
         {
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
+            this.assetServer = assetServer;
 
             size = Settings.ChunkSize;
             renderDistance = Settings.RenderDistance;
 
-            water = Assets.BlockIndices["Water"];
+            water = assetServer.GetBlockIndex("water");
 
-            worldGenerator = new WorldGenerator(parameters);
+            worldGenerator = new WorldGenerator(parameters, assetServer);
             region = new Dictionary<Vector3, Chunk>((int)2e3);
             this.blockSelector = blockSelector;
 
@@ -70,7 +72,7 @@ namespace SharpCraft.World
         {
             this.player = player;
 
-            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, size);
+            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, assetServer, size);
 
             GetActiveChunks();
             UpdateChunks();
@@ -181,7 +183,7 @@ namespace SharpCraft.World
                     Vector3 position = center - new Vector3(i, 0, j);
                     if (region[position] is null)
                     {
-                        region[position] = new Chunk(position, worldGenerator, region);
+                        region[position] = new Chunk(position, worldGenerator, region, assetServer);
                         databaseHandler.ApplyDelta(region[position]);
                     }
 

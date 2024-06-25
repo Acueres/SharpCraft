@@ -24,7 +24,7 @@ namespace SharpCraft.Menu
 
         Parameters newWorldParameters;
 
-        ReadOnlyDictionary<string, Texture2D> menuTextures;
+        readonly AssetServer assetServer;
 
         Rectangle background;
         Texture2D backgroundTexture;
@@ -64,20 +64,19 @@ namespace SharpCraft.Menu
         SaveGrid saveGrid;
 
 
-        public MainMenu(MainGame game, GraphicsDevice graphics)
+        public MainMenu(MainGame game, GraphicsDevice graphics, AssetServer assetServer)
         {
             this.game = game;
             game.IsMouseVisible = true;
             this.graphics = graphics;
             spriteBatch = new SpriteBatch(graphics);
-
-            menuTextures = Assets.MenuTextures;
+            this.assetServer = assetServer;
 
             screenWidth = game.Window.ClientBounds.Width;
             screenHeight = game.Window.ClientBounds.Height;
 
-            font14 = Assets.Fonts[0];
-            font24 = Assets.Fonts[1];
+            font14 = assetServer.GetFont(0);
+            font24 = assetServer.GetFont(1);
 
             state = MenuState.Main;
 
@@ -279,9 +278,9 @@ namespace SharpCraft.Menu
             int offset = elementHeight + screenWidth / elementHeight;
 
             background = new Rectangle(0, 0, screenWidth, game.Window.ClientBounds.Height);
-            backgroundTexture = menuTextures["menu_background"];
+            backgroundTexture = assetServer.GetMenuTexture("menu_background");
 
-            logoTexture = menuTextures["logo"];
+            logoTexture = assetServer.GetMenuTexture("logo");
             logo = new Rectangle(100, 0, logoTexture.Width, logoTexture.Height);
 
             saving = new Label(spriteBatch, "Saving World", font24,
@@ -295,7 +294,7 @@ namespace SharpCraft.Menu
             {
                 ["New World"] = new Button(graphics, spriteBatch, "New World", font14,
                 (screenWidth / 2) - elementWidth / 2, 3 * offset, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     newWorldParameters = new Parameters();
                     worldName.Clear();
@@ -304,7 +303,7 @@ namespace SharpCraft.Menu
 
                 ["Load World"] = new Button(graphics, spriteBatch, "Load World", font14,
                 (screenWidth / 2) - elementWidth / 2, 4 * offset, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     saves.Sort((a, b) => a.Parameters.Date.CompareTo(b.Parameters.Date));
                     saves.Reverse();
@@ -314,14 +313,14 @@ namespace SharpCraft.Menu
 
                 ["Settings"] = new Button(graphics, spriteBatch, "Settings", font14,
                 (screenWidth / 2) - elementWidth / 2, 5 * offset, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     state = MenuState.Settings;
                 }),
 
                 ["Quit"] = new Button(graphics, spriteBatch, "Quit Game", font14,
                 (screenWidth / 2) - elementWidth / 2, 6 * offset, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     game.Exit();
                 })
@@ -332,11 +331,11 @@ namespace SharpCraft.Menu
             {
                 ["Render Distance"] = new Button(graphics, spriteBatch, "Render Distance: ", font14,
                 (screenWidth / 2) - elementWidth / 2, offset, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"]),
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector")),
 
                 ["Back"] = new Button(graphics, spriteBatch, "Back", font14,
                 screenWidth - elementWidth, screenHeight - elementHeight, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     state = MenuState.Main;
                     Settings.Save();
@@ -354,7 +353,7 @@ namespace SharpCraft.Menu
 
                 ["World Type"] = new Button(graphics, spriteBatch, "World Type: ", font14,
                 (screenWidth / 2) - elementWidth / 2, 3 * offset, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     if (newWorldParameters.WorldType == "Default")
                     {
@@ -368,7 +367,7 @@ namespace SharpCraft.Menu
 
                 ["Create World"] = new Button(graphics, spriteBatch, "Create World", font14,
                 0, screenHeight - elementHeight, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     string saveName = worldName.ToString();
 
@@ -385,7 +384,7 @@ namespace SharpCraft.Menu
 
                 ["Cancel"] = new Button(graphics, spriteBatch, "Cancel", font14,
                 screenWidth - elementWidth, screenHeight - elementHeight, elementWidth, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     state = MenuState.Main;
                 })
@@ -393,7 +392,7 @@ namespace SharpCraft.Menu
 
             worldName = new TextBox(game.Window, graphics, spriteBatch,
                 (screenWidth - 400) / 2, 2 * offset, 400, elementHeight,
-                menuTextures["button_selector"], font14);
+                assetServer.GetMenuTexture("button_selector"), font14);
 
 
             loadWorldLayout = new Dictionary<string, GUIElement>()
@@ -403,7 +402,7 @@ namespace SharpCraft.Menu
 
                 ["Play"] = new Button(graphics, spriteBatch, "Play", font14,
                 0, screenHeight - elementHeight, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     CurrentSave = saveGrid.SelectedSave;
                     state = MenuState.Main;
@@ -413,7 +412,7 @@ namespace SharpCraft.Menu
 
                 ["Reset"] = new Button(graphics, spriteBatch, "Reset", font14,
                 400, screenHeight - elementHeight, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     saveGrid.SelectedSave.Clear();
                 }),
@@ -421,7 +420,7 @@ namespace SharpCraft.Menu
 
                 ["Delete"] = new Button(graphics, spriteBatch, "Delete", font14,
                 400 - elementWidth / 2, screenHeight - elementHeight, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     Save toDelete = saveGrid.SelectedSave;
                     Directory.Delete($@"Saves\{toDelete.Name}", true);
@@ -430,14 +429,14 @@ namespace SharpCraft.Menu
 
                 ["Cancel"] = new Button(graphics, spriteBatch, "Cancel", font14,
                 screenWidth - elementWidth / 2, screenHeight - elementHeight, elementWidth / 2, elementHeight,
-                menuTextures["button"], menuTextures["button_selector"], () =>
+                assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     state = MenuState.Main;
                 })
             };
 
-            saveGrid = new SaveGrid(graphics, spriteBatch, screenWidth, 
-                elementWidth, elementHeight, saves, font14);
+            saveGrid = new SaveGrid(graphics, spriteBatch, assetServer, screenWidth, 
+                elementWidth, elementHeight, saves);
         }
     }
 }

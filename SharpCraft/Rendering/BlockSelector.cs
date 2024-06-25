@@ -24,7 +24,7 @@ namespace SharpCraft.Rendering
         DynamicVertexBuffer buffer;
 
 
-        public BlockSelector(GraphicsDevice graphics)
+        public BlockSelector(GraphicsDevice graphics, AssetServer assetServer)
         {
             this.graphics = graphics;
 
@@ -40,7 +40,7 @@ namespace SharpCraft.Rendering
                 [5] = 'X'
             };
 
-            texture = Assets.MenuTextures["block_outline"];
+            texture = assetServer.GetMenuTexture("block_outline");
 
             buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
                         36, BufferUsage.WriteOnly);
