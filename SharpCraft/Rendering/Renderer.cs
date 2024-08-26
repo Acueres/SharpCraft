@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework.Graphics;
 using SharpCraft.Handlers;
 using SharpCraft.World;
 using SharpCraft.Utility;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.Rendering

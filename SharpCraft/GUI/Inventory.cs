@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 using SharpCraft.Utility;
 using SharpCraft.Models;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.GUI

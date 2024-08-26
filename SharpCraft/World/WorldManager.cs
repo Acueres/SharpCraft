@@ -11,6 +11,7 @@ using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.Utility;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.World

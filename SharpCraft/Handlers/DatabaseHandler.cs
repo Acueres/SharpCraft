@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.World;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.Handlers

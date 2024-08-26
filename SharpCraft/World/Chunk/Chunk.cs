@@ -8,6 +8,7 @@ using Microsoft.Win32.SafeHandles;
 
 using SharpCraft.Rendering;
 using SharpCraft.Models;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.World

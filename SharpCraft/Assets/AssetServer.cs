@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,8 +9,9 @@ using System.Linq;
 using Newtonsoft.Json;
 
 using SharpCraft.Utility;
+using SharpCraft.DataModel;
 
-namespace SharpCraft
+namespace SharpCraft.Assets
 {
     public class AssetServer(ContentManager content)
     {
@@ -47,7 +49,7 @@ namespace SharpCraft
             LoadBlocks();
 
             //Load menu textures
-            string[] textureNames = [.. Directory.GetFiles("Content/Textures/Menu", ".")];
+            string[] textureNames = [.. Directory.GetFiles("Assets/Textures/Menu", ".")];
 
             for (int i = 0; i < textureNames.Length; i++)
             {
@@ -61,35 +63,23 @@ namespace SharpCraft
             effect = content.Load<Effect>("Effects/BlockEffect");
         }
 
-        class MultifaceData
-        {
-            public string type, front, back, top, bottom, right, left;
-        }
-
-        class BlockData
-        {
-            public string name, type;
-            public bool transparent;
-            public int lightLevel;
-        }
-
         void LoadBlocks()
         {
-            List<MultifaceData> blockFacesData;
-            using (StreamReader r = new("Content/multiface_blocks.json"))
+            List<BlockFaceData> blockFacesData;
+            using (StreamReader r = new("Assets/multiface_blocks.json"))
             {
                 string json = r.ReadToEnd();
-                blockFacesData = JsonConvert.DeserializeObject<List<MultifaceData>>(json);
+                blockFacesData = JsonConvert.DeserializeObject<List<BlockFaceData>>(json);
             }
 
             List<BlockData> blockData;
-            using (StreamReader r = new("Content/blocks.json"))
+            using (StreamReader r = new("Assets/blocks.json"))
             {
                 string json = r.ReadToEnd();
                 blockData = JsonConvert.DeserializeObject<List<BlockData>>(json);
             }
 
-            string[] blockTextureNames = Directory.GetFiles("Content/Textures/Blocks", ".");
+            string[] blockTextureNames = Directory.GetFiles("Assets/Textures/Blocks", ".");
 
             for (int i = 0; i < blockTextureNames.Length; i++)
             {
@@ -98,48 +88,48 @@ namespace SharpCraft
                 blockNamesToIndices.Add(t, (ushort)i);
             }
 
-            string[] sides = ["front", "back", "top", "bottom", "right", "left"];
+            Span<string> sides = ["Front", "Back", "Top", "Bottom", "Right", "Left"];
 
-            foreach (var entry in blockFacesData)
+            foreach (BlockFaceData faceData in blockFacesData)
             {
-                var faceData = entry.GetType().GetFields().
-                    ToDictionary(x => x.Name, x => x.GetValue(entry));
+                var faceMap = faceData.GetType().GetProperties().
+                    ToDictionary(x => x.Name, x => x.GetValue(faceData));
 
-                ushort[] faceTextures = new ushort[6];
+                ushort[] faceTextureTypes = new ushort[6];
 
                 for (int i = 0; i < sides.Length; i++)
                 {
-                    if (faceData[sides[i]] is null)
+                    if (faceMap[sides[i]] is null)
                     {
-                        faceTextures[i] = blockNamesToIndices[faceData["type"].ToString()];
+                        faceTextureTypes[i] = blockNamesToIndices[faceMap["Type"].ToString()];
                     }
                     else
                     {
-                        faceTextures[i] = blockNamesToIndices[faceData[sides[i]].ToString()];
+                        faceTextureTypes[i] = blockNamesToIndices[faceMap[sides[i]].ToString()];
                     }
                 }
 
-                multifaceBlocks.Add(blockNamesToIndices[entry.type], faceTextures);
+                multifaceBlocks.Add(blockNamesToIndices[faceData.Type], faceTextureTypes);
             }
 
-            foreach (var entry in blockData)
+            foreach (BlockData data in blockData)
             {
-                string name = entry.name is null ? Util.Title(entry.type) : entry.name;
-                blockNames.Add(blockNamesToIndices[entry.type], name);
+                string name = data.Name is null ? Util.Title(data.Type) : data.Name;
+                blockNames.Add(blockNamesToIndices[data.Type], name);
 
-                if (entry.transparent)
+                if (data.Transparent)
                 {
-                    transparentBlocks.Add(blockNamesToIndices[entry.type]);
+                    transparentBlocks.Add(blockNamesToIndices[data.Type]);
                 }
 
-                if (entry.lightLevel > 0)
+                if (data.LightLevel > 0)
                 {
-                    lightSources.Add(blockNamesToIndices[entry.type]);
+                    lightSources.Add(blockNamesToIndices[data.Type]);
                 }
 
-                if (entry.lightLevel > 0)
+                if (data.LightLevel > 0)
                 {
-                    lightSourceValues.Add(blockNamesToIndices[entry.type], (byte)entry.lightLevel);
+                    lightSourceValues.Add(blockNamesToIndices[data.Type], (byte)data.LightLevel);
                 }
             }
         }

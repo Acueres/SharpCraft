@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework;
 
 using SharpCraft.Utility;
 using SharpCraft.Models;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.World

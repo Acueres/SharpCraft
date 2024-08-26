@@ -9,6 +9,7 @@ using Microsoft.Xna.Framework.Input;
 using SharpCraft.Handlers;
 using SharpCraft.GUI;
 using SharpCraft.Utility;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.Menu

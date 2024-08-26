@@ -8,6 +8,7 @@ using SharpCraft.Rendering;
 using SharpCraft.World;
 
 using SharpCraft.Utility;
+using SharpCraft.Assets;
 
 
 namespace SharpCraft.Handlers
