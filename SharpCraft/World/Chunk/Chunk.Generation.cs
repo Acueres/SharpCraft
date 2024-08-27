@@ -19,7 +19,7 @@ namespace SharpCraft.World
 
         WorldGenerator worldGenerator;
 
-        ushort?[][][] blocks;
+        Block[][][] blocks;
 
         void Initialize()
         {
@@ -37,7 +37,7 @@ namespace SharpCraft.World
                 {
                     for (int z = 0; z < SIZE; z++)
                     {
-                        if (this[x, y, z] is null)
+                        if (this[x, y, z].IsEmpty)
                         {
                             continue;
                         }
@@ -68,14 +68,14 @@ namespace SharpCraft.World
         {
             Array.Clear(visibleFaces, 0, 6);
 
-            ushort? block = this[x, y, z];
+            Block block = this[x, y, z];
 
-            ushort? adjacentBlock;
+            Block adjacentBlock;
 
             bool blockOpaque = true;
             if (calculateOpacity)
             {
-                blockOpaque = block != null && !assetServer.IsBlockTransparent((ushort)block);
+                blockOpaque = !block.IsEmpty && !assetServer.IsBlockTransparent((ushort)block.Value);
             }
 
             if (z == LAST)
@@ -94,7 +94,7 @@ namespace SharpCraft.World
             {
                 adjacentBlock = this[x, y, z + 1];
             }
-            visibleFaces[0] = adjacentBlock is null || (assetServer.IsBlockTransparent((ushort)adjacentBlock) && blockOpaque);
+            visibleFaces[0] = adjacentBlock.IsEmpty || (assetServer.IsBlockTransparent((ushort)adjacentBlock.Value) && blockOpaque);
 
             if (z == 0)
             {
@@ -112,18 +112,18 @@ namespace SharpCraft.World
             {
                 adjacentBlock = this[x, y, z - 1];
             }
-            visibleFaces[1] = adjacentBlock is null || (assetServer.IsBlockTransparent((ushort)adjacentBlock) && blockOpaque);
+            visibleFaces[1] = adjacentBlock.IsEmpty || (assetServer.IsBlockTransparent((ushort)adjacentBlock.Value) && blockOpaque);
 
             if (y + 1 < HEIGHT)
             {
                 adjacentBlock = this[x, y + 1, z];
-                visibleFaces[2] = adjacentBlock is null || (assetServer.IsBlockTransparent((ushort)adjacentBlock) && blockOpaque);
+                visibleFaces[2] = adjacentBlock.IsEmpty || (assetServer.IsBlockTransparent((ushort)adjacentBlock.Value) && blockOpaque);
             }
 
             if (y > 0)
             {
                 adjacentBlock = this[x, y - 1, z];
-                visibleFaces[3] = adjacentBlock is null || (assetServer.IsBlockTransparent((ushort)adjacentBlock) && blockOpaque);
+                visibleFaces[3] = adjacentBlock.IsEmpty || (assetServer.IsBlockTransparent((ushort)adjacentBlock.Value) && blockOpaque);
             }
 
 
@@ -143,7 +143,7 @@ namespace SharpCraft.World
             {
                 adjacentBlock = this[x + 1, y, z];
             }
-            visibleFaces[4] = adjacentBlock is null || (assetServer.IsBlockTransparent((ushort)adjacentBlock) && blockOpaque);
+            visibleFaces[4] = adjacentBlock.IsEmpty || (assetServer.IsBlockTransparent((ushort)adjacentBlock.Value) && blockOpaque);
 
             if (x == 0)
             {
@@ -161,7 +161,7 @@ namespace SharpCraft.World
             {
                 adjacentBlock = this[x - 1, y, z];
             }
-            visibleFaces[5] = adjacentBlock is null || (assetServer.IsBlockTransparent((ushort)adjacentBlock) && blockOpaque);
+            visibleFaces[5] = adjacentBlock.IsEmpty || (assetServer.IsBlockTransparent((ushort)adjacentBlock.Value) && blockOpaque);
 
             return visibleFaces;
         }

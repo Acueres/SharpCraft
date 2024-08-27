@@ -70,7 +70,7 @@ namespace SharpCraft.Handlers
                 AddBlock();
             }
 
-            if (y != -1 && region[position][x, y, z] != null)
+            if (y != -1 && !region[position][x, y, z].IsEmpty)
             {
                 bool[] visibleFaces = new bool[6];
                 region[position].GetVisibleFaces(visibleFaces, y, x, z);
@@ -92,11 +92,11 @@ namespace SharpCraft.Handlers
 
             Chunk chunk = region[position];
 
-            ushort? block = chunk[x, y, z];
+            Block block = chunk[x, y, z];
 
-            bool lightSource = block != null && assetServer.IsLightSource((ushort)block);
+            bool lightSource = !block.IsEmpty && assetServer.IsLightSource((ushort)block.Value);
 
-            chunk[x, y, z] = null;
+            chunk[x, y, z] = new();
 
             chunk.Active.RemoveAt(index);
 
@@ -128,7 +128,7 @@ namespace SharpCraft.Handlers
             Chunk chunk = region[position];
             ushort? texture;
 
-            if (chunk[x, y, z] is null && gameMenu.SelectedItem != null)
+            if (chunk[x, y, z].IsEmpty && gameMenu.SelectedItem != null)
             {
                 texture = gameMenu.SelectedItem;
             }
@@ -137,7 +137,7 @@ namespace SharpCraft.Handlers
                 return;
             }
 
-            chunk[x, y, z] = texture;
+            chunk[x, y, z] = new(texture);
 
             chunk.UpdateLight(y, x, z, texture);
 
@@ -150,7 +150,7 @@ namespace SharpCraft.Handlers
         {
             chunk.UpdateMesh = true;
 
-            if (chunk[x, y, z] != null)
+            if (chunk[x, y, z].IsEmpty)
             {
                 ActivateBlock(chunk, y, x, z);
             }
@@ -181,7 +181,7 @@ namespace SharpCraft.Handlers
 
         void ActivateBlock(Chunk chunk, int y, int x, int z)
         {
-            if (chunk[x, y, z] is null)
+            if (chunk[x, y, z].IsEmpty)
             {
                 return;
             }

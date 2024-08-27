@@ -93,21 +93,16 @@ namespace SharpCraft.World
             };
         }
 
-        public ushort? Peek(Vector3 position, BlockIndex index)
-        {
-            return Peek(position, index.Y, index.X, index.Z);
-        }
-
-        public ushort? Peek(Vector3 position, int y, int x, int z)
+        public Block Peek(Vector3 position, int y, int x, int z)
         {
             int height = GetHeight(position, x, z, out _);
 
             if (height > y)
             {
-                return 0;
+                return new(0);
             }
 
-            return null;
+            return new();
         }
         
         void Default(Chunk chunk)
@@ -131,14 +126,14 @@ namespace SharpCraft.World
                     {
                         ushort texture = Fill(elevationMap[x, z], y, chunk.BiomeData[x][z]);
 
-                        chunk[x, y, z] = texture;
+                        chunk[x, y, z] = new(texture);
                     }
 
                     if (chunk.BiomeData[x][z] == 0)
                     {
                         for (int i = elevationMap[x, z]; i < waterLevel; i++)
                         {
-                            chunk[x, i, z] = water;
+                            chunk[x, i, z] = new(water);
                         }
                     }
                 }
@@ -191,7 +186,7 @@ namespace SharpCraft.World
                         else
                             texture = dirt;
 
-                        chunk[x, y, z] = texture;
+                        chunk[x, y, z] = new(texture);
                     }
                 }
             }
@@ -334,8 +329,8 @@ namespace SharpCraft.World
 
         void MakeTree(Chunk chunk, ushort wood, int y, int x, int z)
         {
-            if (chunk[x, y - 1, z] != grass &&
-                chunk[x, y - 1, z] != dirt)
+            if (chunk[x, y - 1, z].Value != grass &&
+                chunk[x, y - 1, z].Value != dirt)
             {
                 return;
             }
@@ -347,45 +342,45 @@ namespace SharpCraft.World
 
             for (int i = y; i < y + height; i++)
             {
-                chunk[x, i, z] = wood;
+                chunk[x, i, z] = new(wood);
             }
 
             for (int i = x - 1; i < x + 2; i++)
             {
                 for (int j = z - 1; j < z + 2; j++)
                 {
-                    if (chunk[i, level1, j] is null)
+                    if (chunk[i, level1, j].IsEmpty)
                     {
-                        chunk[i, level1, j] = leaves;
+                        chunk[i, level1, j] = new(leaves);
                     }
                 }
             }
 
-            if (chunk[x, level2, z] is null)
+            if (chunk[x, level2, z].IsEmpty)
             {
-                chunk[x, level2, z] = leaves;
+                chunk[x, level2, z] = new(leaves);
             }
-            if (chunk[x, level3, z] is null)
+            if (chunk[x, level3, z].IsEmpty)
             {
-                chunk[x, level3, z] = leaves;
-            }
-
-            if (chunk[x - 1, level2, z] is null)
-            {
-                chunk[x - 1, level2, z] = leaves;
-            }
-            if (chunk[x + 1, level2, z] is null)
-            {
-                chunk[x + 1, level2, z] = leaves;
+                chunk[x, level3, z] = new(leaves);
             }
 
-            if (chunk[x, level2, z - 1] is null)
+            if (chunk[x - 1, level2, z].IsEmpty)
             {
-                chunk[x, level2, z - 1] = leaves;
+                chunk[x - 1, level2, z] = new(leaves);
             }
-            if (chunk[x, level2, z + 1] is null)
+            if (chunk[x + 1, level2, z].IsEmpty)
             {
-                chunk[x, level2, z + 1] = leaves;
+                chunk[x + 1, level2, z] = new(leaves);
+            }
+
+            if (chunk[x, level2, z - 1].IsEmpty)
+            {
+                chunk[x, level2, z - 1] = new(leaves);
+            }
+            if (chunk[x, level2, z + 1].IsEmpty)
+            {
+                chunk[x, level2, z + 1] = new(leaves);
             }
         }
     }

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using SharpCraft.World;
+﻿using SharpCraft.World;
 
 namespace SharpCraft.Models
 {
@@ -24,17 +18,17 @@ namespace SharpCraft.Models
             Z = z;
         }
 
-        public ushort? GetTexture()
+        public readonly Block GetBlock()
         {
             return Chunk[X, Y, Z];
         }
 
-        public byte GetLight(bool channel)
+        public readonly byte GetLight(bool channel)
         {
             return Chunk.GetLight(Y, X, Z, channel);
         }
 
-        public void SetLight(byte value, bool channel)
+        public readonly void SetLight(byte value, bool channel)
         {
             Chunk.SetLight(Y, X, Z, value, channel);
         }

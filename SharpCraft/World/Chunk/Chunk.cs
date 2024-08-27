@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 
 using Microsoft.Xna.Framework;
@@ -52,14 +51,14 @@ namespace SharpCraft.World
             //Only about ~5% of all blocks are visible
             int total = (int)(0.05 * SIZE * SIZE * HEIGHT);
 
-            blocks = new ushort?[HEIGHT][][];
+            blocks = new Block[HEIGHT][][];
             for (int y = 0; y < HEIGHT; y++)
             {
-                blocks[y] = new ushort?[SIZE][];
+                blocks[y] = new Block[SIZE][];
 
                 for (int x = 0; x < SIZE; x++)
                 {
-                    blocks[y][x] = new ushort?[SIZE];
+                    blocks[y][x] = new Block[SIZE];
                 }
             }
 
@@ -102,7 +101,7 @@ namespace SharpCraft.World
             CalculateMesh();
         }
 
-        public ushort? this[int x, int y, int z]
+        public Block this[int x, int y, int z]
         {
             get => blocks[y][x][z];
             set => blocks[y][x][z] = value;

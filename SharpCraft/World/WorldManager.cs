@@ -258,7 +258,7 @@ namespace SharpCraft.World
 
                     if (player.Bound.Intersects(blockBounds))
                     {
-                        if (chunk[x, y, z] == water)
+                        if (chunk[x, y, z].Value == water)
                         {
                             if (!player.Swimming)
                             {

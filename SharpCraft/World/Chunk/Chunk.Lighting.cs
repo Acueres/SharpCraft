@@ -42,7 +42,7 @@ namespace SharpCraft.World
                 int x = lightSources[i].X;
                 int z = lightSources[i].Z;
 
-                SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z]), blockLight);
+                SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z].Value), blockLight);
                 lightQueue.Enqueue(new LightNode(this, x, y, z));
             }
 
@@ -76,9 +76,9 @@ namespace SharpCraft.World
             else
             {
                 bool sourceAdded = false;
-                if (assetServer.IsLightSource((ushort)this[x, y, z]))
+                if (assetServer.IsLightSource((ushort)this[x, y, z].Value))
                 {
-                    SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z]), blockLight);
+                    SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z].Value), blockLight);
                     sourceAdded = true;
                 }
 
@@ -140,7 +140,7 @@ namespace SharpCraft.World
 
                 byte light = node.GetLight(channel);
 
-                if (TransparentSolid(node.GetTexture()))
+                if (TransparentSolid(node.GetBlock()))
                 {
                     node.SetLight(light, channel);
                 }
@@ -157,7 +157,7 @@ namespace SharpCraft.World
                 for (int i = 0; i < 6; i++)
                 {
                     if (lightValues[i] > 0 && (i == 1 || lightValues[i] < light) &&
-                       Transparent(nodes[i].GetTexture()))
+                       IsBlockTransparent(nodes[i].GetBlock()))
                     {
                         lightQueue.Enqueue(nodes[i]);
                     }
@@ -285,7 +285,7 @@ namespace SharpCraft.World
 
 
             if (y + 1 < HEIGHT &&
-                Transparent(chunk[x, y + 1, z]) &&
+                IsBlockTransparent(chunk[x, y + 1, z]) &&
                 CompareValues(chunk.GetLight(y + 1, x, z, channel), light))
             {
                 chunk.SetLight(y + 1, x, z, nextLight, channel);
@@ -293,7 +293,7 @@ namespace SharpCraft.World
             }
 
             if (y > 0 &&
-                Transparent(chunk[x, y - 1, z]) &&
+                IsBlockTransparent(chunk[x, y - 1, z]) &&
                 CompareValues(chunk.GetLight(y - 1, x, z, channel), light, amount: (byte)(channel ? 0 : 1)))
             {
                 if (channel)
@@ -312,14 +312,14 @@ namespace SharpCraft.World
             if (x == LAST)
             {
                 if (chunk.Neighbors.XNeg != null &&
-                    Transparent(chunk.Neighbors.XNeg[0, y, z]) &&
+                    IsBlockTransparent(chunk.Neighbors.XNeg[0, y, z]) &&
                     CompareValues(chunk.Neighbors.XNeg.GetLight(y, 0, z, channel), light))
                 {
                     chunk.Neighbors.XNeg.SetLight(y, 0, z, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(chunk.Neighbors.XNeg, 0, y, z));
                 }
             }
-            else if (Transparent(chunk[x + 1, y, z]) &&
+            else if (IsBlockTransparent(chunk[x + 1, y, z]) &&
                 CompareValues(chunk.GetLight(y, x + 1, z, channel), light))
             {
                 chunk.SetLight(y, x + 1, z, nextLight, channel);
@@ -330,14 +330,14 @@ namespace SharpCraft.World
             if (x == 0)
             {
                 if (chunk.Neighbors.XPos != null &&
-                    Transparent(chunk.Neighbors.XPos[LAST, y, z]) &&
+                    IsBlockTransparent(chunk.Neighbors.XPos[LAST, y, z]) &&
                     CompareValues(chunk.Neighbors.XPos.GetLight(y, LAST, z, channel), light))
                 {
                     chunk.Neighbors.XPos.SetLight(y, LAST, z, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(chunk.Neighbors.XPos, LAST, y, z));
                 }
             }
-            else if (Transparent(chunk[x - 1, y, z]) &&
+            else if (IsBlockTransparent(chunk[x - 1, y, z]) &&
                 CompareValues(chunk.GetLight(y, x - 1, z, channel), light))
             {
                 chunk.SetLight(y, x - 1, z, nextLight, channel);
@@ -348,14 +348,14 @@ namespace SharpCraft.World
             if (z == LAST)
             {
                 if (chunk.Neighbors.ZNeg != null &&
-                    Transparent(chunk.Neighbors.ZNeg[x, y, 0]) &&
+                    IsBlockTransparent(chunk.Neighbors.ZNeg[x, y, 0]) &&
                     CompareValues(chunk.Neighbors.ZNeg.GetLight(y, x, 0, channel), light))
                 {
                     chunk.Neighbors.ZNeg.SetLight(y, x, 0, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(chunk.Neighbors.ZNeg, x, y, 0));
                 }
             }
-            else if (Transparent(chunk[x, y, z + 1]) &&
+            else if (IsBlockTransparent(chunk[x, y, z + 1]) &&
                 CompareValues(chunk.GetLight(y, x, z + 1, channel), light))
             {
                 chunk.SetLight(y, x, z + 1, nextLight, channel);
@@ -366,14 +366,14 @@ namespace SharpCraft.World
             if (z == 0)
             {
                 if (chunk.Neighbors.ZPos != null &&
-                    Transparent(chunk.Neighbors.ZPos[x, y, LAST]) &&
+                    IsBlockTransparent(chunk.Neighbors.ZPos[x, y, LAST]) &&
                     CompareValues(chunk.Neighbors.ZPos.GetLight(y, x, LAST, channel), light))
                 {
                     chunk.Neighbors.ZPos.SetLight(y, x, LAST, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(chunk.Neighbors.ZPos, x, y, LAST));
                 }
             }
-            else if (Transparent(chunk[x, y, z - 1]) &&
+            else if (IsBlockTransparent(chunk[x, y, z - 1]) &&
                 CompareValues(chunk.GetLight(y, x, z - 1, channel), light))
             {
                 chunk.SetLight(y, x, z - 1, nextLight, channel);
@@ -481,14 +481,14 @@ namespace SharpCraft.World
             return val + amount < light;
         }
 
-        bool Transparent(ushort? texture)
+        bool IsBlockTransparent(Block block)
         {
-            return texture is null || assetServer.IsBlockTransparent((ushort)texture);
+            return block.IsEmpty || assetServer.IsBlockTransparent((ushort)block.Value);
         }
 
-        bool TransparentSolid(ushort? texture)
+        bool TransparentSolid(Block block)
         {
-            return texture != null && assetServer.IsBlockTransparent((ushort)texture);
+            return block.IsEmpty && assetServer.IsBlockTransparent((ushort)block.Value);
         }
     }
 }

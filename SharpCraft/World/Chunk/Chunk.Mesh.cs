@@ -37,9 +37,9 @@ namespace SharpCraft.World
 
                 for (int face = 0; face < 6; face++)
                 {
-                    if (visibleFaces[face])
+                    if (visibleFaces[face] && !this[x, y, z].IsEmpty)
                     {
-                        AddFaceMesh((ushort)this[x, y, z], (ushort)face, lightValues[face], blockPosition);
+                        AddFaceMesh((ushort)this[x, y, z].Value, (ushort)face, lightValues[face], blockPosition);
                     }
                 }
             }

@@ -121,7 +121,7 @@ namespace SharpCraft.Handlers
                 int x = reader.GetInt32(0);
                 int z = reader.GetInt32(2);
 
-                chunk[x, y, z] = texture;
+                chunk[x, y, z] = new(texture);
 
                 if (texture != null && assetServer.IsLightSource((ushort)texture))
                 {
