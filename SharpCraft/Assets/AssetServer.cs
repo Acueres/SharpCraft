@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework.Content;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 
 using System;
@@ -44,9 +45,9 @@ namespace SharpCraft.Assets
         public Texture2D GetMenuTexture(string name) => menuTextures[name];
         public SpriteFont GetFont(int index) => fonts[index];
 
-        public void Load()
+        public void Load(GraphicsDevice graphics)
         {
-            LoadBlocks();
+            LoadBlocks(graphics);
 
             //Load menu textures
             string[] textureNames = [.. Directory.GetFiles("Assets/Textures/Menu", ".")];
@@ -63,7 +64,7 @@ namespace SharpCraft.Assets
             effect = content.Load<Effect>("Effects/BlockEffect");
         }
 
-        void LoadBlocks()
+        void LoadBlocks(GraphicsDevice graphics)
         {
             List<BlockFaceData> blockFacesData;
             using (StreamReader r = new("Assets/multiface_blocks.json"))
@@ -81,11 +82,12 @@ namespace SharpCraft.Assets
 
             string[] blockTextureNames = Directory.GetFiles("Assets/Textures/Blocks", ".");
 
+            blockTextures.Add(Util.GetColoredTexture(graphics, 64, 64, Color.Transparent, 1));
             for (int i = 0; i < blockTextureNames.Length; i++)
             {
-                var t = blockTextureNames[i].Split('\\')[1].Split('.')[0];
-                blockTextures.Add(content.Load<Texture2D>("Textures/Blocks/" + t));
-                blockNamesToIndices.Add(t, (ushort)i);
+                string textureName = blockTextureNames[i].Split('\\')[1].Split('.')[0];
+                blockTextures.Add(content.Load<Texture2D>("Textures/Blocks/" + textureName));
+                blockNamesToIndices.Add(textureName, (ushort)(i + 1));
             }
 
             Span<string> sides = ["Front", "Back", "Top", "Bottom", "Right", "Left"];

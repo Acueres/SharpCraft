@@ -40,7 +40,6 @@ namespace SharpCraft.World
         int renderDistance;
 
         ushort water;
-        bool busy = false;
 
 
         public WorldManager(GameMenu gameMenu, DatabaseHandler databaseHandler,
@@ -89,20 +88,6 @@ namespace SharpCraft.World
             {
                 player.Position = parameters.Position;
             }
-        }
-
-        public async Task UpdateAsync()
-        {
-            if (!player.UpdateOccured || busy) return;
-
-            await Task.Run(() =>
-            {
-                busy = true;
-                GetActiveChunks();
-                UpdateChunks();
-                RemoveInactiveChunks();
-                busy = false;
-            });
         }
 
         public void Update()

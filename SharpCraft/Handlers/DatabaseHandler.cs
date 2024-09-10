@@ -34,9 +34,9 @@ namespace SharpCraft.Handlers
             public int X;
             public int Y;
             public int Z;
-            public ushort? Texture;
+            public ushort Texture;
 
-            public SaveData(Vector3 position, int x, int y, int z, ushort? texture)
+            public SaveData(Vector3 position, int x, int y, int z, ushort texture)
             {
                 Position = position;
                 X = x;
@@ -86,7 +86,7 @@ namespace SharpCraft.Handlers
             connection.Close();
         }
 
-        public void AddDelta(Vector3 position, int y, int x, int z, ushort? texture)
+        public void AddDelta(Vector3 position, int y, int x, int z, ushort texture)
         {
             dataQueue.Enqueue(new SaveData(position, x, y, z, texture));
         }
@@ -105,25 +105,18 @@ namespace SharpCraft.Handlers
 
             while (reader.Read())
             {
-                ushort? texture;
+                ushort texture;
                 int value = reader.GetInt32(3);
 
-                if (value == -1)
-                {
-                    texture = null;
-                }
-                else
-                {
-                    texture = (ushort)value;
-                }
+                texture = (ushort)value;
 
-                int y = reader.GetInt32(1);
                 int x = reader.GetInt32(0);
+                int y = reader.GetInt32(1);
                 int z = reader.GetInt32(2);
 
                 chunk[x, y, z] = new(texture);
 
-                if (texture != null && assetServer.IsLightSource((ushort)texture))
+                if (texture != Block.EmptyValue && assetServer.IsLightSource(texture))
                 {
                     chunk.AddLightSource(y, x, z);
                 }
@@ -145,14 +138,7 @@ namespace SharpCraft.Handlers
                 cmd.Parameters.AddWithValue("@y", data.Y);
                 cmd.Parameters.AddWithValue("@z", data.Z);
 
-                if (data.Texture is null)
-                {
-                    cmd.Parameters.AddWithValue("@texture", -1);
-                }
-                else
-                {
-                    cmd.Parameters.AddWithValue("@texture", data.Texture);
-                }
+                cmd.Parameters.AddWithValue("@texture", data.Texture);
 
                 cmd.ExecuteNonQuery();
             }

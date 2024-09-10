@@ -25,7 +25,7 @@ namespace SharpCraft.Utility
         Position = Vector3.Zero,
         Direction = new(0, -0.5f, -1f);
 
-        public ushort?[] Inventory = new ushort?[9];
+        public ushort[] Inventory = new ushort[9];
 
         public DateTime Date = DateTime.Now;
 
@@ -35,7 +35,7 @@ namespace SharpCraft.Utility
             public bool Flying;
             public float X, Y, Z;
             public float DirX, DirY, DirZ;
-            public ushort?[] Inventory;
+            public ushort[] Inventory;
             public string WorldType;
             public int Day, Hour, Minute;
             public DateTime Date;

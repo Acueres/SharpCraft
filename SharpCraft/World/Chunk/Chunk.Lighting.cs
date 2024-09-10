@@ -49,13 +49,13 @@ namespace SharpCraft.World
             FloodFill(blockLight);
         }
 
-        public void UpdateLight(int y, int x, int z, ushort? texture, bool sourceRemoved = false)
+        public void UpdateLight(int y, int x, int z, ushort texture, bool sourceRemoved = false)
         {
             bool skylight = true;
             bool blockLight = false;
 
             //Propagate light to an empty cell
-            if (texture is null)
+            if (texture == Block.EmptyValue)
             {
                 GetNeighborValues(y, x, z, skylight);
                 lightQueue.Enqueue(nodes[Util.ArgMax(lightValues)]);

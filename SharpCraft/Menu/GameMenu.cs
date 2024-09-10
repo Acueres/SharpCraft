@@ -16,7 +16,7 @@ namespace SharpCraft.Menu
 {
     class GameMenu
     {
-        public ushort? SelectedItem => inventory.SelectedItem;
+        public ushort SelectedItem => inventory.SelectedItem;
 
         MainGame game;
         GraphicsDevice graphics;

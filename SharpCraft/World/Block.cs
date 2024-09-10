@@ -1,23 +1,11 @@
 ﻿namespace SharpCraft.World
 {
-    public readonly struct Block
+    public readonly struct Block(ushort value)
     {
-        public readonly ushort? Value { get; init; }
-        public bool IsEmpty => Value is null;
+        public readonly ushort Value { get; init; } = value;
+        public static Block Empty => new(EmptyValue);
+        public bool IsEmpty => Value == EmptyValue;
 
-        public Block()
-        {
-            Value = null;
-        }
-
-        public Block(ushort value)
-        {
-            Value = value;
-        }
-
-        public Block(ushort? value)
-        {
-            Value = value;
-        }
+        public const ushort EmptyValue = 0;
     }
 }

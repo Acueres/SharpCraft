@@ -63,7 +63,7 @@ namespace SharpCraft
 
             Settings.Load();
 
-            assetServer.Load();
+            assetServer.Load(GraphicsDevice);
 
             mainMenu = new MainMenu(this, GraphicsDevice, assetServer);
 
@@ -75,7 +75,7 @@ namespace SharpCraft
             Content.Unload();
         }
 
-        protected override async void Update(GameTime gameTime)
+        protected override void Update(GameTime gameTime)
         {
             if (IsActive)
             {
@@ -88,7 +88,7 @@ namespace SharpCraft
                                 player.Update(gameTime);
                                 if (player.UpdateOccured)
                                     world.UpdateBlocks();
-                                await world.UpdateAsync();
+                                world.Update();
                             }
 
                             gameMenu.Update();

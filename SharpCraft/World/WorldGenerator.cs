@@ -99,10 +99,10 @@ namespace SharpCraft.World
 
             if (height > y)
             {
-                return new(0);
+                return new(1);
             }
 
-            return new();
+            return Block.Empty;
         }
         
         void Default(Chunk chunk)

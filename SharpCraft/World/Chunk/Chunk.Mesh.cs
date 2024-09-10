@@ -37,9 +37,9 @@ namespace SharpCraft.World
 
                 for (int face = 0; face < 6; face++)
                 {
-                    if (visibleFaces[face] && !this[x, y, z].IsEmpty)
+                    if (visibleFaces[face])
                     {
-                        AddFaceMesh((ushort)this[x, y, z].Value, (ushort)face, lightValues[face], blockPosition);
+                        AddFaceMesh(this[x, y, z].Value, (ushort)face, lightValues[face], blockPosition);
                     }
                 }
             }
@@ -73,7 +73,7 @@ namespace SharpCraft.World
             }
         }
 
-        void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort? texture)
+        void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort texture)
         {
             int size = 16;
             int textureCount = assetServer.GetBlocksCount;

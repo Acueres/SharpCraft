@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 
 using SharpCraft.Utility;
-using SharpCraft.Models;
+using SharpCraft.World;
 using SharpCraft.Assets;
 
 
@@ -14,7 +14,7 @@ namespace SharpCraft.GUI
 {
     class Inventory
     {
-        public ushort? SelectedItem { get; private set; }
+        public ushort SelectedItem { get; private set; }
 
         MainGame game;
         SpriteBatch spriteBatch;
@@ -34,11 +34,11 @@ namespace SharpCraft.GUI
         int screenWidth;
         int screenHeight;
 
-        ushort?[,] items;
+        ushort[,] items;
 
-        ushort?[] hotbarItems;
-        ushort? draggedTexture;
-        ushort? hoveredTexture;
+        ushort[] hotbarItems;
+        ushort draggedTexture;
+        ushort hoveredTexture;
         Rectangle selector, selectedItem;
 
 
@@ -56,14 +56,14 @@ namespace SharpCraft.GUI
 
             activeItemIndex = 0;
 
-            hotbarItems = new ushort?[9];
-            if (parameters.Inventory.Any(item => item != null))
+            hotbarItems = new ushort[9];
+            if (parameters.Inventory.Any(item => item != Block.EmptyValue))
             {
                 hotbarItems = parameters.Inventory;
             }
 
             int nRows = assetServer.GetBlocksCount / 9 + 1;
-            items = new ushort?[nRows, 9];
+            items = new ushort[nRows, 9];
 
             int col = 0, row = 0;
             foreach (ushort blockIndex in assetServer.GetInteractiveBlockIndices)
@@ -78,8 +78,8 @@ namespace SharpCraft.GUI
                 }
             }
 
-            draggedTexture = null;
-            hoveredTexture = null;
+            draggedTexture = Block.EmptyValue;
+            hoveredTexture = Block.EmptyValue;
 
             SelectedItem = hotbarItems[activeItemIndex];
 
@@ -134,9 +134,9 @@ namespace SharpCraft.GUI
             {
                 for (int j = 0; j < 9; j++)
                 {
-                    if (items[row, j] != null)
+                    if (items[row, j] != Block.EmptyValue)
                     {
-                        spriteBatch.Draw(assetServer.GetBlockTexture((ushort)items[row, j]),
+                        spriteBatch.Draw(assetServer.GetBlockTexture(items[row, j]),
                             new Rectangle(screenWidth / 5 + 25 + j * 49, 78 + i * 50, 45, 45), Color.White);
                     }
                 }
@@ -145,25 +145,25 @@ namespace SharpCraft.GUI
             //Draw hotbar inside the inventory
             for (int i = 0; i < 9; i++)
             {
-                if (hotbarItems[i] != null)
+                if (hotbarItems[i] != Block.EmptyValue)
                 {
-                    spriteBatch.Draw(assetServer.GetBlockTexture((ushort)hotbarItems[i]),
+                    spriteBatch.Draw(assetServer.GetBlockTexture(hotbarItems[i]),
                         new Rectangle(screenWidth / 5 + 25 + i * 49,
                         screenHeight - 145, 45, 45), Color.White);
                 }
             }
 
             //Draw the selected dragged texture
-            if (draggedTexture != null)
+            if (draggedTexture != Block.EmptyValue)
             {
-                spriteBatch.Draw(assetServer.GetBlockTexture((ushort)draggedTexture),
+                spriteBatch.Draw(assetServer.GetBlockTexture(draggedTexture),
                     new Rectangle(currentMouseState.X, currentMouseState.Y, 45, 45), Color.White);
             }
 
             //Draw the name of the hovered texture
-            if (hoveredTexture != null)
+            if (hoveredTexture != Block.EmptyValue)
             {
-                Vector2 textSize = font.MeasureString(assetServer.GetBlockName((ushort)hoveredTexture));
+                Vector2 textSize = font.MeasureString(assetServer.GetBlockName(hoveredTexture));
 
                 spriteBatch.Draw(blackTexture,
                     new Rectangle(currentMouseState.X + 20, currentMouseState.Y,
@@ -172,7 +172,7 @@ namespace SharpCraft.GUI
                 spriteBatch.DrawString(font, assetServer.GetBlockName((ushort)hoveredTexture),
                     new Vector2(currentMouseState.X + 20, currentMouseState.Y), Color.White);
 
-                hoveredTexture = null;
+                hoveredTexture = Block.EmptyValue;
             }
         }
 
@@ -184,18 +184,18 @@ namespace SharpCraft.GUI
             {
                 selectedItem.X = (game.Window.ClientBounds.Width / 2) - 220 + (i * 50);
 
-                if (hotbarItems[i] != null)
+                if (hotbarItems[i] != Block.EmptyValue)
                 {
-                    spriteBatch.Draw(assetServer.GetBlockTexture((ushort)hotbarItems[i]), selectedItem, Color.White);
+                    spriteBatch.Draw(assetServer.GetBlockTexture(hotbarItems[i]), selectedItem, Color.White);
                 }
             }
 
             //Draw selected item name
-            if (hotbarItems[activeItemIndex] != null)
+            if (hotbarItems[activeItemIndex] != Block.EmptyValue)
             {
                 int x = (screenWidth / 2) - 225;
                 int y = screenHeight - 50;
-                Vector2 textSize = font.MeasureString(assetServer.GetBlockName((ushort)hotbarItems[activeItemIndex]));
+                Vector2 textSize = font.MeasureString(assetServer.GetBlockName(hotbarItems[activeItemIndex]));
 
                 spriteBatch.Draw(blackTexture,
                     new Rectangle(x, y - 20, (int)textSize.X, (int)textSize.Y), Color.Black);
@@ -231,24 +231,24 @@ namespace SharpCraft.GUI
                 bool clicked = leftClick && new Rectangle(screenWidth / 5 + 23 + i * 49,
                                screenHeight - 145, 45, 45).Contains(mouseLoc);
 
-                if (hotbarItems[i] is null && draggedTexture != null && clicked)
+                if (hotbarItems[i] == Block.EmptyValue && draggedTexture != Block.EmptyValue && clicked)
                 {
                     hotbarItems[i] = draggedTexture;
-                    draggedTexture = null;
+                    draggedTexture = Block.EmptyValue;
                 }
-                else if (draggedTexture is null && hotbarItems[i] != null && clicked)
+                else if (draggedTexture == Block.EmptyValue && hotbarItems[i] != Block.EmptyValue && clicked)
                 {
                     draggedTexture = hotbarItems[i];
-                    hotbarItems[i] = null;
+                    hotbarItems[i] = Block.EmptyValue;
                     itemSelected = true;
                 }
-                else if (hotbarItems[i] != null && draggedTexture != null && clicked)
+                else if (hotbarItems[i] != Block.EmptyValue && draggedTexture != Block.EmptyValue && clicked)
                 {
                     (hotbarItems[i], draggedTexture) = (draggedTexture, hotbarItems[i]);
                     itemSelected = true;
                 }
 
-                if (hotbarItems[i] != null &&
+                if (hotbarItems[i] != Block.EmptyValue &&
                     new Rectangle(screenWidth / 5 + 23 + i * 49,
                     screenHeight - 145, 45, 45).Contains(mouseLoc))
                 {
@@ -262,7 +262,7 @@ namespace SharpCraft.GUI
                 {
                     for (int j = 0; j < 9; j++)
                     {
-                        if (items[row, j] != null &&
+                        if (items[row, j] != Block.EmptyValue &&
                             leftClick &&
                             new Rectangle(screenWidth / 5 + 23 + j * 49, 76 + i * 50, 45, 45).Contains(mouseLoc))
                         {
@@ -270,7 +270,7 @@ namespace SharpCraft.GUI
                             itemSelected = true;
                         }
 
-                        if (items[row, j] != null &&
+                        if (items[row, j] != Block.EmptyValue &&
                             new Rectangle(screenWidth / 5 + 23 + j * 49, 76 + i * 50, 45, 45).Contains(mouseLoc))
                         {
                             hoveredTexture = items[row, j];
@@ -281,7 +281,7 @@ namespace SharpCraft.GUI
 
             if (rightClick || (!itemSelected && leftClick))
             {
-                draggedTexture = null;
+                draggedTexture = Block.EmptyValue;
             }
         }
 

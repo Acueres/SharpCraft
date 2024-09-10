@@ -94,15 +94,15 @@ namespace SharpCraft.Handlers
 
             Block block = chunk[x, y, z];
 
-            bool lightSource = !block.IsEmpty && assetServer.IsLightSource((ushort)block.Value);
+            bool lightSource = !block.IsEmpty && assetServer.IsLightSource(block.Value);
 
-            chunk[x, y, z] = new();
+            chunk[x, y, z] = Block.Empty;
 
             chunk.Active.RemoveAt(index);
 
-            chunk.UpdateLight(y, x, z, null, sourceRemoved: lightSource);
+            chunk.UpdateLight(y, x, z, Block.EmptyValue, sourceRemoved: lightSource);
 
-            databaseHandler.AddDelta(position, y, x, z, null);
+            databaseHandler.AddDelta(position, y, x, z, Block.EmptyValue);
 
             UpdateAdjacentBlocks(chunk, y, x, z);
         }
@@ -126,9 +126,9 @@ namespace SharpCraft.Handlers
             }
 
             Chunk chunk = region[position];
-            ushort? texture;
+            ushort texture;
 
-            if (chunk[x, y, z].IsEmpty && gameMenu.SelectedItem != null)
+            if (chunk[x, y, z].IsEmpty && gameMenu.SelectedItem != Block.EmptyValue)
             {
                 texture = gameMenu.SelectedItem;
             }
