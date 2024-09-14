@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 using Microsoft.Xna.Framework;
 
@@ -92,12 +89,9 @@ namespace SharpCraft.World
 
         public void Update()
         {
-            if (!player.UpdateOccured) return;
-
             GetActiveChunks();
             UpdateChunks();
             RemoveInactiveChunks();
-            UpdateBlocks();
         }
 
         float GetChunkIndex(float val)
@@ -162,6 +156,8 @@ namespace SharpCraft.World
             int count = 0;
             int n = size * renderDistance;
 
+            List<Vector3> generatedChunks = [];
+
             for (int i = -n; i <= n; i += size)
             {
                 for (int j = -n; j <= n; j += size)
@@ -170,12 +166,23 @@ namespace SharpCraft.World
                     if (region[position] is null)
                     {
                         region[position] = new Chunk(position, worldGenerator, region, assetServer);
+
+                        region[position].GenerateTerrain();
                         databaseHandler.ApplyDelta(region[position]);
+
+                        generatedChunks.Add(position);
                     }
 
                     ActiveChunks[count] = position;
                     count++;
                 }
+            }
+
+            foreach (Vector3 position in generatedChunks)
+            {
+                region[position].CalculateVisibleBlock();
+                region[position].InitializeLight();
+                region[position].CalculateMesh();
             }
         }
 

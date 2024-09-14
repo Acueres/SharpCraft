@@ -60,12 +60,12 @@ namespace SharpCraft.Handlers
             cmd = new SQLiteCommand(connection)
             {
                 CommandText = @"CREATE TABLE IF NOT EXISTS chunks(
-                                chunkX INTEGER NOT NULL,
-                                chunkZ INTEGER NOT NULL,
-                                x INTEGER NOT NULL,
-                                y INTEGER NOT NULL,
-                                z INTEGER NOT NULL,
-                                texture INTEGER NOT NULL,
+                                chunkX INTEGER,
+                                chunkZ INTEGER,
+                                x INTEGER,
+                                y INTEGER,
+                                z INTEGER,
+                                texture INTEGER,
                                 PRIMARY KEY(chunkX, chunkZ, x, y, z))"
             };
             cmd.ExecuteNonQuery();

@@ -18,13 +18,17 @@ namespace SharpCraft.World
 
         Block[][][] blocks;
 
-        void Initialize()
+        public void GenerateTerrain()
         {
             worldGenerator.GenerateChunk(this);
 
             GetNeighbors();
 
             Active.Clear();
+        }
+
+        public void CalculateVisibleBlock()
+        {
 
             bool[] visibleFaces = new bool[6];
 

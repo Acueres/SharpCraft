@@ -94,11 +94,7 @@ namespace SharpCraft.World
                 }
             }
 
-            lightSources = new List<BlockIndex>(100);
-
-            Initialize();
-            InitializeLight();
-            CalculateMesh();
+            lightSources = [];
         }
 
         public Block this[int x, int y, int z]

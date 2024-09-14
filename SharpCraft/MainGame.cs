@@ -87,8 +87,10 @@ namespace SharpCraft
                             {
                                 player.Update(gameTime);
                                 if (player.UpdateOccured)
+                                {
                                     world.UpdateBlocks();
-                                world.Update();
+                                    world.Update();
+                                }
                             }
 
                             gameMenu.Update();

@@ -8,7 +8,7 @@ namespace SharpCraft.World
 {
     public sealed partial class Chunk
     {
-        public bool UpdateMesh { private get; set; }
+        public bool UpdateMesh { get; set; }
 
         public VertexPositionTextureLight[] Vertices;
         public VertexPositionTextureLight[] TransparentVertices;

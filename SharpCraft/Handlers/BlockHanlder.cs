@@ -150,7 +150,7 @@ namespace SharpCraft.Handlers
         {
             chunk.UpdateMesh = true;
 
-            if (chunk[x, y, z].IsEmpty)
+            if (!chunk[x, y, z].IsEmpty)
             {
                 ActivateBlock(chunk, y, x, z);
             }

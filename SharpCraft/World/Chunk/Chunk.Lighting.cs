@@ -19,7 +19,7 @@ namespace SharpCraft.World
 
         HashSet<Chunk> chunksToUpdate;
 
-        void InitializeLight()
+        public void InitializeLight()
         {
             bool skylight = true;
             bool blockLight = false;
@@ -483,12 +483,12 @@ namespace SharpCraft.World
 
         bool IsBlockTransparent(Block block)
         {
-            return block.IsEmpty || assetServer.IsBlockTransparent((ushort)block.Value);
+            return block.IsEmpty || assetServer.IsBlockTransparent(block.Value);
         }
 
         bool TransparentSolid(Block block)
         {
-            return block.IsEmpty && assetServer.IsBlockTransparent((ushort)block.Value);
+            return !block.IsEmpty && assetServer.IsBlockTransparent(block.Value);
         }
     }
 }
