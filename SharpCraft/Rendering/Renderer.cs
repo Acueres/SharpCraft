@@ -20,7 +20,6 @@ namespace SharpCraft.Rendering
         Dictionary<Vector3, Chunk> region;
         ScreenshotHandler screenshotHandler;
         BlockSelector blockSelector;
-        readonly AssetServer assetServer;
 
         Time time;
 
@@ -34,14 +33,14 @@ namespace SharpCraft.Rendering
 
 
         public Renderer(MainGame game, GraphicsDevice graphics, Time _time,
-            Dictionary<Vector3, Chunk> region, ScreenshotHandler screenshotTaker,  BlockSelector blockSelector, AssetServer assetServer)
+            Dictionary<Vector3, Chunk> region, ScreenshotHandler screenshotTaker, BlockSelector blockSelector,
+            AssetServer assetServer, BlockMetadataProvider blockMetadata)
         {
             this.game = game;
             this.graphics = graphics;
             this.region = region;
             screenshotHandler = screenshotTaker;
             this.blockSelector = blockSelector;
-            this.assetServer = assetServer;
 
             effect = assetServer.GetEffect;
 
@@ -51,10 +50,10 @@ namespace SharpCraft.Rendering
 
             size = Settings.ChunkSize;
 
-            atlas = new Texture2D(graphics, 64, assetServer.GetBlocksCount * 64);
+            atlas = new Texture2D(graphics, 64, blockMetadata.GetBlocksCount * 64);
             Color[] atlasData = new Color[atlas.Width * atlas.Height];
 
-            for (int i = 0; i < assetServer.GetBlocksCount; i++)
+            for (int i = 0; i < blockMetadata.GetBlocksCount; i++)
             {
                 Color[] textureColor = new Color[64 * 64];
                 assetServer.GetBlockTexture((ushort)i).GetData(textureColor);

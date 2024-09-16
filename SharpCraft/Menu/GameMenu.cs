@@ -10,6 +10,7 @@ using SharpCraft.Handlers;
 using SharpCraft.GUI;
 using SharpCraft.Utility;
 using SharpCraft.Assets;
+using SharpCraft.World;
 
 
 namespace SharpCraft.Menu
@@ -55,7 +56,7 @@ namespace SharpCraft.Menu
 
 
         public GameMenu(MainGame game, GraphicsDevice graphics, Time time,
-            ScreenshotHandler screenshotTaker, Parameters parameters, AssetServer assetServer)
+            ScreenshotHandler screenshotTaker, Parameters parameters, AssetServer assetServer, BlockMetadataProvider blockMetadata)
         {
             this.game = game;
             this.graphics = graphics;
@@ -71,7 +72,7 @@ namespace SharpCraft.Menu
             font14 = assetServer.GetFont(0);
             font24 = assetServer.GetFont(1);
 
-            inventory = new Inventory(game, spriteBatch, font14, parameters, assetServer, () =>
+            inventory = new Inventory(game, spriteBatch, font14, parameters, assetServer, blockMetadata, () =>
             {
                 Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
                 game.IsMouseVisible = false;

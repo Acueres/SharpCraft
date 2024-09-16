@@ -13,7 +13,7 @@ using SharpCraft.Assets;
 
 namespace SharpCraft.World
 {
-    class WorldManager
+    class WorldSystem
     {
         public Dictionary<Vector3, Chunk> Region => region;
 
@@ -26,7 +26,7 @@ namespace SharpCraft.World
         WorldGenerator worldGenerator;
         DatabaseHandler databaseHandler;
         BlockSelector blockSelector;
-        readonly AssetServer assetServer;
+        readonly BlockMetadataProvider blockMetadata;
 
         Dictionary<Vector3, Chunk> region;
         HashSet<Vector3> nearChunks;
@@ -39,19 +39,19 @@ namespace SharpCraft.World
         ushort water;
 
 
-        public WorldManager(GameMenu gameMenu, DatabaseHandler databaseHandler,
-            BlockSelector blockSelector, Parameters parameters, AssetServer assetServer)
+        public WorldSystem(GameMenu gameMenu, DatabaseHandler databaseHandler,
+            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata)
         {
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
-            this.assetServer = assetServer;
+            this.blockMetadata = blockMetadata;
 
             size = Settings.ChunkSize;
             renderDistance = Settings.RenderDistance;
 
-            water = assetServer.GetBlockIndex("water");
+            water = blockMetadata.GetBlockIndex("water");
 
-            worldGenerator = new WorldGenerator(parameters, assetServer);
+            worldGenerator = new WorldGenerator(parameters, blockMetadata);
             region = new Dictionary<Vector3, Chunk>((int)2e3);
             this.blockSelector = blockSelector;
 
@@ -69,7 +69,7 @@ namespace SharpCraft.World
         {
             this.player = player;
 
-            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, assetServer, size);
+            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, blockMetadata, size);
 
             GetActiveChunks();
             UpdateChunks();
@@ -165,7 +165,7 @@ namespace SharpCraft.World
                     Vector3 position = center - new Vector3(i, 0, j);
                     if (region[position] is null)
                     {
-                        region[position] = new Chunk(position, worldGenerator, region, assetServer);
+                        region[position] = new Chunk(position, worldGenerator, region, blockMetadata);
 
                         region[position].GenerateTerrain();
                         databaseHandler.ApplyDelta(region[position]);

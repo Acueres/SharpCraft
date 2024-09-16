@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Data.SQLite;
 using System.Threading.Tasks;
@@ -7,14 +6,13 @@ using System.Threading.Tasks;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.World;
-using SharpCraft.Assets;
 
 
 namespace SharpCraft.Handlers
 {
     class DatabaseHandler
     {
-        readonly AssetServer assetServer;
+        readonly BlockMetadataProvider blockMetadata;
         SQLiteCommand cmd;
         SQLiteConnection connection;
 
@@ -28,7 +26,7 @@ namespace SharpCraft.Handlers
 
         Task saveTask;
 
-        struct SaveData
+        class SaveData
         {
             public Vector3 Position;
             public int X;
@@ -47,11 +45,11 @@ namespace SharpCraft.Handlers
         }
 
 
-        public DatabaseHandler(MainGame game, string saveName, AssetServer assetServer)
+        public DatabaseHandler(MainGame game, string saveName, BlockMetadataProvider blockMetadata)
         {
             dataQueue = new Queue<SaveData>(10);
 
-            this.assetServer = assetServer;
+            this.blockMetadata = blockMetadata;
             
             string path = @"URI=file:" + Directory.GetCurrentDirectory() + $@"\Saves\{saveName}\data.db";
             connection = new SQLiteConnection(path);
@@ -116,7 +114,7 @@ namespace SharpCraft.Handlers
 
                 chunk[x, y, z] = new(texture);
 
-                if (texture != Block.EmptyValue && assetServer.IsLightSource(texture))
+                if (texture != Block.EmptyValue && blockMetadata.IsLightSource(texture))
                 {
                     chunk.AddLightSource(y, x, z);
                 }

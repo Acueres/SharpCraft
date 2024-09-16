@@ -42,7 +42,7 @@ namespace SharpCraft.World
                 int x = lightSources[i].X;
                 int z = lightSources[i].Z;
 
-                SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z].Value), blockLight);
+                SetLight(y, x, z, blockMetadata.GetLightSourceValue(this[x, y, z].Value), blockLight);
                 lightQueue.Enqueue(new LightNode(this, x, y, z));
             }
 
@@ -76,9 +76,9 @@ namespace SharpCraft.World
             else
             {
                 bool sourceAdded = false;
-                if (assetServer.IsLightSource((ushort)this[x, y, z].Value))
+                if (blockMetadata.IsLightSource(this[x, y, z].Value))
                 {
-                    SetLight(y, x, z, assetServer.GetLightSourceValue((ushort)this[x, y, z].Value), blockLight);
+                    SetLight(y, x, z, blockMetadata.GetLightSourceValue(this[x, y, z].Value), blockLight);
                     sourceAdded = true;
                 }
 
@@ -483,12 +483,12 @@ namespace SharpCraft.World
 
         bool IsBlockTransparent(Block block)
         {
-            return block.IsEmpty || assetServer.IsBlockTransparent(block.Value);
+            return block.IsEmpty || blockMetadata.IsBlockTransparent(block.Value);
         }
 
         bool TransparentSolid(Block block)
         {
-            return !block.IsEmpty && assetServer.IsBlockTransparent(block.Value);
+            return !block.IsEmpty && blockMetadata.IsBlockTransparent(block.Value);
         }
     }
 }

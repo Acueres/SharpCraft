@@ -28,9 +28,12 @@ namespace SharpCraft
 
         GraphicsDeviceManager graphics;
 
+        const string assetDirectory = "Assets";
+
         Player player;
         readonly AssetServer assetServer;
-        WorldManager world;
+        readonly BlockMetadataProvider blockMetadata;
+        WorldSystem world;
         GameMenu gameMenu;
         MainMenu mainMenu;
         Renderer renderer;
@@ -50,9 +53,10 @@ namespace SharpCraft
 
             IsFixedTimeStep = true;
 
-            Content.RootDirectory = "Assets";
+            Content.RootDirectory = assetDirectory;
 
-            assetServer = new AssetServer(Content);
+            blockMetadata = new BlockMetadataProvider(assetDirectory);
+            assetServer = new AssetServer(Content, assetDirectory);
         }
 
         protected override void Initialize()
@@ -63,6 +67,7 @@ namespace SharpCraft
 
             Settings.Load();
 
+            blockMetadata.Load();
             assetServer.Load(GraphicsDevice);
 
             mainMenu = new MainMenu(this, GraphicsDevice, assetServer);
@@ -110,11 +115,11 @@ namespace SharpCraft
                                                                                   Window.ClientBounds.Height);
                             BlockSelector blockSelector = new(GraphicsDevice, assetServer);
 
-                            databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName, assetServer);
-                            gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer);
-                            world = new WorldManager(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, assetServer);
+                            databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName, blockMetadata);
+                            gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata);
+                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
-                            renderer = new Renderer(this, GraphicsDevice, time, world.Region, screenshotHandler, blockSelector, assetServer);
+                            renderer = new Renderer(this, GraphicsDevice, time, world.Region, screenshotHandler, blockSelector, assetServer, blockMetadata);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 

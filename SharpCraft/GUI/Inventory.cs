@@ -19,6 +19,7 @@ namespace SharpCraft.GUI
         MainGame game;
         SpriteBatch spriteBatch;
         readonly AssetServer assetServer;
+        readonly BlockMetadataProvider blockMetadata;
 
         Action action;
 
@@ -43,12 +44,13 @@ namespace SharpCraft.GUI
 
 
         public Inventory(MainGame game, SpriteBatch spriteBatch, SpriteFont font,
-            Parameters parameters, AssetServer assetServer, Action a = null)
+            Parameters parameters, AssetServer assetServer, BlockMetadataProvider blockMetadata, Action a = null)
         {
             this.game = game;
             this.spriteBatch = spriteBatch;
             this.font = font;
             this.assetServer = assetServer;
+            this.blockMetadata = blockMetadata;
             action = a;
 
             screenWidth = game.Window.ClientBounds.Width;
@@ -62,11 +64,11 @@ namespace SharpCraft.GUI
                 hotbarItems = parameters.Inventory;
             }
 
-            int nRows = assetServer.GetBlocksCount / 9 + 1;
+            int nRows = blockMetadata.GetBlocksCount / 9 + 1;
             items = new ushort[nRows, 9];
 
             int col = 0, row = 0;
-            foreach (ushort blockIndex in assetServer.GetInteractiveBlockIndices)
+            foreach (ushort blockIndex in blockMetadata.GetBlockIds)
             {
                 items[row, col] = blockIndex;
                 col++;
@@ -163,13 +165,13 @@ namespace SharpCraft.GUI
             //Draw the name of the hovered texture
             if (hoveredTexture != Block.EmptyValue)
             {
-                Vector2 textSize = font.MeasureString(assetServer.GetBlockName(hoveredTexture));
+                Vector2 textSize = font.MeasureString(blockMetadata.GetBlockName(hoveredTexture));
 
                 spriteBatch.Draw(blackTexture,
                     new Rectangle(currentMouseState.X + 20, currentMouseState.Y,
                     (int)textSize.X, (int)textSize.Y), Color.Black);
 
-                spriteBatch.DrawString(font, assetServer.GetBlockName((ushort)hoveredTexture),
+                spriteBatch.DrawString(font, blockMetadata.GetBlockName(hoveredTexture),
                     new Vector2(currentMouseState.X + 20, currentMouseState.Y), Color.White);
 
                 hoveredTexture = Block.EmptyValue;
@@ -195,12 +197,12 @@ namespace SharpCraft.GUI
             {
                 int x = (screenWidth / 2) - 225;
                 int y = screenHeight - 50;
-                Vector2 textSize = font.MeasureString(assetServer.GetBlockName(hotbarItems[activeItemIndex]));
+                Vector2 textSize = font.MeasureString(blockMetadata.GetBlockName(hotbarItems[activeItemIndex]));
 
                 spriteBatch.Draw(blackTexture,
                     new Rectangle(x, y - 20, (int)textSize.X, (int)textSize.Y), Color.Black);
 
-                spriteBatch.DrawString(font, assetServer.GetBlockName((ushort)hotbarItems[activeItemIndex]),
+                spriteBatch.DrawString(font, blockMetadata.GetBlockName(hotbarItems[activeItemIndex]),
                     new Vector2(x, y - 20), Color.White);
             }
 

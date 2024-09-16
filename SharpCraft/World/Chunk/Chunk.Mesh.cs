@@ -58,12 +58,12 @@ namespace SharpCraft.World
 
         void AddFaceMesh(ushort texture, ushort face, byte light, Vector3 blockPosition)
         {
-            if (assetServer.IsBlockMultiface(texture))
+            if (blockMetadata.IsBlockMultiface(texture))
             {
                 AddData(VertexList,
-                    face, light, blockPosition, assetServer.GetMultifaceBlockFace(texture, face));
+                    face, light, blockPosition, blockMetadata.GetMultifaceBlockFace(texture, face));
             }
-            else if (assetServer.IsBlockTransparent(texture))
+            else if (blockMetadata.IsBlockTransparent(texture))
             {
                 AddData(TransparentVertexList, face, light, blockPosition, texture);
             }
@@ -76,7 +76,7 @@ namespace SharpCraft.World
         void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort texture)
         {
             int size = 16;
-            int textureCount = assetServer.GetBlocksCount;
+            int textureCount = blockMetadata.GetBlocksCount;
             for (int i = 0; i < 6; i++)
             {
                 VertexPositionTextureLight vertex = Cube.Faces[face][i];

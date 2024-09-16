@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 
@@ -20,7 +19,7 @@ namespace SharpCraft.Handlers
         Dictionary<Vector3, Chunk> region;
         GameMenu gameMenu;
         DatabaseHandler databaseHandler;
-        readonly AssetServer assetServer;
+        readonly BlockMetadataProvider blockMetadata;
 
         int size, last;
 
@@ -29,14 +28,14 @@ namespace SharpCraft.Handlers
 
 
         public BlockHanlder(MainGame game, Player player, Dictionary<Vector3, Chunk> region,
-            GameMenu gameMenu, DatabaseHandler databaseHandler, AssetServer assetServer, int size)
+            GameMenu gameMenu, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata, int size)
         {
             this.game = game;
             this.player = player;
             this.region = region;
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
-            this.assetServer = assetServer;
+            this.blockMetadata = blockMetadata;
 
             this.size = size;
             last = size - 1;
@@ -94,7 +93,7 @@ namespace SharpCraft.Handlers
 
             Block block = chunk[x, y, z];
 
-            bool lightSource = !block.IsEmpty && assetServer.IsLightSource(block.Value);
+            bool lightSource = !block.IsEmpty && blockMetadata.IsLightSource(block.Value);
 
             chunk[x, y, z] = Block.Empty;
 
