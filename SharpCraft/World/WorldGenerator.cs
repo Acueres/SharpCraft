@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Utility;
-using SharpCraft.Models;
-using SharpCraft.Assets;
-
 
 namespace SharpCraft.World
 {
@@ -35,9 +32,12 @@ namespace SharpCraft.World
                granite, leaves, birch, oak, water,
                sand, sandstone;
 
+        readonly BlockMetadataProvider blockMetadata;
+
 
         public WorldGenerator(Parameters parameters, BlockMetadataProvider blockMetadata)
         {
+            this.blockMetadata = blockMetadata;
             size = Settings.ChunkSize;
             type = parameters.WorldType;
 
@@ -80,33 +80,19 @@ namespace SharpCraft.World
             river.SetFrequency(0.001f);
         }
 
-        public void GenerateChunk(Chunk chunk)
+        public Chunk GenerateChunk(Vector3 position, Dictionary<Vector3, Chunk> region)
         {
-            switch (type)
+            return type switch
             {
-                case "Flat":
-                    Flat(chunk);
-                    break;
-                default:
-                    Default(chunk);
-                    break;
+                "Flat" => Flat(position, region),
+                _ => Default(position, region),
             };
         }
-
-        public Block Peek(Vector3 position, int y, int x, int z)
-        {
-            int height = GetHeight(position, x, z, out _);
-
-            if (height > y)
-            {
-                return new(1);
-            }
-
-            return Block.Empty;
-        }
         
-        void Default(Chunk chunk)
+        Chunk Default(Vector3 position, Dictionary<Vector3, Chunk> region)
         {
+            Chunk chunk = new(position, region, blockMetadata);
+
             int[,] elevationMap = new int[size, size];
 
             for (int x = 0; x < size; x++)
@@ -140,6 +126,8 @@ namespace SharpCraft.World
             }
 
             GenerateTrees(chunk, elevationMap, 5);
+
+            return chunk;
         }
 
         int GetHeight(Vector3 position, int x, int z, out byte biomeData)
@@ -169,8 +157,9 @@ namespace SharpCraft.World
             return height;
         }
 
-        void Flat(Chunk chunk)
+        Chunk Flat(Vector3 position, Dictionary<Vector3, Chunk> region)
         {
+            Chunk chunk = new(position, region, blockMetadata);
             for (int y = 0; y < 5; y++)
             {
                 for (int x = 0; x < size; x++)
@@ -190,6 +179,8 @@ namespace SharpCraft.World
                     }
                 }
             }
+
+            return chunk;
         }
 
         ushort Fill(int maxY, int currentY, byte biome)

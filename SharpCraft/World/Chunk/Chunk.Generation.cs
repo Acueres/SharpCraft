@@ -14,18 +14,7 @@ namespace SharpCraft.World
 
         Dictionary<Vector3, Chunk> region;
 
-        WorldGenerator worldGenerator;
-
         Block[][][] blocks;
-
-        public void GenerateTerrain()
-        {
-            worldGenerator.GenerateChunk(this);
-
-            GetNeighbors();
-
-            Active.Clear();
-        }
 
         public void CalculateVisibleBlock()
         {
@@ -71,7 +60,7 @@ namespace SharpCraft.World
 
             Block block = this[x, y, z];
 
-            Block adjacentBlock;
+            Block adjacentBlock = Block.Empty;
 
             bool blockOpaque = true;
             if (calculateOpacity)
@@ -88,7 +77,7 @@ namespace SharpCraft.World
                 else
                 {
                     Vector3 zNeg = Position + new Vector3(0, 0, -SIZE);
-                    adjacentBlock = worldGenerator.Peek(zNeg, y, x, 0);
+                    //adjacentBlock = worldGenerator.Peek(zNeg, y, x, 0);
                 }
             }
             else
@@ -106,7 +95,7 @@ namespace SharpCraft.World
                 else
                 {
                     Vector3 zPos = Position + new Vector3(0, 0, SIZE);
-                    adjacentBlock = worldGenerator.Peek(zPos, y, x, LAST);
+                    //adjacentBlock = worldGenerator.Peek(zPos, y, x, LAST);
                 }
             }
             else
@@ -137,7 +126,7 @@ namespace SharpCraft.World
                 else
                 {
                     Vector3 xNeg = Position + new Vector3(-SIZE, 0, 0);
-                    adjacentBlock = worldGenerator.Peek(xNeg, y, 0, z);
+                    //adjacentBlock = worldGenerator.Peek(xNeg, y, 0, z);
                 }
             }
             else
@@ -155,7 +144,7 @@ namespace SharpCraft.World
                 else
                 {
                     Vector3 xPos = Position + new Vector3(SIZE, 0, 0);
-                    adjacentBlock = worldGenerator.Peek(xPos, y, LAST, z);
+                    //adjacentBlock = worldGenerator.Peek(xPos, y, LAST, z);
                 }
             }
             else

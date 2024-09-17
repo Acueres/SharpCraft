@@ -7,7 +7,6 @@ using Microsoft.Win32.SafeHandles;
 
 using SharpCraft.Rendering;
 using SharpCraft.Models;
-using SharpCraft.Assets;
 
 
 namespace SharpCraft.World
@@ -24,7 +23,7 @@ namespace SharpCraft.World
 
         public const int SIZE = 16;
         public const int HEIGHT = 128;
-        public static int LAST { get; private set; }
+        public const int LAST = SIZE - 1;
 
         readonly BlockMetadataProvider blockMetadata;
 
@@ -33,19 +32,13 @@ namespace SharpCraft.World
             public Chunk ZNeg, ZPos, XNeg, XPos;
         }
 
-        static Chunk()
-        {
-            LAST = SIZE - 1;
-        }
-
-        public Chunk(Vector3 position, WorldGenerator worldGenerator, Dictionary<Vector3, Chunk> region, BlockMetadataProvider blockMetadata)
+        public Chunk(Vector3 position, Dictionary<Vector3, Chunk> region, BlockMetadataProvider blockMetadata)
         {
             Position = position;
 
             Neighbors = new NeighborChunks();
 
             this.region = region;
-            this.worldGenerator = worldGenerator;
             this.blockMetadata = blockMetadata;
 
             //Only about ~5% of all blocks are visible
@@ -134,7 +127,7 @@ namespace SharpCraft.World
             }
         }
 
-        void GetNeighbors()
+        public void GetNeighbors()
         {
             int size = 16;
             Vector3 zNegPosition = Position + new Vector3(0, 0, -size),

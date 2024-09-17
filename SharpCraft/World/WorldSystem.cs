@@ -8,8 +8,6 @@ using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.Utility;
-using SharpCraft.Assets;
-
 
 namespace SharpCraft.World
 {
@@ -165,9 +163,9 @@ namespace SharpCraft.World
                     Vector3 position = center - new Vector3(i, 0, j);
                     if (region[position] is null)
                     {
-                        region[position] = new Chunk(position, worldGenerator, region, blockMetadata);
+                        Chunk chunk = worldGenerator.GenerateChunk(position, region);
+                        region[position] = chunk;
 
-                        region[position].GenerateTerrain();
                         databaseHandler.ApplyDelta(region[position]);
 
                         generatedChunks.Add(position);
@@ -180,6 +178,7 @@ namespace SharpCraft.World
 
             foreach (Vector3 position in generatedChunks)
             {
+                region[position].GetNeighbors();
                 region[position].CalculateVisibleBlock();
                 region[position].InitializeLight();
                 region[position].CalculateMesh();
