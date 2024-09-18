@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 
 using SharpCraft.Utility;
-using SharpCraft.Models;
 
 namespace SharpCraft.World
 {

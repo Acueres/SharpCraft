@@ -1,6 +1,4 @@
-﻿using SharpCraft.World;
-
-namespace SharpCraft.Models
+﻿namespace SharpCraft.World
 {
     struct LightNode
     {

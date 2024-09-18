@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Microsoft.Xna.Framework;
 
-namespace SharpCraft.Models
+namespace SharpCraft.World
 {
     public struct BlockIndex
     {

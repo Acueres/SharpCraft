@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 
-using SharpCraft.Models;
+using SharpCraft.MathUtil;
 
 namespace SharpCraft.World
 {
@@ -12,7 +12,7 @@ namespace SharpCraft.World
         public byte[][] BiomeData { get; }
         public List<BlockIndex> Active { get; }
 
-        Dictionary<Vector3, Chunk> region;
+        Dictionary<Vector3I, Chunk> region;
 
         Block[][][] blocks;
 
@@ -76,7 +76,7 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    Vector3 zNeg = Position + new Vector3(0, 0, -SIZE);
+                    //Vector3 zNeg = Position + new Vector3(0, 0, -SIZE);
                     //adjacentBlock = worldGenerator.Peek(zNeg, y, x, 0);
                 }
             }
@@ -94,7 +94,7 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    Vector3 zPos = Position + new Vector3(0, 0, SIZE);
+                    //Vector3 zPos = Position + new Vector3(0, 0, SIZE);
                     //adjacentBlock = worldGenerator.Peek(zPos, y, x, LAST);
                 }
             }
@@ -125,7 +125,7 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    Vector3 xNeg = Position + new Vector3(-SIZE, 0, 0);
+                    //Vector3 xNeg = Position + new Vector3(-SIZE, 0, 0);
                     //adjacentBlock = worldGenerator.Peek(xNeg, y, 0, z);
                 }
             }
@@ -143,7 +143,7 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    Vector3 xPos = Position + new Vector3(SIZE, 0, 0);
+                    //Vector3 xPos = Position + new Vector3(SIZE, 0, 0);
                     //adjacentBlock = worldGenerator.Peek(xPos, y, LAST, z);
                 }
             }

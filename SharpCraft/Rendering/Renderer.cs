@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
+using SharpCraft.MathUtil;
 using SharpCraft.Handlers;
 using SharpCraft.World;
 using SharpCraft.Utility;
@@ -17,7 +18,7 @@ namespace SharpCraft.Rendering
         MainGame game;
         GraphicsDevice graphics;
         Effect effect;
-        Dictionary<Vector3, Chunk> region;
+        Dictionary<Vector3I, Chunk> region;
         ScreenshotHandler screenshotHandler;
         BlockSelector blockSelector;
 
@@ -25,15 +26,12 @@ namespace SharpCraft.Rendering
 
         Texture2D atlas;
 
-        int size;
-
         Chunk currentChunk;
 
         DynamicVertexBuffer buffer;
 
-
-        public Renderer(MainGame game, GraphicsDevice graphics, Time _time,
-            Dictionary<Vector3, Chunk> region, ScreenshotHandler screenshotTaker, BlockSelector blockSelector,
+        public Renderer(MainGame game, GraphicsDevice graphics, Time time,
+            Dictionary<Vector3I, Chunk> region, ScreenshotHandler screenshotTaker, BlockSelector blockSelector,
             AssetServer assetServer, BlockMetadataProvider blockMetadata)
         {
             this.game = game;
@@ -46,9 +44,7 @@ namespace SharpCraft.Rendering
 
             blockSelector.SetEffect(effect);
 
-            time = _time;
-
-            size = Settings.ChunkSize;
+            this.time = time;
 
             atlas = new Texture2D(graphics, 64, blockMetadata.GetBlocksCount * 64);
             Color[] atlasData = new Color[atlas.Width * atlas.Height];
@@ -69,10 +65,10 @@ namespace SharpCraft.Rendering
                         (int)2e4, BufferUsage.WriteOnly);
         }
 
-        public void Draw(Vector3[] activeChunks, Player player)
+        public void Draw(Vector3I[] activeChunks, Player player)
         {
-            Vector3 chunkMax = new(size, 128, size);
-            Vector3 position;
+            Vector3 chunkMax = new(Chunk.SIZE, 128, Chunk.SIZE);
+            Vector3I position;
 
             float lightIntensity = time.LightIntensity;
 
@@ -97,7 +93,7 @@ namespace SharpCraft.Rendering
                 position = activeChunks[i];
                 currentChunk = region[position];
 
-                BoundingBox chunkBounds = new(-position, chunkMax - position);
+                BoundingBox chunkBounds = new(-currentChunk.Position3, chunkMax - currentChunk.Position3);
 
                 chunkVisible[i] = player.Camera.Frustum.Contains(chunkBounds) != ContainmentType.Disjoint;
 

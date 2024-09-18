@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-
-using SharpCraft.Models;
 using SharpCraft.Rendering;
 
 namespace SharpCraft.World
@@ -24,13 +22,14 @@ namespace SharpCraft.World
             bool[] visibleFaces = new bool[6];
             byte[] lightValues = new byte[6];
 
+            Vector3 pos = SIZE * new Vector3(Position.X, Position.Y, Position.Z);
             for (int i = 0; i < Active.Count; i++)
             {
                 int y = Active[i].Y;
                 int x = Active[i].X;
                 int z = Active[i].Z;
 
-                Vector3 blockPosition = new Vector3(x, y, z) - Position;
+                Vector3 blockPosition = new Vector3(x, y, z) - pos;
 
                 visibleFaces = GetVisibleFaces(visibleFaces, y, x, z);
                 lightValues = GetFacesLight(lightValues, visibleFaces, y, x, z);

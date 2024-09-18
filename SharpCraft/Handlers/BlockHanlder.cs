@@ -7,7 +7,7 @@ using SharpCraft.Rendering;
 using SharpCraft.World;
 
 using SharpCraft.Utility;
-using SharpCraft.Assets;
+using SharpCraft.MathUtil;
 
 
 namespace SharpCraft.Handlers
@@ -16,7 +16,7 @@ namespace SharpCraft.Handlers
     {
         MainGame game;
         Player player;
-        Dictionary<Vector3, Chunk> region;
+        Dictionary<Vector3I, Chunk> region;
         GameMenu gameMenu;
         DatabaseHandler databaseHandler;
         readonly BlockMetadataProvider blockMetadata;
@@ -24,10 +24,10 @@ namespace SharpCraft.Handlers
         int size, last;
 
         int x, y, z, index;
-        Vector3 position;
+        Vector3I position;
 
 
-        public BlockHanlder(MainGame game, Player player, Dictionary<Vector3, Chunk> region,
+        public BlockHanlder(MainGame game, Player player, Dictionary<Vector3I, Chunk> region,
             GameMenu gameMenu, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata, int size)
         {
             this.game = game;
@@ -46,7 +46,7 @@ namespace SharpCraft.Handlers
             y = -1;
         }
 
-        public void Set(int x, int y, int z, int index, Vector3 position)
+        public void Set(int x, int y, int z, int index, Vector3I position)
         {
             this.x = x;
             this.y = y;
@@ -74,7 +74,7 @@ namespace SharpCraft.Handlers
                 bool[] visibleFaces = new bool[6];
                 region[position].GetVisibleFaces(visibleFaces, y, x, z);
 
-                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - position, player.Camera.Direction);
+                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - region[position].Position3, player.Camera.Direction);
             }
             else
             {
@@ -116,15 +116,14 @@ namespace SharpCraft.Handlers
             char side = Util.MaxVectorComponent(player.Camera.Direction);
 
             AdjustIndices(side, player.Camera.Direction);
+            Chunk chunk = region[position];
 
-            Vector3 blockPosition = new Vector3(x, y, z) - position;
+            Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position3;
 
             if ((blockPosition - player.Position).Length() < 1.1f)
             {
                 return;
             }
-
-            Chunk chunk = region[position];
             ushort texture;
 
             if (chunk[x, y, z].IsEmpty && gameMenu.SelectedItem != Block.EmptyValue)
@@ -192,10 +191,10 @@ namespace SharpCraft.Handlers
 
         void AdjustIndices(char face, Vector3 vector)
         {
-            Vector3 zNeg = position + new Vector3(0, 0, -size),
-                    zPos = position + new Vector3(0, 0, size),
-                    xNeg = position + new Vector3(-size, 0, 0),
-                    xPos = position + new Vector3(size, 0, 0);
+            Vector3I zNeg = position + new Vector3I(0, 0, -1),
+                    zPos = position + new Vector3I(0, 0, 1),
+                    xNeg = position + new Vector3I(-1, 0, 0),
+                    xPos = position + new Vector3I(1, 0, 0);
 
 
             switch (face)

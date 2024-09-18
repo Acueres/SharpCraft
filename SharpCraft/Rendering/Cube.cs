@@ -1,10 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-using SharpCraft.Rendering;
 
-
-namespace SharpCraft.Models
+namespace SharpCraft.Rendering
 {
     static class Cube
     {

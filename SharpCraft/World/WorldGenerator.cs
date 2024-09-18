@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Utility;
+using SharpCraft.MathUtil;
 
 namespace SharpCraft.World
 {
@@ -80,7 +81,7 @@ namespace SharpCraft.World
             river.SetFrequency(0.001f);
         }
 
-        public Chunk GenerateChunk(Vector3 position, Dictionary<Vector3, Chunk> region)
+        public Chunk GenerateChunk(Vector3I position, Dictionary<Vector3I, Chunk> region)
         {
             return type switch
             {
@@ -89,7 +90,7 @@ namespace SharpCraft.World
             };
         }
         
-        Chunk Default(Vector3 position, Dictionary<Vector3, Chunk> region)
+        Chunk Default(Vector3I position, Dictionary<Vector3I, Chunk> region)
         {
             Chunk chunk = new(position, region, blockMetadata);
 
@@ -99,7 +100,7 @@ namespace SharpCraft.World
             {
                 for (int z = 0; z < size; z++)
                 {
-                    elevationMap[x, z] = GetHeight(chunk.Position, x, z, out byte biomeData);
+                    elevationMap[x, z] = GetHeight(chunk.Position3, x, z, out byte biomeData);
                     chunk.BiomeData[x][z] = biomeData;
                 }
             }
@@ -157,7 +158,7 @@ namespace SharpCraft.World
             return height;
         }
 
-        Chunk Flat(Vector3 position, Dictionary<Vector3, Chunk> region)
+        Chunk Flat(Vector3I position, Dictionary<Vector3I, Chunk> region)
         {
             Chunk chunk = new(position, region, blockMetadata);
             for (int y = 0; y < 5; y++)

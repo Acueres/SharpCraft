@@ -3,9 +3,8 @@ using System.IO;
 using System.Data.SQLite;
 using System.Threading.Tasks;
 
-using Microsoft.Xna.Framework;
-
 using SharpCraft.World;
+using SharpCraft.MathUtil;
 
 
 namespace SharpCraft.Handlers
@@ -28,13 +27,13 @@ namespace SharpCraft.Handlers
 
         class SaveData
         {
-            public Vector3 Position;
+            public Vector3I Position;
             public int X;
             public int Y;
             public int Z;
             public ushort Texture;
 
-            public SaveData(Vector3 position, int x, int y, int z, ushort texture)
+            public SaveData(Vector3I position, int x, int y, int z, ushort texture)
             {
                 Position = position;
                 X = x;
@@ -84,7 +83,7 @@ namespace SharpCraft.Handlers
             connection.Close();
         }
 
-        public void AddDelta(Vector3 position, int y, int x, int z, ushort texture)
+        public void AddDelta(Vector3I position, int y, int x, int z, ushort texture)
         {
             dataQueue.Enqueue(new SaveData(position, x, y, z, texture));
         }

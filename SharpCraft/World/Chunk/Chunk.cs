@@ -2,18 +2,19 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-using Microsoft.Xna.Framework;
 using Microsoft.Win32.SafeHandles;
+using Microsoft.Xna.Framework;
 
 using SharpCraft.Rendering;
-using SharpCraft.Models;
+using SharpCraft.MathUtil;
 
 
 namespace SharpCraft.World
 {
     public sealed partial class Chunk : IDisposable
     {
-        public Vector3 Position;
+        public Vector3I Position { get; set; }
+        public Vector3 Position3 { get; set; }
 
         public NeighborChunks Neighbors;
 
@@ -32,9 +33,10 @@ namespace SharpCraft.World
             public Chunk ZNeg, ZPos, XNeg, XPos;
         }
 
-        public Chunk(Vector3 position, Dictionary<Vector3, Chunk> region, BlockMetadataProvider blockMetadata)
+        public Chunk(Vector3I position, Dictionary<Vector3I, Chunk> region, BlockMetadataProvider blockMetadata)
         {
             Position = position;
+            Position3 = SIZE * new Vector3(position.X, position.Y, position.Z);
 
             Neighbors = new NeighborChunks();
 
@@ -129,11 +131,10 @@ namespace SharpCraft.World
 
         public void GetNeighbors()
         {
-            int size = 16;
-            Vector3 zNegPosition = Position + new Vector3(0, 0, -size),
-                    zPosPosition = Position + new Vector3(0, 0, size),
-                    xNegPosition = Position + new Vector3(-size, 0, 0),
-                    xPosPosition = Position + new Vector3(size, 0, 0);
+            Vector3I zNegPosition = Position + new Vector3I(0, 0, -1),
+                    zPosPosition = Position + new Vector3I(0, 0, 1),
+                    xNegPosition = Position + new Vector3I(-1, 0, 0),
+                    xPosPosition = Position + new Vector3I(1, 0, 0);
 
             Neighbors.ZNeg = region.TryGetValue(zNegPosition, out Chunk value) ? value : null;
             if (Neighbors.ZNeg != null && Neighbors.ZNeg.Neighbors.ZPos is null)
