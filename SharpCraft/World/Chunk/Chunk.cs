@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework;
 
 using SharpCraft.Rendering;
 using SharpCraft.MathUtil;
+using System.Linq;
 
 
 namespace SharpCraft.World
@@ -63,7 +64,7 @@ namespace SharpCraft.World
                 BiomeData[x] = new byte[SIZE];
             }
 
-            Active = new List<BlockIndex>(total);
+            activeBlockIndexes = new HashSet<Vector3I>(total);
 
             //Initialize mesh
             VertexList = new List<VertexPositionTextureLight>(6 * total);
@@ -89,7 +90,7 @@ namespace SharpCraft.World
                 }
             }
 
-            lightSources = [];
+            lightSourceIndexes = [];
         }
 
         public Block this[int x, int y, int z]
@@ -161,11 +162,26 @@ namespace SharpCraft.World
             }
         }
 
-        public void AddIndex(BlockIndex index)
+        public bool AddIndex(Vector3I index)
         {
-            if (!Active.Contains(index))
+            return activeBlockIndexes.Add(index);
+        }
+
+        public bool RemoveIndex(Vector3I index)
+        {
+            return activeBlockIndexes.Remove(index);
+        }
+
+        public Vector3I GetIndex(int i)
+        {
+            return activeBlockIndexes.Where((index, id) => id == i).Single();
+        }
+
+        public IEnumerable<Vector3I> GetIndexes()
+        {
+            foreach (Vector3I index in activeBlockIndexes)
             {
-                Active.Add(index);
+                yield return index;
             }
         }
 

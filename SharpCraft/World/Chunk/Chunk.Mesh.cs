@@ -1,5 +1,8 @@
 ﻿using System.Collections.Generic;
+
 using Microsoft.Xna.Framework;
+
+using SharpCraft.MathUtil;
 using SharpCraft.Rendering;
 
 namespace SharpCraft.World
@@ -23,11 +26,11 @@ namespace SharpCraft.World
             byte[] lightValues = new byte[6];
 
             Vector3 pos = SIZE * new Vector3(Position.X, Position.Y, Position.Z);
-            for (int i = 0; i < Active.Count; i++)
+            foreach (Vector3I index in activeBlockIndexes)
             {
-                int y = Active[i].Y;
-                int x = Active[i].X;
-                int z = Active[i].Z;
+                int y = index.Y;
+                int x = index.X;
+                int z = index.Z;
 
                 Vector3 blockPosition = new Vector3(x, y, z) - pos;
 

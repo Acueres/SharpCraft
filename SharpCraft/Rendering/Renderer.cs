@@ -65,14 +65,14 @@ namespace SharpCraft.Rendering
                         (int)2e4, BufferUsage.WriteOnly);
         }
 
-        public void Draw(Vector3I[] activeChunks, Player player)
+        public void Draw(HashSet<Vector3I> activeChunkIndexes, Player player)
         {
             Vector3 chunkMax = new(Chunk.SIZE, 128, Chunk.SIZE);
-            Vector3I position;
 
             float lightIntensity = time.LightIntensity;
 
-            bool[] chunkVisible = new bool[activeChunks.Length];
+            //bool[] visibleChunks = new bool[activeChunkIndexes.Count];
+            HashSet<Vector3I> visibleChunkIndexes = [];
 
             effect.Parameters["World"].SetValue(Matrix.Identity);
             effect.Parameters["View"].SetValue(player.Camera.View);
@@ -88,16 +88,20 @@ namespace SharpCraft.Rendering
             graphics.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
 
             //Drawing opaque blocks
-            for (int i = 0; i < activeChunks.Length; i++)
+            foreach (Vector3I index in activeChunkIndexes)
             {
-                position = activeChunks[i];
-                currentChunk = region[position];
+                currentChunk = region[index];
 
                 BoundingBox chunkBounds = new(-currentChunk.Position3, chunkMax - currentChunk.Position3);
 
-                chunkVisible[i] = player.Camera.Frustum.Contains(chunkBounds) != ContainmentType.Disjoint;
+                bool isChunkVisible = false;
+                if (player.Camera.Frustum.Contains(chunkBounds) != ContainmentType.Disjoint)
+                {
+                    visibleChunkIndexes.Add(index);
+                    isChunkVisible = true;
+                }
 
-                if (chunkVisible[i] && currentChunk.VertexCount > 0)
+                if (isChunkVisible && currentChunk.VertexCount > 0)
                 {
                     effect.Parameters["Alpha"].SetValue(1f);
 
@@ -113,11 +117,11 @@ namespace SharpCraft.Rendering
             }
 
             //Drawing transparent blocks
-            for (int i = 0; i < activeChunks.Length; i++)
+            foreach (Vector3I index in activeChunkIndexes)
             {
-                currentChunk = region[activeChunks[i]];
+                currentChunk = region[index];
 
-                if (chunkVisible[i] && currentChunk.TransparentVertexCount > 0)
+                if (visibleChunkIndexes.Contains(index) && currentChunk.TransparentVertexCount > 0)
                 {
                     effect.Parameters["Alpha"].SetValue(0.7f);
 

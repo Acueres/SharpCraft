@@ -23,7 +23,7 @@ namespace SharpCraft.Handlers
 
         int size, last;
 
-        int x, y, z, index;
+        int x, y, z;
         Vector3I position;
 
 
@@ -46,12 +46,11 @@ namespace SharpCraft.Handlers
             y = -1;
         }
 
-        public void Set(int x, int y, int z, int index, Vector3I position)
+        public void Set(int x, int y, int z, Vector3I position)
         {
             this.x = x;
             this.y = y;
             this.z = z;
-            this.index = index;
             this.position = position;
         }
 
@@ -97,7 +96,7 @@ namespace SharpCraft.Handlers
 
             chunk[x, y, z] = Block.Empty;
 
-            chunk.Active.RemoveAt(index);
+            chunk.RemoveIndex(new(x, y, z));
 
             chunk.UpdateLight(y, x, z, Block.EmptyValue, sourceRemoved: lightSource);
 

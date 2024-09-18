@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
+using SharpCraft.MathUtil;
 using SharpCraft.Utility;
 
 namespace SharpCraft.World
@@ -8,7 +9,7 @@ namespace SharpCraft.World
     public sealed partial class Chunk
     {
         byte[][][] lightMap;
-        List<BlockIndex> lightSources;
+        HashSet<Vector3I> lightSourceIndexes;
 
         Queue<LightNode> lightQueue;
         List<LightNode> lightList;
@@ -35,11 +36,11 @@ namespace SharpCraft.World
 
             FloodFill(skylight);
 
-            for (int i = 0; i < lightSources.Count; i++)
+            foreach (Vector3I lightSourceIndex in lightSourceIndexes)
             {
-                int y = lightSources[i].Y;
-                int x = lightSources[i].X;
-                int z = lightSources[i].Z;
+                int y = lightSourceIndex.Y;
+                int x = lightSourceIndex.X;
+                int z = lightSourceIndex.Z;
 
                 SetLight(y, x, z, blockMetadata.GetLightSourceValue(this[x, y, z].Value), blockLight);
                 lightQueue.Enqueue(new LightNode(this, x, y, z));
@@ -450,7 +451,7 @@ namespace SharpCraft.World
 
         public void AddLightSource(int y, int x, int z)
         {
-            lightSources.Add(new BlockIndex(y, x, z));
+            lightSourceIndexes.Add(new Vector3I(y, x, z));
         }
 
         public void SetLight(int y, int x, int z, byte value, bool skylight)

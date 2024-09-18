@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using Microsoft.Xna.Framework;
-
 using SharpCraft.MathUtil;
 
 namespace SharpCraft.World
@@ -10,7 +8,7 @@ namespace SharpCraft.World
     public sealed partial class Chunk
     {
         public byte[][] BiomeData { get; }
-        public List<BlockIndex> Active { get; }
+        HashSet<Vector3I> activeBlockIndexes;
 
         Dictionary<Vector3I, Chunk> region;
 

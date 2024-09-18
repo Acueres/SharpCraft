@@ -127,7 +127,7 @@ namespace SharpCraft
                             {
                                 player.Update(gameTime);
                                 world.Update();
-                                renderer.Draw(world.ActiveChunks, player);
+                                renderer.Draw(world.ActiveChunkIndexes, player);
                                 screenshotHandler.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }
 
@@ -173,7 +173,7 @@ namespace SharpCraft
             {
                 case GameState.Started:
                     {
-                        renderer.Draw(world.ActiveChunks, player);
+                        renderer.Draw(world.ActiveChunkIndexes, player);
                         gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
                         break;
                     }
