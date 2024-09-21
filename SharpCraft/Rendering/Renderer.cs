@@ -3,8 +3,6 @@ using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-
-using SharpCraft.MathUtil;
 using SharpCraft.Handlers;
 using SharpCraft.World;
 using SharpCraft.Utility;
@@ -18,7 +16,7 @@ namespace SharpCraft.Rendering
         MainGame game;
         GraphicsDevice graphics;
         Effect effect;
-        Dictionary<Vector3I, Chunk> region;
+        Region region;
         ScreenshotHandler screenshotHandler;
         BlockSelector blockSelector;
 
@@ -31,7 +29,7 @@ namespace SharpCraft.Rendering
         DynamicVertexBuffer buffer;
 
         public Renderer(MainGame game, GraphicsDevice graphics, Time time,
-            Dictionary<Vector3I, Chunk> region, ScreenshotHandler screenshotTaker, BlockSelector blockSelector,
+            Region region, ScreenshotHandler screenshotTaker, BlockSelector blockSelector,
             AssetServer assetServer, BlockMetadataProvider blockMetadata)
         {
             this.game = game;
@@ -65,13 +63,12 @@ namespace SharpCraft.Rendering
                         (int)2e4, BufferUsage.WriteOnly);
         }
 
-        public void Draw(HashSet<Vector3I> activeChunkIndexes, Player player)
+        public void Draw(Player player)
         {
             Vector3 chunkMax = new(Chunk.SIZE, 128, Chunk.SIZE);
 
             float lightIntensity = time.LightIntensity;
 
-            //bool[] visibleChunks = new bool[activeChunkIndexes.Count];
             HashSet<Vector3I> visibleChunkIndexes = [];
 
             effect.Parameters["World"].SetValue(Matrix.Identity);
@@ -88,9 +85,9 @@ namespace SharpCraft.Rendering
             graphics.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
 
             //Drawing opaque blocks
-            foreach (Vector3I index in activeChunkIndexes)
+            foreach (Vector3I index in region.GetActiveChunkIndexes())
             {
-                currentChunk = region[index];
+                currentChunk = region.GetChunk(index);
 
                 BoundingBox chunkBounds = new(-currentChunk.Position3, chunkMax - currentChunk.Position3);
 
@@ -117,11 +114,11 @@ namespace SharpCraft.Rendering
             }
 
             //Drawing transparent blocks
-            foreach (Vector3I index in activeChunkIndexes)
+            foreach (Vector3I index in visibleChunkIndexes)
             {
-                currentChunk = region[index];
+                currentChunk = region.GetChunk(index);
 
-                if (visibleChunkIndexes.Contains(index) && currentChunk.TransparentVertexCount > 0)
+                if (currentChunk.TransparentVertexCount > 0)
                 {
                     effect.Parameters["Alpha"].SetValue(0.7f);
 

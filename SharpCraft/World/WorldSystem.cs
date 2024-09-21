@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.Xna.Framework;
 
-using Microsoft.Xna.Framework;
-
-using SharpCraft.MathUtil;
 using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
@@ -13,28 +9,20 @@ namespace SharpCraft.World
 {
     class WorldSystem
     {
-        public Dictionary<Vector3I, Chunk> Region => region;
-
-        public HashSet<Vector3I> ActiveChunkIndexes { get; }
         public VertexPositionTextureLight[] Outline;
 
         Player player;
-        GameMenu gameMenu;
         BlockHanlder blockHanlder;
-        WorldGenerator worldGenerator;
-        DatabaseHandler databaseHandler;
-        BlockSelector blockSelector;
+
+        readonly GameMenu gameMenu;
+        readonly WorldGenerator worldGenerator;
+        readonly DatabaseHandler databaseHandler;
+        readonly BlockSelector blockSelector;
         readonly BlockMetadataProvider blockMetadata;
 
-        Dictionary<Vector3I, Chunk> region;
-        HashSet<Vector3I> closeChunksIndexes;
-        HashSet<Vector3I> loadedChunkIndexes;
-        HashSet<Vector3I> inactiveChunkIndexes;
+        readonly Region region;
 
-        int size;
-        int renderDistance;
-
-        ushort water;
+        readonly ushort water;
 
 
         public WorldSystem(GameMenu gameMenu, DatabaseHandler databaseHandler,
@@ -44,41 +32,27 @@ namespace SharpCraft.World
             this.databaseHandler = databaseHandler;
             this.blockMetadata = blockMetadata;
 
-            size = Settings.ChunkSize;
-            renderDistance = Settings.RenderDistance;
-
             water = blockMetadata.GetBlockIndex("water");
 
             worldGenerator = new WorldGenerator(parameters, blockMetadata);
-            region = new Dictionary<Vector3I, Chunk>((int)2e3);
             this.blockSelector = blockSelector;
 
             Outline = new VertexPositionTextureLight[36];
 
-            int n1 = 2 * renderDistance + 1; //area around the player
-            int n2 = (2 * (renderDistance + 2) + 1); //buffer of 2 chunks
-            ActiveChunkIndexes = new(n1 * n1);
-            closeChunksIndexes = new HashSet<Vector3I>(4);
-            inactiveChunkIndexes = new(n2 * n2);
-            loadedChunkIndexes = new(n2 * n2);
+            region = new Region(Settings.RenderDistance, Settings.ChunkSize, worldGenerator, databaseHandler);
         }
 
         public void SetPlayer(MainGame game, Player player, Parameters parameters)
         {
             this.player = player;
 
-            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, blockMetadata, size);
+            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, blockMetadata);
 
-            GetActiveChunks();
-            UpdateChunks();
-
-            /*int n1 = 2 * renderDistance + 1; //area around the player
-            int n2 = (2 * (renderDistance + 2) + 1); //buffer of 2 chunks
-            int centerIndex = (n1 * n2 - 1) / 2;*/
+            region.Update(player.Position);
 
             if (parameters.Position == Vector3.Zero)
             {
-                Chunk center = region[new(0, 0, 0)];
+                Chunk center = region.GetChunk(new(0, 0, 0));
                 Vector3I spawningIndex = center.GetIndex(0);
                 player.Position = new Vector3(spawningIndex.X, spawningIndex.Y + 2f, spawningIndex.Z);
             }
@@ -90,127 +64,16 @@ namespace SharpCraft.World
 
         public void Update()
         {
-            GetActiveChunks();
-            UpdateChunks();
-            RemoveInactiveChunks();
+            region.Update(player.Position);
         }
 
-        int GetChunkIndex(float val)
-        {
-            if (val > 0)
-            {
-                return -(int)Math.Floor(val / size);
-            }
-            else
-            {
-                return (int)Math.Ceiling(-val / size);
-            }
-        }
-
-        void UpdateChunks()
-        {
-            foreach (Vector3I index in ActiveChunkIndexes)
-            {
-                Chunk chunk = region[index];
-                chunk.Update();
-            }
-        }
-
-        void GetActiveChunks()
-        {
-            int x = GetChunkIndex(player.Position.X);
-            int z = GetChunkIndex(player.Position.Z);
-
-            Vector3I center = new(x, 0, z);
-
-            inactiveChunkIndexes = [.. loadedChunkIndexes];
-
-            LoadRegion(center);
-            GenerateRegion(center);
-        }
-
-        void LoadRegion(Vector3I center)
-        {
-            int count = 0;
-            int n = renderDistance + 2;
-            loadedChunkIndexes.Clear();
-
-            for (int i = -n; i <= n; i ++)
-            {
-                for (int j = -n; j <= n; j ++)
-                {
-                    Vector3I position = center - new Vector3I(i, 0, j);
-                    if (!region.ContainsKey(position))
-                    {
-                        region.Add(position, null);
-                    }
-
-                    loadedChunkIndexes.Add(position);
-                    count++;
-                }
-            }
-        }
-
-        void GenerateRegion(Vector3I center)
-        {
-            int n = renderDistance;
-
-            List<Vector3I> generatedChunks = [];
-
-            for (int i = -n; i <= n; i++)
-            {
-                for (int j = -n; j <= n; j++)
-                {
-                    Vector3I position = center - new Vector3I(i, 0, j);
-                    if (region[position] is null)
-                    {
-                        Chunk chunk = worldGenerator.GenerateChunk(position, region);
-                        region[position] = chunk;
-
-                        databaseHandler.ApplyDelta(region[position]);
-
-                        generatedChunks.Add(position);
-                    }
-
-                    ActiveChunkIndexes.Add(position);
-                }
-            }
-
-            foreach (Vector3I position in generatedChunks)
-            {
-                Chunk chunk = region[position];
-                chunk.GetNeighbors();
-                chunk.CalculateVisibleBlock();
-                chunk.InitializeLight();
-                chunk.CalculateMesh();
-            }
-        }
-
-        void RemoveInactiveChunks()
-        {
-            inactiveChunkIndexes.ExceptWith(loadedChunkIndexes);
-            ActiveChunkIndexes.ExceptWith(inactiveChunkIndexes);
-            foreach (Vector3I position in inactiveChunkIndexes)
-            {
-                region[position]?.Dispose();
-                region.Remove(position);
-            }
-            inactiveChunkIndexes.Clear();
-        }
+        public Region GetRegion() => region;
 
         public void UpdateBlocks()
         {
             float minDistance = 4.5f;
 
             blockHanlder.Reset();
-
-            closeChunksIndexes.Add(new Vector3I(GetChunkIndex(player.Position.X), 0, GetChunkIndex(player.Position.Z)));
-            closeChunksIndexes.Add(new Vector3I(GetChunkIndex(player.Position.X + 6), 0, GetChunkIndex(player.Position.Z + 6)));
-            closeChunksIndexes.Add(new Vector3I(GetChunkIndex(player.Position.X - 6), 0, GetChunkIndex(player.Position.Z - 6)));
-            closeChunksIndexes.Add(new Vector3I(GetChunkIndex(player.Position.X), 0, GetChunkIndex(player.Position.Z + 6)));
-            closeChunksIndexes.Add(new Vector3I(GetChunkIndex(player.Position.X), 0, GetChunkIndex(player.Position.Z - 6)));
-            closeChunksIndexes.Add(new Vector3I(GetChunkIndex(player.Position.X + 6), 0, GetChunkIndex(player.Position.Z)));
-            closeChunksIndexes.Add(new Vector3I(GetChunkIndex(player.Position.X - 6), 0, GetChunkIndex(player.Position.Z)));
 
             Vector3 blockMax = new(0.5f, 0.5f, 0.5f);
             Vector3 blockMin = new(-0.5f, -0.5f, -0.5f);
@@ -219,9 +82,11 @@ namespace SharpCraft.World
 
             Chunk chunk;
 
-            foreach (Vector3I chunkIndex in closeChunksIndexes)
+            Vector3I[] reachableChunkIndexes = region.GetReachableChunkIndexes(player.Position);
+
+            foreach (Vector3I chunkIndex in reachableChunkIndexes)
             {
-                chunk = region[chunkIndex];
+                chunk = region.GetChunk(chunkIndex);
                 foreach (Vector3I blockIndex in chunk.GetIndexes())
                 {
                     int y = blockIndex.Y;
@@ -268,8 +133,6 @@ namespace SharpCraft.World
             }
 
             blockHanlder.Update(blockSelector);
-
-            closeChunksIndexes.Clear();
         }
     }
 }

@@ -1,13 +1,10 @@
-﻿using System.Collections.Generic;
-
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.World;
 
 using SharpCraft.Utility;
-using SharpCraft.MathUtil;
 
 
 namespace SharpCraft.Handlers
@@ -16,19 +13,17 @@ namespace SharpCraft.Handlers
     {
         MainGame game;
         Player player;
-        Dictionary<Vector3I, Chunk> region;
+        readonly Region region;
         GameMenu gameMenu;
         DatabaseHandler databaseHandler;
         readonly BlockMetadataProvider blockMetadata;
-
-        int size, last;
 
         int x, y, z;
         Vector3I position;
 
 
-        public BlockHanlder(MainGame game, Player player, Dictionary<Vector3I, Chunk> region,
-            GameMenu gameMenu, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata, int size)
+        public BlockHanlder(MainGame game, Player player, Region region,
+            GameMenu gameMenu, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
         {
             this.game = game;
             this.player = player;
@@ -36,9 +31,6 @@ namespace SharpCraft.Handlers
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
             this.blockMetadata = blockMetadata;
-
-            this.size = size;
-            last = size - 1;
         }
 
         public void Reset()
@@ -68,12 +60,12 @@ namespace SharpCraft.Handlers
                 AddBlock();
             }
 
-            if (y != -1 && !region[position][x, y, z].IsEmpty)
+            if (y != -1 && !region.GetChunk(position)[x, y, z].IsEmpty)
             {
                 bool[] visibleFaces = new bool[6];
-                region[position].GetVisibleFaces(visibleFaces, y, x, z);
+                region.GetChunk(position).GetVisibleFaces(visibleFaces, y, x, z);
 
-                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - region[position].Position3, player.Camera.Direction);
+                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - region.GetChunk(position).Position3, player.Camera.Direction);
             }
             else
             {
@@ -88,7 +80,7 @@ namespace SharpCraft.Handlers
                 return;
             }
 
-            Chunk chunk = region[position];
+            Chunk chunk = region.GetChunk(position);
 
             Block block = chunk[x, y, z];
 
@@ -115,7 +107,7 @@ namespace SharpCraft.Handlers
             char side = Util.MaxVectorComponent(player.Camera.Direction);
 
             AdjustIndices(side, player.Camera.Direction);
-            Chunk chunk = region[position];
+            Chunk chunk = region.GetChunk(position);
 
             Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position3;
 
@@ -155,25 +147,25 @@ namespace SharpCraft.Handlers
             ActivateBlock(chunk, y + 1, x, z);
             ActivateBlock(chunk, y - 1, x, z);
 
-            if (x < last)
+            if (x < Chunk.LAST)
                 ActivateBlock(chunk, y, x + 1, z);
-            else if (x == last)
+            else if (x == Chunk.LAST)
                 ActivateBlock(chunk.Neighbors.XNeg, y, 0, z);
 
             if (x > 0)
                 ActivateBlock(chunk, y, x - 1, z);
             else if (x == 0)
-                ActivateBlock(chunk.Neighbors.XPos, y, last, z);
+                ActivateBlock(chunk.Neighbors.XPos, y, Chunk.LAST, z);
 
-            if (z < last)
+            if (z < Chunk.LAST)
                 ActivateBlock(chunk, y, x, z + 1);
-            else if (z == last)
+            else if (z == Chunk.LAST)
                 ActivateBlock(chunk.Neighbors.ZNeg, y, x, 0);
 
             if (z > 0)
                 ActivateBlock(chunk, y, x, z - 1);
             else if (z == 0)
-                ActivateBlock(chunk.Neighbors.ZPos, y, x, last);
+                ActivateBlock(chunk.Neighbors.ZPos, y, x, Chunk.LAST);
         }
 
         void ActivateBlock(Chunk chunk, int y, int x, int z)
@@ -202,7 +194,7 @@ namespace SharpCraft.Handlers
                     if (vector.X > 0) x--;
                     else x++;
 
-                    if (x > last)
+                    if (x > Chunk.LAST)
                     {
                         position = xNeg;
                         x = 0;
@@ -211,7 +203,7 @@ namespace SharpCraft.Handlers
                     else if (x < 0)
                     {
                         position = xPos;
-                        x = last;
+                        x = Chunk.LAST;
                     }
 
                     break;
@@ -226,7 +218,7 @@ namespace SharpCraft.Handlers
                     if (vector.Z > 0) z--;
                     else z++;
 
-                    if (z > last)
+                    if (z > Chunk.LAST)
                     {
                         position = zNeg;
                         z = 0;
@@ -235,7 +227,7 @@ namespace SharpCraft.Handlers
                     else if (z < 0)
                     {
                         position = zPos;
-                        z = last;
+                        z = Chunk.LAST;
                     }
 
                     break;

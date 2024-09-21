@@ -4,12 +4,12 @@ using System.Data.SQLite;
 using System.Threading.Tasks;
 
 using SharpCraft.World;
-using SharpCraft.MathUtil;
+using SharpCraft.Utility;
 
 
 namespace SharpCraft.Handlers
 {
-    class DatabaseHandler
+    public class DatabaseHandler
     {
         readonly BlockMetadataProvider blockMetadata;
         SQLiteCommand cmd;

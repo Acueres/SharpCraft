@@ -119,7 +119,7 @@ namespace SharpCraft
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata);
                             world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
-                            renderer = new Renderer(this, GraphicsDevice, time, world.Region, screenshotHandler, blockSelector, assetServer, blockMetadata);
+                            renderer = new Renderer(this, GraphicsDevice, time, world.GetRegion(), screenshotHandler, blockSelector, assetServer, blockMetadata);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 
@@ -127,7 +127,7 @@ namespace SharpCraft
                             {
                                 player.Update(gameTime);
                                 world.Update();
-                                renderer.Draw(world.ActiveChunkIndexes, player);
+                                renderer.Draw(player);
                                 screenshotHandler.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }
 
@@ -173,7 +173,7 @@ namespace SharpCraft
             {
                 case GameState.Started:
                     {
-                        renderer.Draw(world.ActiveChunkIndexes, player);
+                        renderer.Draw(player);
                         gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
                         break;
                     }

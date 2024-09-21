@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
-
-using SharpCraft.MathUtil;
 using SharpCraft.Rendering;
+using SharpCraft.Utility;
 
 namespace SharpCraft.World
 {

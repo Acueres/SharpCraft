@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
-using SharpCraft.MathUtil;
+using SharpCraft.Utility;
 
 namespace SharpCraft.World
 {

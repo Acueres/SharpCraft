@@ -6,8 +6,8 @@ using Microsoft.Win32.SafeHandles;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Rendering;
-using SharpCraft.MathUtil;
 using System.Linq;
+using SharpCraft.Utility;
 
 
 namespace SharpCraft.World

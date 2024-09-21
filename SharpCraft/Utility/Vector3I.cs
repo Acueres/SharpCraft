@@ -1,21 +1,12 @@
 ﻿using System;
 
-using Microsoft.Xna.Framework;
-
-namespace SharpCraft.MathUtil
+namespace SharpCraft.Utility
 {
-    public readonly struct Vector3I
+    public readonly struct Vector3I(int x, int y, int z)
     {
-        public int X { get; }
-        public int Y { get; }
-        public int Z { get; }
-
-        public Vector3I(int x, int y, int z)
-        {
-            X = x;
-            Y = y;
-            Z = z;
-        }
+        public int X => x;
+        public int Y => y;
+        public int Z => z;
 
         public static Vector3I operator -(Vector3I a, Vector3I b)
         => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Utility;
-using SharpCraft.MathUtil;
 
 namespace SharpCraft.World
 {
@@ -39,7 +38,7 @@ namespace SharpCraft.World
         public WorldGenerator(Parameters parameters, BlockMetadataProvider blockMetadata)
         {
             this.blockMetadata = blockMetadata;
-            size = Settings.ChunkSize;
+            size = Chunk.SIZE;
             type = parameters.WorldType;
 
             waterLevel = 40;
