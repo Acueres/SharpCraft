@@ -4,6 +4,7 @@ using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.Utility;
+using System;
 
 namespace SharpCraft.World
 {
@@ -39,7 +40,7 @@ namespace SharpCraft.World
 
             Outline = new VertexPositionTextureLight[36];
 
-            region = new Region(Settings.RenderDistance, Settings.ChunkSize, worldGenerator, databaseHandler);
+            region = new Region(Settings.RenderDistance, Settings.ChunkSize, worldGenerator, databaseHandler, blockMetadata);
         }
 
         public void SetPlayer(MainGame game, Player player, Parameters parameters)
@@ -93,7 +94,7 @@ namespace SharpCraft.World
                     int x = blockIndex.X;
                     int z = blockIndex.Z;
 
-                    Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position3;
+                    Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position;
 
                     if ((player.Position - blockPosition).Length() > 6)
                     {
@@ -115,7 +116,9 @@ namespace SharpCraft.World
                         }
                         else
                         {
-                            visibleFaces = chunk.GetVisibleFaces(visibleFaces, y, x, z);
+                            Array.Clear(visibleFaces, 0, 6);
+                            var neighbors = region.GetChunkNeighbors(chunkIndex);
+                            region.GetVisibleFaces(y, x, z, visibleFaces, neighbors);
                             player.Physics.Collision(blockPosition, visibleFaces);
                         }
                     }
@@ -126,7 +129,8 @@ namespace SharpCraft.World
                         if (rayBlockDistance != null && rayBlockDistance < minDistance)
                         {
                             minDistance = (float)rayBlockDistance;
-                            blockHanlder.Set(x, y, z, chunkIndex);
+                            var neighbors = region.GetChunkNeighbors(chunkIndex);
+                            blockHanlder.Set(x, y, z, chunkIndex, neighbors);
                         }
                     }
                 }

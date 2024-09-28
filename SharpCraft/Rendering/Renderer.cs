@@ -89,7 +89,7 @@ namespace SharpCraft.Rendering
             {
                 currentChunk = region.GetChunk(index);
 
-                BoundingBox chunkBounds = new(-currentChunk.Position3, chunkMax - currentChunk.Position3);
+                BoundingBox chunkBounds = new(-currentChunk.Position, chunkMax - currentChunk.Position);
 
                 bool isChunkVisible = false;
                 if (player.Camera.Frustum.Contains(chunkBounds) != ContainmentType.Disjoint)

@@ -95,8 +95,8 @@ namespace SharpCraft.Handlers
                 CommandText = selectCommand
             };
 
-            command.Parameters.AddWithValue("@x", chunk.Position.X);
-            command.Parameters.AddWithValue("@z", chunk.Position.Z);
+            command.Parameters.AddWithValue("@x", chunk.Index.X);
+            command.Parameters.AddWithValue("@z", chunk.Index.Z);
 
             var reader = command.ExecuteReader();
 

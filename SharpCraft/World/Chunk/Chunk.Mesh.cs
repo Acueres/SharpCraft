@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 using SharpCraft.Rendering;
@@ -19,12 +20,12 @@ namespace SharpCraft.World
         public int VertexCount;
         public int TransparentVertexCount;
 
-        public void CalculateMesh()
+        public void CalculateMesh(ChunkNeighbors neighbors, Action<int, int, int, bool[], ChunkNeighbors, bool> GetVisibleFaces)
         {
             bool[] visibleFaces = new bool[6];
             byte[] lightValues = new byte[6];
 
-            Vector3 pos = SIZE * new Vector3(Position.X, Position.Y, Position.Z);
+            Vector3 pos = SIZE * new Vector3(Index.X, Index.Y, Index.Z);
             foreach (Vector3I index in activeBlockIndexes)
             {
                 int y = index.Y;
@@ -32,9 +33,11 @@ namespace SharpCraft.World
                 int z = index.Z;
 
                 Vector3 blockPosition = new Vector3(x, y, z) - pos;
+                Array.Clear(visibleFaces, 0, 6);
+                Array.Clear(lightValues, 0, 6);
 
-                visibleFaces = GetVisibleFaces(visibleFaces, y, x, z);
-                lightValues = GetFacesLight(lightValues, visibleFaces, y, x, z);
+                GetVisibleFaces(y, x, z, visibleFaces, neighbors, true);
+                GetFacesLight(lightValues, visibleFaces, y, x, z, neighbors);
 
                 for (int face = 0; face < 6; face++)
                 {

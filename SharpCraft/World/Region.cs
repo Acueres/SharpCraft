@@ -8,7 +8,16 @@ using SharpCraft.Utility;
 
 namespace SharpCraft.World
 {
-    public class Region(int apothem, int chunkSize, WorldGenerator worldGenerator, DatabaseHandler databaseHandler)
+    public class ChunkNeighbors
+    {
+        public Chunk Chunk {  get; set; }
+        public Chunk ZNeg { get; set; }
+        public Chunk ZPos { get; set; }
+        public Chunk XNeg { get; set; }
+        public Chunk XPos {  get; set; }
+    }
+
+    public class Region(int apothem, int chunkSize, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
     {
         //Number of chunks from the center chunk to the edge of the chunk area
         readonly int apothem = apothem;
@@ -16,9 +25,11 @@ namespace SharpCraft.World
 
         readonly WorldGenerator worldGenerator = worldGenerator;
         readonly DatabaseHandler databaseHandler = databaseHandler;
+        readonly BlockMetadataProvider blockMetadata = blockMetadata;
 
         readonly Dictionary<Vector3I, Chunk> chunks = [];
-        readonly HashSet<Vector3I> activeChunkIndexes = [];
+        readonly Dictionary<Vector3I, ChunkNeighbors> neighborsMap = [];
+        readonly List<Vector3I> activeChunkIndexes = [];
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
 
         public Chunk GetChunk(Vector3I index)
@@ -40,7 +51,12 @@ namespace SharpCraft.World
 
             foreach (Vector3I index in activeChunkIndexes)
             {
-                chunks[index].Update();
+                Chunk chunk = GetChunk(index);
+                if (chunk.UpdateMesh)
+                {
+                    var neighbors = GetChunkNeighbors(index);
+                    chunk.CalculateMesh(neighbors, GetVisibleFaces);
+                }
             }
         }
 
@@ -62,6 +78,186 @@ namespace SharpCraft.World
             foreach (Vector3I index in activeChunkIndexes) { yield return index; }
         }
 
+        public ChunkNeighbors GetChunkNeighbors(Vector3I index) => neighborsMap[index];
+
+        void CalculateChunkNeighbors(Chunk chunk)
+        {
+            ChunkNeighbors neighbors = new()
+            {
+                Chunk = chunk
+            };
+
+            Vector3I zNeg = chunk.Index + new Vector3I(0, 0, -1),
+                    zPos = chunk.Index + new Vector3I(0, 0, 1),
+                    xNeg = chunk.Index + new Vector3I(-1, 0, 0),
+                    xPos = chunk.Index + new Vector3I(1, 0, 0);
+
+            neighbors.ZNeg = neighborsMap.TryGetValue(zNeg, out ChunkNeighbors value) ? value.Chunk : null;
+            if (neighbors.ZNeg != null)
+            {
+                neighborsMap[zNeg].ZPos = chunk;
+            }
+
+            neighbors.ZPos = neighborsMap.TryGetValue(zPos, out value) ? value.Chunk : null;
+            if (neighbors.ZPos != null)
+            {
+                neighborsMap[zPos].ZNeg = chunk;
+            }
+
+            neighbors.XNeg = neighborsMap.TryGetValue(xNeg, out value) ? value.Chunk : null;
+            if (neighbors.XNeg != null)
+            {
+                neighborsMap[xNeg].XPos = chunk;
+            }
+
+            neighbors.XPos = neighborsMap.TryGetValue(xPos, out value) ? value.Chunk : null;
+            if (neighbors.XPos != null)
+            {
+                neighborsMap[xPos].XNeg = chunk;
+            }
+
+            neighborsMap.Add(chunk.Index, neighbors);
+        }
+
+        void CalculateActiveBlocks(ChunkNeighbors neighbors)
+        {
+            bool[] visibleFaces = new bool[6];
+            Chunk chunk = neighbors.Chunk;
+
+            for (int y = 0; y < Chunk.HEIGHT; y++)
+            {
+                for (int x = 0; x < Chunk.SIZE; x++)
+                {
+                    for (int z = 0; z < Chunk.SIZE; z++)
+                    {
+                        if (chunk[x, y, z].IsEmpty)
+                        {
+                            continue;
+                        }
+
+                        Array.Clear(visibleFaces, 0, 6);
+                        GetVisibleFaces(y, x, z, visibleFaces, neighbors, calculateOpacity: false);
+
+                        bool isBlockExposed = false;
+                        for (int i = 0; i < visibleFaces.Length; i++)
+                        {
+                            if (visibleFaces[i])
+                            {
+                                isBlockExposed = true;
+                                break;
+                            }
+                        }
+
+                        if (isBlockExposed)
+                        {
+                            chunk.AddIndex(new(x, y, z));
+                        }
+                    }
+                }
+            }
+        }
+
+        public void GetVisibleFaces(int y, int x, int z, bool[] visibleFaces, ChunkNeighbors neighbors,
+                                    bool calculateOpacity = true)
+        {
+            Chunk chunk = neighbors.Chunk;
+
+            Block block = chunk[x, y, z];
+
+            Block adjacentBlock = Block.Empty;
+
+            bool blockOpaque = true;
+            if (calculateOpacity)
+            {
+                blockOpaque = !block.IsEmpty && !blockMetadata.IsBlockTransparent(block.Value);
+            }
+
+            if (z == Chunk.LAST)
+            {
+                if (neighbors.ZNeg != null)
+                {
+                    adjacentBlock = neighbors.ZNeg[x, y, 0];
+                }
+                else
+                {
+                    //Vector3 zNeg = Position + new Vector3(0, 0, -SIZE);
+                    //adjacentBlock = worldGenerator.Peek(zNeg, y, x, 0);
+                }
+            }
+            else
+            {
+                adjacentBlock = chunk[x, y, z + 1];
+            }
+            visibleFaces[0] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            if (z == 0)
+            {
+                if (neighbors.ZPos != null)
+                {
+                    adjacentBlock = neighbors.ZPos[x, y, Chunk.LAST];
+                }
+                else
+                {
+                    //Vector3 zPos = Position + new Vector3(0, 0, SIZE);
+                    //adjacentBlock = worldGenerator.Peek(zPos, y, x, LAST);
+                }
+            }
+            else
+            {
+                adjacentBlock = chunk[x, y, z - 1];
+            }
+            visibleFaces[1] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            if (y + 1 < Chunk.HEIGHT)
+            {
+                adjacentBlock = chunk[x, y + 1, z];
+                visibleFaces[2] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+            }
+
+            if (y > 0)
+            {
+                adjacentBlock = chunk[x, y - 1, z];
+                visibleFaces[3] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+            }
+
+
+            if (x == Chunk.LAST)
+            {
+                if (neighbors.XNeg != null)
+                {
+                    adjacentBlock = neighbors.XNeg[0, y, z];
+                }
+                else
+                {
+                    //Vector3 xNeg = Position + new Vector3(-SIZE, 0, 0);
+                    //adjacentBlock = worldGenerator.Peek(xNeg, y, 0, z);
+                }
+            }
+            else
+            {
+                adjacentBlock = chunk[x + 1, y, z];
+            }
+            visibleFaces[4] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            if (x == 0)
+            {
+                if (neighbors.XPos != null)
+                {
+                    adjacentBlock = neighbors.XPos[Chunk.LAST, y, z];
+                }
+                else
+                {
+                    //Vector3 xPos = Position + new Vector3(SIZE, 0, 0);
+                    //adjacentBlock = worldGenerator.Peek(xPos, y, LAST, z);
+                }
+            }
+            else
+            {
+                adjacentBlock = chunk[x - 1, y, z];
+            }
+            visibleFaces[5] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+        }
+
         void GenerateChunks(Vector3I center)
         {
             activeChunkIndexes.Clear();
@@ -71,41 +267,79 @@ namespace SharpCraft.World
             {
                 for (int z = -apothem; z <= apothem; z++)
                 {
-                    Vector3I position = center - new Vector3I(x, 0, z);
+                    Vector3I index = center - new Vector3I(x, 0, z);
 
-                    if (!chunks.ContainsKey(position))
+                    if (!chunks.ContainsKey(index))
                     {
-                        Chunk chunk = worldGenerator.GenerateChunk(position, chunks);
-                        chunks.Add(position, chunk);
+                        Chunk chunk = worldGenerator.GenerateChunk(index);
+                        chunks.Add(index, chunk);
 
-                        databaseHandler.ApplyDelta(chunks[position]);
+                        databaseHandler.ApplyDelta(chunks[index]);
 
-                        generatedChunks.Add(position);
+                        generatedChunks.Add(index);
                     }
 
-                    activeChunkIndexes.Add(position);
-                    inactiveChunkIndexes.Remove(position);
+                    activeChunkIndexes.Add(index);
+                    inactiveChunkIndexes.Remove(index);
                 }
             }
 
-            foreach (Vector3I position in generatedChunks)
+            foreach (Vector3I index in generatedChunks)
             {
-                Chunk chunk = chunks[position];
-                chunk.GetNeighbors();
-                chunk.CalculateVisibleBlock();
-                chunk.InitializeLight();
-                chunk.CalculateMesh();
+                Chunk chunk = chunks[index];
+                CalculateChunkNeighbors(chunk);
+            }
+
+            foreach (Vector3I index in generatedChunks)
+            {
+                Chunk chunk = chunks[index];
+                ChunkNeighbors neighbors = GetChunkNeighbors(index);
+                CalculateActiveBlocks(neighbors);
+                chunk.InitializeLight(neighbors);
+            }
+
+            foreach (Vector3I index in generatedChunks)
+            {
+                Chunk chunk = chunks[index];
+                ChunkNeighbors neighbors = GetChunkNeighbors(index);
+                chunk.CalculateMesh(neighbors, GetVisibleFaces);
             }
         }
 
         void RemoveInactiveChunks()
         {
-            foreach (Vector3I position in inactiveChunkIndexes)
+            foreach (Vector3I index in inactiveChunkIndexes)
             {
-                chunks[position]?.Dispose();
-                chunks.Remove(position);
+                Dereference(GetChunkNeighbors(index));
+                chunks[index]?.Dispose();
+                chunks.Remove(index);
             }
             inactiveChunkIndexes.Clear();
+        }
+
+        void Dereference(ChunkNeighbors neighbors)
+        {
+            if (neighbors.ZNeg != null)
+            {
+                neighborsMap[neighbors.ZNeg.Index].ZPos = null;
+            }
+
+            if (neighbors.ZPos != null)
+            {
+                neighborsMap[neighbors.ZPos.Index].ZNeg = null;
+            }
+
+            if (neighbors.XNeg != null)
+            {
+                neighborsMap[neighbors.XNeg.Index].XPos = null;
+            }
+
+            if (neighbors.XPos != null)
+            {
+                neighborsMap[neighbors.XPos.Index].XNeg = null;
+            }
+
+            neighborsMap.Remove(neighbors.Chunk.Index);
         }
 
         int GetChunkIndex(float val)

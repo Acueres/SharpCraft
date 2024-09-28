@@ -14,13 +14,16 @@ namespace SharpCraft.World
 {
     public sealed partial class Chunk : IDisposable
     {
-        public Vector3I Position { get; set; }
-        public Vector3 Position3 { get; set; }
+        public Vector3I Index { get; }
+        public Vector3 Position { get; }
 
-        public NeighborChunks Neighbors;
+        public byte[][] BiomeData { get; }
+        readonly HashSet<Vector3I> activeBlockIndexes;
+
+        readonly Block[][][] blocks;
 
         public void Dispose() => Dispose(true);
-        SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
+        readonly SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
         bool disposed = false;
 
         public const int SIZE = 16;
@@ -29,19 +32,11 @@ namespace SharpCraft.World
 
         readonly BlockMetadataProvider blockMetadata;
 
-        public class NeighborChunks
+        public Chunk(Vector3I position, BlockMetadataProvider blockMetadata)
         {
-            public Chunk ZNeg, ZPos, XNeg, XPos;
-        }
+            Index = position;
+            Position = SIZE * new Vector3(position.X, position.Y, position.Z);
 
-        public Chunk(Vector3I position, Dictionary<Vector3I, Chunk> region, BlockMetadataProvider blockMetadata)
-        {
-            Position = position;
-            Position3 = SIZE * new Vector3(position.X, position.Y, position.Z);
-
-            Neighbors = new NeighborChunks();
-
-            this.region = region;
             this.blockMetadata = blockMetadata;
 
             //Only about ~5% of all blocks are visible
@@ -74,9 +69,6 @@ namespace SharpCraft.World
             lightQueue = new Queue<LightNode>(100);
             lightList = new List<LightNode>(100);
 
-            nodes = new LightNode[6];
-            lightValues = new byte[6];
-
             chunksToUpdate = new HashSet<Chunk>(5);
 
             lightMap = new byte[HEIGHT][][];
@@ -97,70 +89,7 @@ namespace SharpCraft.World
         {
             get => blocks[y][x][z];
             set => blocks[y][x][z] = value;
-        }
-
-        public void Update()
-        {
-            if (UpdateMesh)
-            {
-                CalculateMesh();
-            }
-        }
-
-        public void Dereference()
-        {
-            if (Neighbors.ZNeg != null)
-            {
-                Neighbors.ZNeg.Neighbors.ZPos = null;
-            }
-
-            if (Neighbors.ZPos != null)
-            {
-                Neighbors.ZPos.Neighbors.ZNeg = null;
-            }
-
-            if (Neighbors.XNeg != null)
-            {
-                Neighbors.XNeg.Neighbors.XPos = null;
-            }
-
-            if (Neighbors.XPos != null)
-            {
-                Neighbors.XPos.Neighbors.XNeg = null;
-            }
-        }
-
-        public void GetNeighbors()
-        {
-            Vector3I zNegPosition = Position + new Vector3I(0, 0, -1),
-                    zPosPosition = Position + new Vector3I(0, 0, 1),
-                    xNegPosition = Position + new Vector3I(-1, 0, 0),
-                    xPosPosition = Position + new Vector3I(1, 0, 0);
-
-            Neighbors.ZNeg = region.TryGetValue(zNegPosition, out Chunk value) ? value : null;
-            if (Neighbors.ZNeg != null && Neighbors.ZNeg.Neighbors.ZPos is null)
-            {
-                Neighbors.ZNeg.Neighbors.ZPos = this;
-            }
-
-            Neighbors.ZPos = region.TryGetValue(zPosPosition, out value) ? value : null;
-            if (Neighbors.ZPos != null && Neighbors.ZPos.Neighbors.ZNeg is null)
-            {
-                Neighbors.ZPos.Neighbors.ZNeg = this;
-            }
-
-            Neighbors.XNeg = region.TryGetValue(xNegPosition, out value) ? value : null;
-            if (Neighbors.XNeg != null && Neighbors.XNeg.Neighbors.XPos is null)
-            {
-                Neighbors.XNeg.Neighbors.XPos = this;
-            }
-
-            Neighbors.XPos = region.TryGetValue(xPosPosition, out value) ? value : null;
-            if (Neighbors.XPos != null && Neighbors.XPos.Neighbors.XNeg is null)
-            {
-                Neighbors.XPos.Neighbors.XNeg = this;
-            }
-        }
+        }       
 
         public bool AddIndex(Vector3I index)
         {
@@ -194,7 +123,6 @@ namespace SharpCraft.World
 
             if (disposing)
             {
-                Dereference();
                 safeHandle?.Dispose();
             }
 
