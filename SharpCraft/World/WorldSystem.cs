@@ -4,7 +4,6 @@ using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.Utility;
-using System;
 
 namespace SharpCraft.World
 {
@@ -79,8 +78,6 @@ namespace SharpCraft.World
             Vector3 blockMax = new(0.5f, 0.5f, 0.5f);
             Vector3 blockMin = new(-0.5f, -0.5f, -0.5f);
 
-            bool[] visibleFaces = new bool[6];
-
             Chunk chunk;
 
             Vector3I[] reachableChunkIndexes = region.GetReachableChunkIndexes(player.Position);
@@ -116,9 +113,8 @@ namespace SharpCraft.World
                         }
                         else
                         {
-                            Array.Clear(visibleFaces, 0, 6);
                             var neighbors = region.GetChunkNeighbors(chunkIndex);
-                            region.GetVisibleFaces(y, x, z, visibleFaces, neighbors);
+                            FacesState visibleFaces = region.GetVisibleFaces(y, x, z, neighbors);
                             player.Physics.Collision(blockPosition, visibleFaces);
                         }
                     }

@@ -20,11 +20,8 @@ namespace SharpCraft.World
         public int VertexCount;
         public int TransparentVertexCount;
 
-        public void CalculateMesh(ChunkNeighbors neighbors, Action<int, int, int, bool[], ChunkNeighbors, bool> GetVisibleFaces)
+        public void CalculateMesh(ChunkNeighbors neighbors, Func<int, int, int, ChunkNeighbors, bool, FacesState> GetVisibleFaces)
         {
-            bool[] visibleFaces = new bool[6];
-            byte[] lightValues = new byte[6];
-
             Vector3 pos = SIZE * new Vector3(Index.X, Index.Y, Index.Z);
             foreach (Vector3I index in activeBlockIndexes)
             {
@@ -33,18 +30,13 @@ namespace SharpCraft.World
                 int z = index.Z;
 
                 Vector3 blockPosition = new Vector3(x, y, z) - pos;
-                Array.Clear(visibleFaces, 0, 6);
-                Array.Clear(lightValues, 0, 6);
 
-                GetVisibleFaces(y, x, z, visibleFaces, neighbors, true);
-                GetFacesLight(lightValues, visibleFaces, y, x, z, neighbors);
+                FacesState visibleFaces = GetVisibleFaces(y, x, z, neighbors, true);
+                FacesData<byte> lightValues = GetFacesLight(visibleFaces, y, x, z, neighbors);
 
-                for (int face = 0; face < 6; face++)
+                foreach (Faces face in visibleFaces.GetFaces())
                 {
-                    if (visibleFaces[face])
-                    {
-                        AddFaceMesh(this[x, y, z].Value, (ushort)face, lightValues[face], blockPosition);
-                    }
+                    AddFaceMesh(this[x, y, z].Value, face, lightValues.GetValue(face), blockPosition);
                 }
             }
 
@@ -60,7 +52,7 @@ namespace SharpCraft.World
             UpdateMesh = false;
         }
 
-        void AddFaceMesh(ushort texture, ushort face, byte light, Vector3 blockPosition)
+        void AddFaceMesh(ushort texture, Faces face, byte light, Vector3 blockPosition)
         {
             if (blockMetadata.IsBlockMultiface(texture))
             {
@@ -77,13 +69,13 @@ namespace SharpCraft.World
             }
         }
 
-        void AddData(List<VertexPositionTextureLight> vertices, int face, byte light, Vector3 position, ushort texture)
+        void AddData(List<VertexPositionTextureLight> vertices, Faces face, byte light, Vector3 position, ushort texture)
         {
             int size = 16;
             int textureCount = blockMetadata.GetBlocksCount;
             for (int i = 0; i < 6; i++)
             {
-                VertexPositionTextureLight vertex = Cube.Faces[face][i];
+                VertexPositionTextureLight vertex = Cube.Faces[(byte)face][i];
                 vertex.Position += position;
 
                 int skylight = (light >> 4) & 0xF;

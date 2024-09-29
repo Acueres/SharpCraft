@@ -121,7 +121,6 @@ namespace SharpCraft.World
 
         void CalculateActiveBlocks(ChunkNeighbors neighbors)
         {
-            bool[] visibleFaces = new bool[6];
             Chunk chunk = neighbors.Chunk;
 
             for (int y = 0; y < Chunk.HEIGHT; y++)
@@ -135,20 +134,9 @@ namespace SharpCraft.World
                             continue;
                         }
 
-                        Array.Clear(visibleFaces, 0, 6);
-                        GetVisibleFaces(y, x, z, visibleFaces, neighbors, calculateOpacity: false);
+                        FacesState visibleFaces = GetVisibleFaces(y, x, z, neighbors, calculateOpacity: false);
 
-                        bool isBlockExposed = false;
-                        for (int i = 0; i < visibleFaces.Length; i++)
-                        {
-                            if (visibleFaces[i])
-                            {
-                                isBlockExposed = true;
-                                break;
-                            }
-                        }
-
-                        if (isBlockExposed)
+                        if (visibleFaces.Any())
                         {
                             chunk.AddIndex(new(x, y, z));
                         }
@@ -157,19 +145,21 @@ namespace SharpCraft.World
             }
         }
 
-        public void GetVisibleFaces(int y, int x, int z, bool[] visibleFaces, ChunkNeighbors neighbors,
+        public FacesState GetVisibleFaces(int y, int x, int z, ChunkNeighbors neighbors,
                                     bool calculateOpacity = true)
         {
+            FacesState visibleFaces = new();
+
             Chunk chunk = neighbors.Chunk;
 
             Block block = chunk[x, y, z];
 
-            Block adjacentBlock = Block.Empty;
+            Block adjacentBlock;
 
             bool blockOpaque = true;
             if (calculateOpacity)
             {
-                blockOpaque = !block.IsEmpty && !blockMetadata.IsBlockTransparent(block.Value);
+                blockOpaque = !(block.IsEmpty || blockMetadata.IsBlockTransparent(block.Value));
             }
 
             if (z == Chunk.LAST)
@@ -180,15 +170,14 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    //Vector3 zNeg = Position + new Vector3(0, 0, -SIZE);
-                    //adjacentBlock = worldGenerator.Peek(zNeg, y, x, 0);
+                    adjacentBlock = new(1);
                 }
             }
             else
             {
                 adjacentBlock = chunk[x, y, z + 1];
             }
-            visibleFaces[0] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+            visibleFaces.ZPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
 
             if (z == 0)
             {
@@ -198,26 +187,25 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    //Vector3 zPos = Position + new Vector3(0, 0, SIZE);
-                    //adjacentBlock = worldGenerator.Peek(zPos, y, x, LAST);
+                    adjacentBlock = new(1);
                 }
             }
             else
             {
                 adjacentBlock = chunk[x, y, z - 1];
             }
-            visibleFaces[1] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+            visibleFaces.ZNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
 
             if (y + 1 < Chunk.HEIGHT)
             {
                 adjacentBlock = chunk[x, y + 1, z];
-                visibleFaces[2] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+                visibleFaces.YPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
             }
 
             if (y > 0)
             {
                 adjacentBlock = chunk[x, y - 1, z];
-                visibleFaces[3] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+                visibleFaces.YNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
             }
 
 
@@ -229,15 +217,14 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    //Vector3 xNeg = Position + new Vector3(-SIZE, 0, 0);
-                    //adjacentBlock = worldGenerator.Peek(xNeg, y, 0, z);
+                    adjacentBlock = new(1);
                 }
             }
             else
             {
                 adjacentBlock = chunk[x + 1, y, z];
             }
-            visibleFaces[4] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+            visibleFaces.XPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
 
             if (x == 0)
             {
@@ -247,15 +234,16 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    //Vector3 xPos = Position + new Vector3(SIZE, 0, 0);
-                    //adjacentBlock = worldGenerator.Peek(xPos, y, LAST, z);
+                    adjacentBlock = new(1);
                 }
             }
             else
             {
                 adjacentBlock = chunk[x - 1, y, z];
             }
-            visibleFaces[5] = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+            visibleFaces.XNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            return visibleFaces;
         }
 
         void GenerateChunks(Vector3I center)

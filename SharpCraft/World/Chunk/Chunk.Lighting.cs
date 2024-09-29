@@ -379,70 +379,74 @@ namespace SharpCraft.World
             }
         }
 
-        void GetFacesLight(byte[] lightValues, bool[] facesVisible, int y, int x, int z, ChunkNeighbors neighbors)
+        FacesData<byte> GetFacesLight(FacesState visibleFaces, int y, int x, int z, ChunkNeighbors neighbors)
         {
-            if (facesVisible[0])
+            FacesData<byte> lightValues = new();
+
+            if (visibleFaces.ZPos)
             {
                 if (z == LAST)
                 {
                     if (neighbors.ZNeg != null)
-                        lightValues[0] = neighbors.ZNeg.lightMap[y][x][0];
+                        lightValues.ZPos = neighbors.ZNeg.lightMap[y][x][0];
                 }
                 else
                 {
-                    lightValues[0] = lightMap[y][x][z + 1];
+                    lightValues.ZPos = lightMap[y][x][z + 1];
                 }
             }
 
-            if (facesVisible[1])
+            if (visibleFaces.ZNeg)
             {
                 if (z == 0)
                 {
                     if (neighbors.ZPos != null)
-                        lightValues[1] = neighbors.ZPos.lightMap[y][x][LAST];
+                        lightValues.ZNeg = neighbors.ZPos.lightMap[y][x][LAST];
                 }
                 else
                 {
-                    lightValues[1] = lightMap[y][x][z - 1];
+                    lightValues.ZNeg = lightMap[y][x][z - 1];
                 }
             }
 
-            if (facesVisible[2])
+            if (visibleFaces.YPos)
             {
-                lightValues[2] = lightMap[y + 1][x][z];
+                lightValues.YPos = lightMap[y + 1][x][z];
             }
 
-            if (facesVisible[3])
+            if (visibleFaces.YNeg)
             {
-                lightValues[3] = lightMap[y - 1][x][z];
+                lightValues.YNeg = lightMap[y - 1][x][z];
             }
 
 
-            if (facesVisible[4])
+            if (visibleFaces.XPos)
             {
                 if (x == LAST)
                 {
                     if (neighbors.XNeg != null)
-                        lightValues[4] = neighbors.XNeg.lightMap[y][0][z];
+                        lightValues.XPos = neighbors.XNeg.lightMap[y][0][z];
                 }
                 else
                 {
-                    lightValues[4] = lightMap[y][x + 1][z];
+                    lightValues.XPos = lightMap[y][x + 1][z];
                 }
             }
 
-            if (facesVisible[5])
+            if (visibleFaces.XNeg)
             {
                 if (x == 0)
                 {
                     if (neighbors.XPos != null)
-                        lightValues[5] = neighbors.XPos.lightMap[y][LAST][z];
+                        lightValues.XNeg = neighbors.XPos.lightMap[y][LAST][z];
                 }
                 else
                 {
-                    lightValues[5] = lightMap[y][x - 1][z];
+                    lightValues.XNeg = lightMap[y][x - 1][z];
                 }
             }
+
+            return lightValues;
         }
 
         public void AddLightSource(int y, int x, int z)

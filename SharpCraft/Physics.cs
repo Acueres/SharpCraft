@@ -3,19 +3,14 @@ using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using SharpCraft.Utility;
 
 
 namespace SharpCraft
 {
     public class Physics
     {
-        public bool Moving
-        {
-            get
-            {
-                return Velocity.Length() > 0;
-            }
-        }
+        public bool Moving => Velocity.Length() > 0;
 
         public Vector3 Velocity;
 
@@ -30,7 +25,7 @@ namespace SharpCraft
 
         bool ceilingCollision;
 
-        Dictionary<Vector3, int> faceNormals;
+        Dictionary<Vector3, Faces> faceNormals;
 
 
         public Physics(Player player)
@@ -42,16 +37,16 @@ namespace SharpCraft
 
             collisionNormals = new List<Vector3>(2);
 
-            faceNormals = new Dictionary<Vector3, int>
+            faceNormals = new Dictionary<Vector3, Faces>
             {
-                { new Vector3(0, 0, -1), 0 },
-                { new Vector3(0, 0, 1), 1 },
-                { new Vector3(-1, 0, 0), 4 },
-                { new Vector3(1, 0, 0), 5 }
+                { new Vector3(0, 0, -1), Faces.ZPos },
+                { new Vector3(0, 0, 1), Faces.ZNeg },
+                { new Vector3(-1, 0, 0), Faces.XPos },
+                { new Vector3(1, 0, 0), Faces.XNeg }
             };
         }
 
-        public void Collision(Vector3 blockPosition, bool[] visibleSides)
+        public void Collision(Vector3 blockPosition, FacesState visibleSides)
         {
             float deltaY = player.Position.Y - blockPosition.Y - 1f;
 
@@ -85,7 +80,7 @@ namespace SharpCraft
             //Side collision
             if (deltaY < 0.5f)
             {
-                if (faceNormals.TryGetValue(normal, out int value) && visibleSides[value])
+                if (faceNormals.TryGetValue(normal, out Faces value) && visibleSides.GetFaceValue(value))
                 {
                     collisionNormals.Add(normal);
 

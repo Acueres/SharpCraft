@@ -65,24 +65,23 @@ namespace SharpCraft.Rendering
             }
         }
 
-        public void Update(bool[] visibleFaces, Vector3 position, Vector3 direction)
+        public void Update(FacesState visibleFaces, Vector3 position, Vector3 direction)
         {
-            Array.Clear(vertices, 0, 36);
+            Clear();
 
             char maxComponent = Util.MaxVectorComponent(direction);
 
-            for (int face = 0; face < 6; face++)
+            foreach (Faces face in visibleFaces.GetFaces())
             {
-                if (faceMap[face] == maxComponent && visibleFaces[face])
+                if (faceMap[(byte)face] != maxComponent) continue;
+
+                for (int i = 0; i < 6; i++)
                 {
-                    for (int i = 0; i < 6; i++)
-                    {
-                        VertexPositionTextureLight vertex = Cube.Faces[face][i];
+                    VertexPositionTextureLight vertex = Cube.Faces[(byte)face][i];
 
-                        vertex.Position += position;
+                    vertex.Position += position;
 
-                        vertices[i + face * 6] = vertex;
-                    }
+                    vertices[i + (int)face * 6] = vertex;
                 }
             }
         }

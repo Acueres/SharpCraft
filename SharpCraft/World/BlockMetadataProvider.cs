@@ -27,7 +27,7 @@ namespace SharpCraft.World
         public string GetBlockName(ushort index) => blockIdToName[index];
         public bool IsBlockTransparent(ushort index) => transparentBlocks.Contains(index);
         public bool IsBlockMultiface(ushort index) => multifaceBlocks.ContainsKey(index);
-        public ushort GetMultifaceBlockFace(ushort blockIndex, ushort faceIndex) => multifaceBlocks[blockIndex][faceIndex];
+        public ushort GetMultifaceBlockFace(ushort blockIndex, Faces face) => multifaceBlocks[blockIndex][(byte)face];
         public byte GetLightSourceValue(ushort index) => lightValues[index];
         public bool IsLightSource(ushort index) => lightSources.Contains(index);
 

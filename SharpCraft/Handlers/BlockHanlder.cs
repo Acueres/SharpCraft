@@ -64,8 +64,7 @@ namespace SharpCraft.Handlers
 
             if (y != -1 && !region.GetChunk(position)[x, y, z].IsEmpty)
             {
-                bool[] visibleFaces = new bool[6];
-                region.GetVisibleFaces(y, x, z, visibleFaces, neighbors);
+                FacesState visibleFaces = region.GetVisibleFaces(y, x, z, neighbors);
 
                 blockSelector.Update(visibleFaces, new Vector3(x, y, z) - region.GetChunk(position).Position, player.Camera.Direction);
             }
