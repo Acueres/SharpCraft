@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
@@ -17,20 +18,32 @@ namespace SharpCraft.World
         public Chunk XPos {  get; set; }
     }
 
-    public class Region(int apothem, int chunkSize, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
+    public class Region
     {
         //Number of chunks from the center chunk to the edge of the chunk area
-        readonly int apothem = apothem;
-        readonly int chunkSize = chunkSize;
+        readonly int apothem;
+        readonly int chunkSize;
 
-        readonly WorldGenerator worldGenerator = worldGenerator;
-        readonly DatabaseHandler databaseHandler = databaseHandler;
-        readonly BlockMetadataProvider blockMetadata = blockMetadata;
+        readonly WorldGenerator worldGenerator;
+        readonly DatabaseHandler databaseHandler;
+        readonly BlockMetadataProvider blockMetadata;
 
         readonly Dictionary<Vector3I, Chunk> chunks = [];
         readonly Dictionary<Vector3I, ChunkNeighbors> neighborsMap = [];
+        readonly List<Vector3I> proximityIndexes = [];
         readonly List<Vector3I> activeChunkIndexes = [];
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
+
+        public Region(int apothem, int chunkSize, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
+        {
+            this.apothem = apothem;
+            this.chunkSize = chunkSize;
+            this.worldGenerator = worldGenerator;
+            this.databaseHandler = databaseHandler;
+            this.blockMetadata = blockMetadata;
+
+            proximityIndexes = GenerateProximityIndexes();
+        }
 
         public Chunk GetChunk(Vector3I index)
         {
@@ -62,14 +75,22 @@ namespace SharpCraft.World
 
         public Vector3I[] GetReachableChunkIndexes(Vector3 pos)
         {
+            int xIndex = GetChunkIndex(pos.X);
+            int xIndexPlus6 = GetChunkIndex(pos.X + 6);
+            int xIndexMinus6 = GetChunkIndex(pos.X - 6);
+
+            int zIndex = GetChunkIndex(pos.Z);
+            int zIndexPlus6 = GetChunkIndex(pos.Z + 6);
+            int zIndexMinus6 = GetChunkIndex(pos.Z - 6);
+
             return [
-                new(GetChunkIndex(pos.X), 0, GetChunkIndex(pos.Z)),
-                new(GetChunkIndex(pos.X + 6), 0, GetChunkIndex(pos.Z + 6)),
-                new(GetChunkIndex(pos.X - 6), 0, GetChunkIndex(pos.Z - 6)),
-                new(GetChunkIndex(pos.X), 0, GetChunkIndex(pos.Z + 6)),
-                new(GetChunkIndex(pos.X), 0, GetChunkIndex(pos.Z - 6)),
-                new(GetChunkIndex(pos.X + 6), 0, GetChunkIndex(pos.Z)),
-                new(GetChunkIndex(pos.X - 6), 0, GetChunkIndex(pos.Z))
+                new(xIndex, 0, zIndex),
+                new(xIndexPlus6, 0, zIndexPlus6),
+                new(xIndexMinus6, 0, zIndexMinus6),
+                new(xIndex, 0, zIndexPlus6),
+                new(xIndex, 0, zIndexMinus6),
+                new(xIndexPlus6, 0, zIndex),
+                new(xIndexMinus6, 0, zIndex)
             ];
         }
 
@@ -246,30 +267,44 @@ namespace SharpCraft.World
             return visibleFaces;
         }
 
+        List<Vector3I> GenerateProximityIndexes()
+        {
+            List<Vector3I> indexes = [];
+            for (int x = -apothem; x <= apothem; x++)
+            {
+                for (int z = -apothem; z <= apothem; z++)
+                {
+                    Vector3I index = new(x, 0, z);
+                    indexes.Add(index);
+                }
+            }
+
+            indexes = [.. indexes.OrderBy(index => Math.Abs(index.X) + Math.Abs(index.Y) + Math.Abs(index.Z))];
+
+            return indexes;
+        }
+
         void GenerateChunks(Vector3I center)
         {
             activeChunkIndexes.Clear();
             List<Vector3I> generatedChunks = [];
 
-            for (int x = -apothem; x <= apothem; x++)
+            foreach (Vector3I proximityIndex in proximityIndexes)
             {
-                for (int z = -apothem; z <= apothem; z++)
+                Vector3I index = center + proximityIndex;
+
+                if (!chunks.ContainsKey(index))
                 {
-                    Vector3I index = center - new Vector3I(x, 0, z);
+                    Chunk chunk = worldGenerator.GenerateChunk(index);
+                    chunks.Add(index, chunk);
 
-                    if (!chunks.ContainsKey(index))
-                    {
-                        Chunk chunk = worldGenerator.GenerateChunk(index);
-                        chunks.Add(index, chunk);
+                    databaseHandler.ApplyDelta(chunks[index]);
 
-                        databaseHandler.ApplyDelta(chunks[index]);
-
-                        generatedChunks.Add(index);
-                    }
-
-                    activeChunkIndexes.Add(index);
-                    inactiveChunkIndexes.Remove(index);
+                    generatedChunks.Add(index);
                 }
+
+                activeChunkIndexes.Add(index);
+                inactiveChunkIndexes.Remove(index);
             }
 
             foreach (Vector3I index in generatedChunks)
