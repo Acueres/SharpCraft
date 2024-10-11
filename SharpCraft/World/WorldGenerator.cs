@@ -5,29 +5,27 @@ using SharpCraft.Utility;
 
 namespace SharpCraft.World
 {
+    public enum BiomeType : byte
+    {
+        River,
+        Forest,
+        Mountain
+    }
+
     public class WorldGenerator
     {
-        int size;
-        string type;
+        readonly int size;
+        readonly string type;
 
-        int waterLevel;
-        int last;
+        readonly int waterLevel;
+        readonly int last;
 
-        FastNoiseLite terrain;
-        FastNoiseLite forest;
-        FastNoiseLite mountain;
-        FastNoiseLite river;
+        readonly FastNoiseLite terrain;
+        readonly FastNoiseLite forest;
+        readonly FastNoiseLite mountain;
+        readonly FastNoiseLite river;
 
-        enum Biomes: byte
-        {
-            River,
-            Forest,
-            Mountain
-        }
-
-        Random rnd;
-
-        ushort bedrock, grass, stone, dirt, snow,
+        readonly ushort bedrock, grass, stone, dirt, snow,
                granite, leaves, birch, oak, water,
                sand, sandstone;
 
@@ -58,8 +56,6 @@ namespace SharpCraft.World
             sand = blockMetadata.GetBlockIndex("sand");
             sandstone = blockMetadata.GetBlockIndex("sandstone_top");
 
-            rnd = new Random(seed);
-
             terrain = new FastNoiseLite(seed);
             terrain.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
             terrain.SetFrequency(0.001f);
@@ -88,9 +84,10 @@ namespace SharpCraft.World
             };
         }
         
-        Chunk Default(Vector3I position)
+        Chunk Default(Vector3I index)
         {
-            Chunk chunk = new(position, blockMetadata);
+            Chunk chunk = new(index, blockMetadata);
+            Random rnd = new(index.GetHashCode());
 
             int[,] elevationMap = new int[size, size];
 
@@ -98,8 +95,9 @@ namespace SharpCraft.World
             {
                 for (int z = 0; z < size; z++)
                 {
-                    elevationMap[x, z] = GetHeight(chunk.Position, x, z, out byte biomeData);
-                    chunk.BiomeData[x][z] = biomeData;
+                    (int height, BiomeType biome) = GetHeight(chunk.Position, x, z);
+                    elevationMap[x, z] = height;
+                    chunk.Biomes[x][z] = biome;
                 }
             }
 
@@ -109,12 +107,12 @@ namespace SharpCraft.World
                 {
                     for (int y = 0; y < elevationMap[x, z]; y++)
                     {
-                        ushort texture = Fill(elevationMap[x, z], y, chunk.BiomeData[x][z]);
+                        ushort texture = Fill(elevationMap[x, z], y, chunk.Biomes[x][z], rnd);
 
                         chunk[x, y, z] = new(texture);
                     }
 
-                    if (chunk.BiomeData[x][z] == 0)
+                    if (chunk.Biomes[x][z] == 0)
                     {
                         for (int i = elevationMap[x, z]; i < waterLevel; i++)
                         {
@@ -124,36 +122,37 @@ namespace SharpCraft.World
                 }
             }
 
-            GenerateTrees(chunk, elevationMap, 5);
+            GenerateTrees(chunk, elevationMap, rnd);
 
             return chunk;
         }
 
-        int GetHeight(Vector3 position, int x, int z, out byte biomeData)
+        (int, BiomeType) GetHeight(Vector3 position, int x, int z)
         {
             float xVal = x - position.X;
             float zVal = z - position.Z;
 
             int height;
+            BiomeType biome;
             float noise = Math.Abs(terrain.GetNoise(xVal, zVal) + 0.5f);
 
             if (noise < 0.05f)
             {
                 height = (int)Math.Abs(8 * (river.GetNoise(xVal, zVal) + 0.8f)) + 30;
-                biomeData = (byte)Biomes.River;
+                biome = BiomeType.River;
             }
             else if (noise < 1.2f)
             {
                 height = (int)Math.Abs(10 * (forest.GetNoise(xVal, zVal) + 0.8f)) + 30;
-                biomeData = (byte)Biomes.Forest;
+                biome = BiomeType.Forest;
             }
             else
             {
                 height = (int)Math.Abs(30 * (mountain.GetNoise(xVal, zVal) + 0.8f)) + 30;
-                biomeData = (byte)Biomes.Mountain;
+                biome = BiomeType.Mountain;
             }
 
-            return height;
+            return (height, biome);
         }
 
         Chunk Flat(Vector3I position)
@@ -182,11 +181,11 @@ namespace SharpCraft.World
             return chunk;
         }
 
-        ushort Fill(int maxY, int currentY, byte biome)
+        ushort Fill(int maxY, int currentY, BiomeType biome, Random rnd)
         {
-            switch ((Biomes)biome)
+            switch (biome)
             {
-                case Biomes.River:
+                case BiomeType.River:
                     {
                         if (currentY == 0)
                         {
@@ -212,7 +211,7 @@ namespace SharpCraft.World
                         return texture;
                     }
 
-                case Biomes.Forest:
+                case BiomeType.Forest:
                     {
                         if (currentY == 0)
                         {
@@ -232,7 +231,7 @@ namespace SharpCraft.World
                         return texture;
                     }
 
-                case Biomes.Mountain:
+                case BiomeType.Mountain:
                     {
                         if (currentY == 0)
                         {
@@ -256,8 +255,9 @@ namespace SharpCraft.World
             return 0;
         }
 
-        void GenerateTrees(Chunk chunk, int[,] elevationMap, int n)
+        void GenerateTrees(Chunk chunk, int[,] elevationMap, Random rnd)
         {
+            int n = rnd.Next(2, 6);
             int[,] coords = new int[n, 2];
 
             int i = 0;
@@ -283,7 +283,7 @@ namespace SharpCraft.World
                     continue;
                 }
 
-                if (chunk.BiomeData[x][z] == (byte)Biomes.River ||
+                if (chunk.Biomes[x][z] == (byte)BiomeType.River ||
                     elevationMap[x, z] > 50)
                 {
                     i++;
@@ -313,11 +313,11 @@ namespace SharpCraft.World
                 else
                     wood = oak;
 
-                MakeTree(chunk, wood, y, x, z);
+                MakeTree(chunk, wood, y, x, z, rnd);
             }
         }
 
-        void MakeTree(Chunk chunk, ushort wood, int y, int x, int z)
+        void MakeTree(Chunk chunk, ushort wood, int y, int x, int z, Random rnd)
         {
             if (chunk[x, y - 1, z].Value != grass &&
                 chunk[x, y - 1, z].Value != dirt)

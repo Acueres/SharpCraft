@@ -17,7 +17,7 @@ namespace SharpCraft.World
         public Vector3I Index { get; }
         public Vector3 Position { get; }
 
-        public byte[][] BiomeData { get; }
+        public BiomeType[][] Biomes { get; }
         readonly HashSet<Vector3I> activeBlockIndexes;
 
         readonly Block[][][] blocks;
@@ -53,10 +53,10 @@ namespace SharpCraft.World
                 }
             }
 
-            BiomeData = new byte[SIZE][];
-            for (int x = 0; x < BiomeData.Length; x++)
+            Biomes = new BiomeType[SIZE][];
+            for (int x = 0; x < Biomes.Length; x++)
             {
-                BiomeData[x] = new byte[SIZE];
+                Biomes[x] = new BiomeType[SIZE];
             }
 
             activeBlockIndexes = new HashSet<Vector3I>(total);
