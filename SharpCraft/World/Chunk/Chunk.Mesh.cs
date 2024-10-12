@@ -22,7 +22,7 @@ namespace SharpCraft.World
 
         public void CalculateMesh(ChunkNeighbors neighbors, Func<int, int, int, ChunkNeighbors, bool, FacesState> GetVisibleFaces)
         {
-            Vector3 pos = SIZE * new Vector3(Index.X, Index.Y, Index.Z);
+            Vector3 pos = Size * new Vector3(Index.X, Index.Y, Index.Z);
             foreach (Vector3I index in activeBlockIndexes)
             {
                 int y = index.Y;

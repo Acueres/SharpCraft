@@ -26,37 +26,37 @@ namespace SharpCraft.World
         readonly SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
         bool disposed = false;
 
-        public const int SIZE = 16;
-        public const int HEIGHT = 128;
-        public const int LAST = SIZE - 1;
+        public const int Size = 16;
+        public const int Height = 128;
+        public const int Last = Size - 1;
 
         readonly BlockMetadataProvider blockMetadata;
 
         public Chunk(Vector3I position, BlockMetadataProvider blockMetadata)
         {
             Index = position;
-            Position = SIZE * new Vector3(position.X, position.Y, position.Z);
+            Position = Size * new Vector3(position.X, position.Y, position.Z);
 
             this.blockMetadata = blockMetadata;
 
             //Only about ~5% of all blocks are visible
-            int total = (int)(0.05 * SIZE * SIZE * HEIGHT);
+            int total = (int)(0.05 * Size * Size * Height);
 
-            blocks = new Block[HEIGHT][][];
-            for (int y = 0; y < HEIGHT; y++)
+            blocks = new Block[Height][][];
+            for (int y = 0; y < Height; y++)
             {
-                blocks[y] = new Block[SIZE][];
+                blocks[y] = new Block[Size][];
 
-                for (int x = 0; x < SIZE; x++)
+                for (int x = 0; x < Size; x++)
                 {
-                    blocks[y][x] = new Block[SIZE];
+                    blocks[y][x] = new Block[Size];
                 }
             }
 
-            Biomes = new BiomeType[SIZE][];
+            Biomes = new BiomeType[Size][];
             for (int x = 0; x < Biomes.Length; x++)
             {
-                Biomes[x] = new BiomeType[SIZE];
+                Biomes[x] = new BiomeType[Size];
             }
 
             activeBlockIndexes = new HashSet<Vector3I>(total);
@@ -71,14 +71,14 @@ namespace SharpCraft.World
 
             chunksToUpdate = new HashSet<Chunk>(5);
 
-            lightMap = new byte[HEIGHT][][];
-            for (int y = 0; y < HEIGHT; y++)
+            lightMap = new byte[Height][][];
+            for (int y = 0; y < Height; y++)
             {
-                lightMap[y] = new byte[SIZE][];
+                lightMap[y] = new byte[Size][];
 
-                for (int x = 0; x < SIZE; x++)
+                for (int x = 0; x < Size; x++)
                 {
-                    lightMap[y][x] = new byte[SIZE];
+                    lightMap[y][x] = new byte[Size];
                 }
             }
 

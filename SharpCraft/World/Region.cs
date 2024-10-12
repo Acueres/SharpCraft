@@ -22,7 +22,6 @@ namespace SharpCraft.World
     {
         //Number of chunks from the center chunk to the edge of the chunk area
         readonly int apothem;
-        readonly int chunkSize;
 
         readonly WorldGenerator worldGenerator;
         readonly DatabaseHandler databaseHandler;
@@ -34,10 +33,9 @@ namespace SharpCraft.World
         readonly List<Vector3I> activeChunkIndexes = [];
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
 
-        public Region(int apothem, int chunkSize, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
+        public Region(int apothem, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
         {
             this.apothem = apothem;
-            this.chunkSize = chunkSize;
             this.worldGenerator = worldGenerator;
             this.databaseHandler = databaseHandler;
             this.blockMetadata = blockMetadata;
@@ -144,11 +142,11 @@ namespace SharpCraft.World
         {
             Chunk chunk = neighbors.Chunk;
 
-            for (int y = 0; y < Chunk.HEIGHT; y++)
+            for (int y = 0; y < Chunk.Height; y++)
             {
-                for (int x = 0; x < Chunk.SIZE; x++)
+                for (int x = 0; x < Chunk.Size; x++)
                 {
-                    for (int z = 0; z < Chunk.SIZE; z++)
+                    for (int z = 0; z < Chunk.Size; z++)
                     {
                         if (chunk[x, y, z].IsEmpty)
                         {
@@ -183,7 +181,7 @@ namespace SharpCraft.World
                 blockOpaque = !(block.IsEmpty || blockMetadata.IsBlockTransparent(block.Value));
             }
 
-            if (z == Chunk.LAST)
+            if (z == Chunk.Last)
             {
                 if (neighbors.ZNeg != null)
                 {
@@ -204,7 +202,7 @@ namespace SharpCraft.World
             {
                 if (neighbors.ZPos != null)
                 {
-                    adjacentBlock = neighbors.ZPos[x, y, Chunk.LAST];
+                    adjacentBlock = neighbors.ZPos[x, y, Chunk.Last];
                 }
                 else
                 {
@@ -217,7 +215,7 @@ namespace SharpCraft.World
             }
             visibleFaces.ZNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
 
-            if (y + 1 < Chunk.HEIGHT)
+            if (y + 1 < Chunk.Height)
             {
                 adjacentBlock = chunk[x, y + 1, z];
                 visibleFaces.YPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
@@ -230,7 +228,7 @@ namespace SharpCraft.World
             }
 
 
-            if (x == Chunk.LAST)
+            if (x == Chunk.Last)
             {
                 if (neighbors.XNeg != null)
                 {
@@ -251,7 +249,7 @@ namespace SharpCraft.World
             {
                 if (neighbors.XPos != null)
                 {
-                    adjacentBlock = neighbors.XPos[Chunk.LAST, y, z];
+                    adjacentBlock = neighbors.XPos[Chunk.Last, y, z];
                 }
                 else
                 {
@@ -369,10 +367,10 @@ namespace SharpCraft.World
         {
             if (val > 0)
             {
-                return -(int)Math.Floor(val / chunkSize);
+                return -(int)Math.Floor(val / Chunk.Size);
             }
 
-            return (int)Math.Ceiling(-val / chunkSize);
+            return (int)Math.Ceiling(-val / Chunk.Size);
         }
     }
 }

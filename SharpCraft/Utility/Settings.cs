@@ -1,34 +1,22 @@
 ﻿using System.IO;
-using System.Collections.Generic;
-
 using Newtonsoft.Json;
-
+using SharpCraft.DataModel;
 
 namespace SharpCraft.Utility
 {
     static class Settings
     {
-        public static int
-        ChunkSize = 16,
-        RenderDistance = 8;
-
-        class SettingsData
-        {
-            public int
-            ChunkSize,
-            RenderDistance;
-        }
+        public static int RenderDistance { get; set; } = 8;
 
         public static void Load()
         {
             if (File.Exists(@"settings.json"))
             {
                 SettingsData data;
-                using (StreamReader r = new("settings.json"))
-                {
-                    string json = r.ReadToEnd();
-                    data = JsonConvert.DeserializeObject<List<SettingsData>>(json)[0];
-                }
+                using StreamReader r = new("settings.json");
+
+                string json = r.ReadToEnd();
+                data = JsonConvert.DeserializeObject<SettingsData>(json);
 
                 RenderDistance = data.RenderDistance;
             }
@@ -36,13 +24,7 @@ namespace SharpCraft.Utility
 
         public static void Save()
         {
-            List<SettingsData> data =
-            [
-                new SettingsData()
-                {
-                    RenderDistance = RenderDistance,
-                }
-            ];
+            SettingsData data = new(RenderDistance);
 
             string json = JsonConvert.SerializeObject(data, Formatting.Indented);
             string path = "settings.json";

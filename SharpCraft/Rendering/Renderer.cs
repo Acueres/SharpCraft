@@ -60,12 +60,12 @@ namespace SharpCraft.Rendering
             atlas.SetData(atlasData);
 
             buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
-                        (int)2e4, BufferUsage.WriteOnly);
+                        (int)2e6, BufferUsage.WriteOnly);
         }
 
         public void Draw(Player player)
         {
-            Vector3 chunkMax = new(Chunk.SIZE, 128, Chunk.SIZE);
+            Vector3 chunkMax = new(Chunk.Size, 128, Chunk.Size);
 
             float lightIntensity = time.LightIntensity;
 

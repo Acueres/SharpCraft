@@ -1,16 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 
+using SharpCraft.DataModel;
 
 namespace SharpCraft.Utility
 {
     public class Parameters
     {
-        public bool Flying = false;
+        public bool IsFlying = false;
 
         public int
         Seed = 0,
@@ -29,19 +29,6 @@ namespace SharpCraft.Utility
 
         public DateTime Date = DateTime.Now;
 
-        class SaveParameters
-        {
-            public int Seed;
-            public bool Flying;
-            public float X, Y, Z;
-            public float DirX, DirY, DirZ;
-            public ushort[] Inventory;
-            public string WorldType;
-            public int Day, Hour, Minute;
-            public DateTime Date;
-        }
-
-
         public Parameters(string saveName)
         {
             Load(saveName);
@@ -57,15 +44,15 @@ namespace SharpCraft.Utility
         {
             SaveName = saveName;
 
-            SaveParameters data;
+            ParametersData data;
             using (StreamReader r = new($@"Saves\{saveName}\parameters.json"))
             {
                 string json = r.ReadToEnd();
-                data = JsonConvert.DeserializeObject<List<SaveParameters>>(json)[0];
+                data = JsonConvert.DeserializeObject<ParametersData>(json);
             }
 
             Seed = data.Seed;
-            Flying = data.Flying;
+            IsFlying = data.IsFlying;
             Position = new Vector3(data.X, data.Y, data.Z);
             Direction = new Vector3(data.DirX, data.DirY, data.DirZ);
             Inventory = data.Inventory;
@@ -80,26 +67,8 @@ namespace SharpCraft.Utility
         {
             Date = DateTime.Now;
 
-            List<SaveParameters> data =
-                [
-                    new SaveParameters()
-                    {
-                        Seed = Seed,
-                        Flying = Flying,
-                        X = Position.X,
-                        Y = Position.Y,
-                        Z = Position.Z,
-                        DirX = Direction.X,
-                        DirY = Direction.Y,
-                        DirZ = Direction.Z,
-                        Inventory = Inventory,
-                        WorldType = WorldType,
-                        Day = Day,
-                        Hour = Hour,
-                        Minute = Minute,
-                        Date = Date
-                    }
-                ];
+            ParametersData data = new(Seed, IsFlying, Position.X, Position.Y, Position.Z,
+                Direction.X, Direction.Y, Direction.Z, Inventory, WorldType, Day, Hour, Minute, Date);
 
             string json = JsonConvert.SerializeObject(data, Formatting.Indented);
             string path = Directory.GetCurrentDirectory() + $@"\Saves\{SaveName}\parameters.json";

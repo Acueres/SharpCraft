@@ -14,11 +14,10 @@ namespace SharpCraft.World
 
     public class WorldGenerator
     {
-        readonly int size;
+        readonly int seed;
         readonly string type;
 
         readonly int waterLevel;
-        readonly int last;
 
         readonly FastNoiseLite terrain;
         readonly FastNoiseLite forest;
@@ -26,7 +25,7 @@ namespace SharpCraft.World
         readonly FastNoiseLite river;
 
         readonly ushort bedrock, grass, stone, dirt, snow,
-               granite, leaves, birch, oak, water,
+               leaves, birch, oak, water,
                sand, sandstone;
 
         readonly BlockMetadataProvider blockMetadata;
@@ -35,20 +34,17 @@ namespace SharpCraft.World
         public WorldGenerator(Parameters parameters, BlockMetadataProvider blockMetadata)
         {
             this.blockMetadata = blockMetadata;
-            size = Chunk.SIZE;
             type = parameters.WorldType;
 
             waterLevel = 40;
-            last = size - 1;
 
-            int seed = parameters.Seed;
+            seed = parameters.Seed;
 
             bedrock = blockMetadata.GetBlockIndex("bedrock");
             grass = blockMetadata.GetBlockIndex("grass_side");
             stone = blockMetadata.GetBlockIndex("stone");
             dirt = blockMetadata.GetBlockIndex("dirt");
             snow = blockMetadata.GetBlockIndex("snow");
-            granite = blockMetadata.GetBlockIndex("granite");
             leaves = blockMetadata.GetBlockIndex("leaves");
             birch = blockMetadata.GetBlockIndex("birch_log");
             oak = blockMetadata.GetBlockIndex("oak_log");
@@ -87,13 +83,14 @@ namespace SharpCraft.World
         Chunk Default(Vector3I index)
         {
             Chunk chunk = new(index, blockMetadata);
-            Random rnd = new(index.GetHashCode());
+            int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
+            Random rnd = new(chunkSeed);
 
-            int[,] elevationMap = new int[size, size];
+            int[,] elevationMap = new int[Chunk.Size, Chunk.Size];
 
-            for (int x = 0; x < size; x++)
+            for (int x = 0; x < Chunk.Size; x++)
             {
-                for (int z = 0; z < size; z++)
+                for (int z = 0; z < Chunk.Size; z++)
                 {
                     (int height, BiomeType biome) = GetHeight(chunk.Position, x, z);
                     elevationMap[x, z] = height;
@@ -101,9 +98,9 @@ namespace SharpCraft.World
                 }
             }
 
-            for (int x = 0; x < size; x++)
+            for (int x = 0; x < Chunk.Size; x++)
             {
-                for (int z = 0; z < size; z++)
+                for (int z = 0; z < Chunk.Size; z++)
                 {
                     for (int y = 0; y < elevationMap[x, z]; y++)
                     {
@@ -160,9 +157,9 @@ namespace SharpCraft.World
             Chunk chunk = new(position, blockMetadata);
             for (int y = 0; y < 5; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < Chunk.Size; x++)
                 {
-                    for (int z = 0; z < size; z++)
+                    for (int z = 0; z < Chunk.Size; z++)
                     {
                         ushort texture;
 
@@ -264,8 +261,8 @@ namespace SharpCraft.World
 
             while (i < n)
             {
-                int x = rnd.Next(1, last - 1);
-                int z = rnd.Next(1, last - 1);
+                int x = rnd.Next(1, Chunk.Last - 1);
+                int z = rnd.Next(1, Chunk.Last - 1);
 
                 bool skip = false;
                 for (int j = 0; j < i; j++)

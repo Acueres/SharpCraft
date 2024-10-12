@@ -76,7 +76,7 @@ namespace SharpCraft
 
             Position = parameters.Position;
 
-            Flying = parameters.Flying;
+            Flying = parameters.IsFlying;
             Sprinting = false;
             UpdateOccured = true;
             Swimming = false;
@@ -120,7 +120,7 @@ namespace SharpCraft
 
         public void SaveParameters(Parameters parameters)
         {
-            parameters.Flying = Flying;
+            parameters.IsFlying = Flying;
             parameters.Position = Position;
             parameters.Direction = Camera.Direction;
         }

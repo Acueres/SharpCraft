@@ -39,7 +39,7 @@ namespace SharpCraft.World
 
             Outline = new VertexPositionTextureLight[36];
 
-            region = new Region(Settings.RenderDistance, Settings.ChunkSize, worldGenerator, databaseHandler, blockMetadata);
+            region = new Region(Settings.RenderDistance, worldGenerator, databaseHandler, blockMetadata);
         }
 
         public void SetPlayer(MainGame game, Player player, Parameters parameters)

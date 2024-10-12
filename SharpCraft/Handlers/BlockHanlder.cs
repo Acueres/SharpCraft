@@ -149,25 +149,25 @@ namespace SharpCraft.Handlers
             ActivateBlock(chunk, y + 1, x, z);
             ActivateBlock(chunk, y - 1, x, z);
 
-            if (x < Chunk.LAST)
+            if (x < Chunk.Last)
                 ActivateBlock(chunk, y, x + 1, z);
-            else if (x == Chunk.LAST)
+            else if (x == Chunk.Last)
                 ActivateBlock(neighbors.XNeg, y, 0, z);
 
             if (x > 0)
                 ActivateBlock(chunk, y, x - 1, z);
             else if (x == 0)
-                ActivateBlock(neighbors.XPos, y, Chunk.LAST, z);
+                ActivateBlock(neighbors.XPos, y, Chunk.Last, z);
 
-            if (z < Chunk.LAST)
+            if (z < Chunk.Last)
                 ActivateBlock(chunk, y, x, z + 1);
-            else if (z == Chunk.LAST)
+            else if (z == Chunk.Last)
                 ActivateBlock(neighbors.ZNeg, y, x, 0);
 
             if (z > 0)
                 ActivateBlock(chunk, y, x, z - 1);
             else if (z == 0)
-                ActivateBlock(neighbors.ZPos, y, x, Chunk.LAST);
+                ActivateBlock(neighbors.ZPos, y, x, Chunk.Last);
         }
 
         void ActivateBlock(Chunk chunk, int y, int x, int z)
@@ -196,7 +196,7 @@ namespace SharpCraft.Handlers
                     if (vector.X > 0) x--;
                     else x++;
 
-                    if (x > Chunk.LAST)
+                    if (x > Chunk.Last)
                     {
                         position = xNeg;
                         x = 0;
@@ -205,7 +205,7 @@ namespace SharpCraft.Handlers
                     else if (x < 0)
                     {
                         position = xPos;
-                        x = Chunk.LAST;
+                        x = Chunk.Last;
                     }
 
                     break;
@@ -220,7 +220,7 @@ namespace SharpCraft.Handlers
                     if (vector.Z > 0) z--;
                     else z++;
 
-                    if (z > Chunk.LAST)
+                    if (z > Chunk.Last)
                     {
                         position = zNeg;
                         z = 0;
@@ -229,7 +229,7 @@ namespace SharpCraft.Handlers
                     else if (z < 0)
                     {
                         position = zPos;
-                        z = Chunk.LAST;
+                        z = Chunk.Last;
                     }
 
                     break;
