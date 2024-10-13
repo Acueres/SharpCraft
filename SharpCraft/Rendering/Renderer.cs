@@ -60,7 +60,7 @@ namespace SharpCraft.Rendering
             atlas.SetData(atlasData);
 
             buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
-                        (int)2e6, BufferUsage.WriteOnly);
+                        (int)2e4, BufferUsage.WriteOnly);
         }
 
         public void Draw(Player player)
@@ -102,7 +102,7 @@ namespace SharpCraft.Rendering
                 {
                     effect.Parameters["Alpha"].SetValue(1f);
 
-                    buffer.SetData(currentChunk.Vertices);
+                    buffer.SetData(currentChunk.GetVertices());
                     graphics.SetVertexBuffer(buffer);
 
                     foreach (EffectPass pass in effect.CurrentTechnique.Passes)
@@ -122,7 +122,7 @@ namespace SharpCraft.Rendering
                 {
                     effect.Parameters["Alpha"].SetValue(0.7f);
 
-                    buffer.SetData(currentChunk.TransparentVertices);
+                    buffer.SetData(currentChunk.GetTransparentVertices());
                     graphics.SetVertexBuffer(buffer);
 
                     foreach (EffectPass pass in effect.CurrentTechnique.Passes)

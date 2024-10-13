@@ -66,7 +66,7 @@ namespace SharpCraft.World
                 if (chunk.UpdateMesh)
                 {
                     var neighbors = GetChunkNeighbors(index);
-                    chunk.CalculateMesh(neighbors, GetVisibleFaces);
+                    CalculateMesh(neighbors);
                 }
             }
         }
@@ -321,9 +321,8 @@ namespace SharpCraft.World
 
             foreach (Vector3I index in generatedChunks)
             {
-                Chunk chunk = chunks[index];
                 ChunkNeighbors neighbors = GetChunkNeighbors(index);
-                chunk.CalculateMesh(neighbors, GetVisibleFaces);
+                CalculateMesh(neighbors);
             }
         }
 
@@ -363,7 +362,7 @@ namespace SharpCraft.World
             neighborsMap.Remove(neighbors.Chunk.Index);
         }
 
-        int GetChunkIndex(float val)
+        static int GetChunkIndex(float val)
         {
             if (val > 0)
             {
@@ -371,6 +370,44 @@ namespace SharpCraft.World
             }
 
             return (int)Math.Ceiling(-val / Chunk.Size);
+        }
+
+        public void CalculateMesh(ChunkNeighbors neighbors)
+        {
+            Chunk chunk = neighbors.Chunk;
+            chunk.ClearVerticesData();
+
+            foreach (Vector3I index in chunk.GetIndexes())
+            {
+                int y = index.Y;
+                int x = index.X;
+                int z = index.Z;
+
+                Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position;
+
+                FacesState visibleFaces = GetVisibleFaces(y, x, z, neighbors);
+                FacesData<byte> lightValues = chunk.GetFacesLight(visibleFaces, y, x, z, neighbors);
+
+                foreach (Faces face in visibleFaces.GetFaces())
+                {
+                    AddFaceMesh(chunk, chunk[x, y, z].Value, face, lightValues.GetValue(face), blockPosition);
+                }
+            }
+
+            chunk.UpdateMesh = false;
+        }
+
+        void AddFaceMesh(Chunk chunk, ushort texture, Faces face, byte light, Vector3 blockPosition)
+        {
+            if (blockMetadata.IsBlockTransparent(texture))
+            {
+                chunk.AddVertexData(face, light, blockPosition, texture, true);
+            }
+            else
+            {
+                chunk.AddVertexData(face, light, blockPosition,
+                    blockMetadata.IsBlockMultiface(texture) ? blockMetadata.GetMultifaceBlockFace(texture, face) : texture);
+            }
         }
     }
 }
