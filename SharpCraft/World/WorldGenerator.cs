@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
-
 using SharpCraft.Utility;
 
 namespace SharpCraft.World
@@ -94,7 +93,7 @@ namespace SharpCraft.World
                 {
                     (int height, BiomeType biome) = GetHeight(chunk.Position, x, z);
                     elevationMap[x, z] = height;
-                    chunk.Biomes[x][z] = biome;
+                    chunk.Biomes[x, z] = biome;
                 }
             }
 
@@ -102,32 +101,36 @@ namespace SharpCraft.World
             {
                 for (int z = 0; z < Chunk.Size; z++)
                 {
-                    for (int y = 0; y < elevationMap[x, z]; y++)
-                    {
-                        ushort texture = Fill(elevationMap[x, z], y, chunk.Biomes[x][z], rnd);
+                    if (chunk.Position.Y > elevationMap[x, z]) continue;
 
+                    float diff = elevationMap[x, z] - chunk.Position.Y;
+                    int yMax = Math.Clamp((int)diff, 0, Chunk.Size);
+
+                    for (int y = 0; /*(int)chunk.Position.Y + y < elevationMap[x, z] && y < Chunk.Size*/y < yMax; y++)
+                    {
+                        ushort texture = Fill(elevationMap[x, z], (int)chunk.Position.Y + y, chunk.Biomes[x, z], rnd);
                         chunk[x, y, z] = new(texture);
                     }
 
-                    if (chunk.Biomes[x][z] == 0)
+                    /*if (chunk.Biomes[x, z] == BiomeType.River)
                     {
                         for (int i = elevationMap[x, z]; i < waterLevel; i++)
                         {
                             chunk[x, i, z] = new(water);
                         }
-                    }
+                    }*/
                 }
             }
 
-            GenerateTrees(chunk, elevationMap, rnd);
+            //GenerateTrees(chunk, elevationMap, rnd);
 
             return chunk;
         }
 
         (int, BiomeType) GetHeight(Vector3 position, int x, int z)
         {
-            float xVal = x - position.X;
-            float zVal = z - position.Z;
+            float xVal = x + position.X;
+            float zVal = z + position.Z;
 
             int height;
             BiomeType biome;
@@ -178,22 +181,22 @@ namespace SharpCraft.World
             return chunk;
         }
 
-        ushort Fill(int maxY, int currentY, BiomeType biome, Random rnd)
+        ushort Fill(int terrainHeight, int currentY, BiomeType biome, Random rnd)
         {
             switch (biome)
             {
                 case BiomeType.River:
                     {
-                        if (currentY == 0)
+                        if (currentY < -100)
                         {
                             return bedrock;
                         }
 
-                        if (currentY == maxY - 1)
+                        if (currentY == terrainHeight - 1)
                         {
                             return sand;
                         }
-                        else if (currentY > maxY - 6)
+                        else if (currentY > terrainHeight - 6)
                         {
                             if (rnd.Next(0, 2) == 0)
                                 return sandstone;
@@ -210,12 +213,12 @@ namespace SharpCraft.World
 
                 case BiomeType.Forest:
                     {
-                        if (currentY == 0)
+                        if (currentY < -100)
                         {
                             return bedrock;
                         }
 
-                        if (currentY == maxY - 1)
+                        if (currentY == terrainHeight - 1)
                         {
                             return grass;
                         }
@@ -230,17 +233,17 @@ namespace SharpCraft.World
 
                 case BiomeType.Mountain:
                     {
-                        if (currentY == 0)
+                        if (currentY < -100)
                         {
                             return bedrock;
                         }
 
-                        if (currentY < 50 && currentY == maxY - 1)
+                        if (currentY < 50 && currentY == terrainHeight - 1)
                         {
                             return grass;
                         }
 
-                        if (currentY >= 60 && currentY == maxY - 1)
+                        if (currentY >= 60 && currentY == terrainHeight - 1)
                         {
                             return snow;
                         }
@@ -280,7 +283,7 @@ namespace SharpCraft.World
                     continue;
                 }
 
-                if (chunk.Biomes[x][z] == (byte)BiomeType.River ||
+                if (chunk.Biomes[x, z] == (byte)BiomeType.River ||
                     elevationMap[x, z] > 50)
                 {
                     i++;

@@ -11,6 +11,7 @@ using SharpCraft.GUI;
 using SharpCraft.Utility;
 using SharpCraft.Assets;
 using SharpCraft.World;
+using System.Reflection.Emit;
 
 
 namespace SharpCraft.Menu
@@ -23,6 +24,7 @@ namespace SharpCraft.Menu
         GraphicsDevice graphics;
         SpriteBatch spriteBatch;
         readonly AssetServer assetServer;
+        readonly Player player;
 
         Inventory inventory;
         Time time;
@@ -56,12 +58,14 @@ namespace SharpCraft.Menu
 
 
         public GameMenu(MainGame game, GraphicsDevice graphics, Time time,
-            ScreenshotHandler screenshotTaker, Parameters parameters, AssetServer assetServer, BlockMetadataProvider blockMetadata)
+            ScreenshotHandler screenshotTaker, Parameters parameters, AssetServer assetServer,
+            BlockMetadataProvider blockMetadata, Player player)
         {
             this.game = game;
             this.graphics = graphics;
             spriteBatch = new SpriteBatch(graphics);
             this.assetServer = assetServer;
+            this.player = player;
 
             this.time = time;
             screenshotHandler = screenshotTaker;
@@ -263,6 +267,8 @@ namespace SharpCraft.Menu
             spriteBatch.DrawString(font14, $"Memory: {GC.GetTotalMemory(false) / (1024 * 1024)} Mb",
                 new Vector2(10, 30), Color.White);
             spriteBatch.DrawString(font14, time.ToString(), new Vector2(10, 50), Color.White);
+            spriteBatch.DrawString(font14, $"X: {player.Position.X: 0.00}, Y: {player.Position.Y: 0.00}, Z: {player.Position.Z: 0.00}", new Vector2(10, 70), Color.White);
+            spriteBatch.DrawString(font14, $"CX: {Region.CalculateChunkIndex(player.Position.X)}, CY: {Region.CalculateChunkIndex(player.Position.Y)}, CZ: {Region.CalculateChunkIndex(player.Position.Z)}", new Vector2(10, 90), Color.White);
         }
     }
 }

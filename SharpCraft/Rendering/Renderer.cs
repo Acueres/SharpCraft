@@ -65,7 +65,7 @@ namespace SharpCraft.Rendering
 
         public void Draw(Player player)
         {
-            Vector3 chunkMax = new(Chunk.Size, 128, Chunk.Size);
+            Vector3 chunkMax = new(Chunk.Size);
 
             float lightIntensity = time.LightIntensity;
 
@@ -89,10 +89,10 @@ namespace SharpCraft.Rendering
             {
                 currentChunk = region.GetChunk(index);
 
-                BoundingBox chunkBounds = new(-currentChunk.Position, chunkMax - currentChunk.Position);
+                BoundingBox chunkBounds = new(currentChunk.Position, chunkMax + currentChunk.Position);
 
                 bool isChunkVisible = false;
-                if (player.Camera.Frustum.Contains(chunkBounds) != ContainmentType.Disjoint)
+                if (player.Camera.Frustum.Intersects(chunkBounds))
                 {
                     visibleChunkIndexes.Add(index);
                     isChunkVisible = true;

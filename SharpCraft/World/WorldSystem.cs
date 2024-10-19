@@ -4,6 +4,7 @@ using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Rendering;
 using SharpCraft.Utility;
+using System.Collections.Generic;
 
 namespace SharpCraft.World
 {
@@ -45,6 +46,7 @@ namespace SharpCraft.World
         public void SetPlayer(MainGame game, Player player, Parameters parameters)
         {
             this.player = player;
+            player.Flying = true;
 
             blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, blockMetadata);
 
@@ -52,9 +54,10 @@ namespace SharpCraft.World
 
             if (parameters.Position == Vector3.Zero)
             {
-                Chunk center = region.GetChunk(new(0, 0, 0));
-                Vector3I spawningIndex = center.GetIndex(0);
-                player.Position = new Vector3(spawningIndex.X, spawningIndex.Y + 2f, spawningIndex.Z);
+                //Chunk center = region.GetChunk(new(0, 0, 0));
+                //Vector3I spawningIndex = center.GetIndex(0);
+                //player.Position = new Vector3(spawningIndex.X, spawningIndex.Y + 2f, spawningIndex.Z);
+                player.Position = new Vector3(0, 100, 0);
             }
             else
             {
@@ -80,7 +83,7 @@ namespace SharpCraft.World
 
             Chunk chunk;
 
-            Vector3I[] reachableChunkIndexes = region.GetReachableChunkIndexes(player.Position);
+            HashSet<Vector3I> reachableChunkIndexes = Region.GetReachableChunkIndexes(player.Position);
 
             foreach (Vector3I chunkIndex in reachableChunkIndexes)
             {

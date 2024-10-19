@@ -72,8 +72,8 @@ namespace SharpCraft
                 player.Position.Y = blockPosition.Y + 1.97f;
                 Velocity.Y = 0;
 
-                player.Flying = false;
-                player.Walking = true;
+                //player.Flying = false;
+                //player.Walking = true;
                 return;
             }
 

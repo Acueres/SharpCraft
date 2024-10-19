@@ -72,6 +72,9 @@ namespace SharpCraft
 
             Ray = new Ray(parameters.Position, Camera.Direction);
 
+            boundMin = new Vector3(-0.25f, -1.6f, -0.25f);
+            boundMax = new Vector3(0.25f, 0.5f, 0.25f);
+
             Bound = new BoundingBox(boundMin + Position, boundMax + Position);
 
             Position = parameters.Position;
@@ -86,9 +89,6 @@ namespace SharpCraft
             currentMouseState = Mouse.GetState();
 
             currentKeyboardState = Keyboard.GetState();
-
-            boundMin = new Vector3(-0.25f, -1.6f, -0.25f);
-            boundMax = new Vector3(0.25f, 0.5f, 0.25f);
         }
 
 

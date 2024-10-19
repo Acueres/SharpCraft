@@ -16,17 +16,17 @@ namespace SharpCraft.World
         public Vector3I Index { get; }
         public Vector3 Position { get; }
 
-        public BiomeType[][] Biomes { get; }
+        public BiomeType[,] Biomes { get; }
         readonly HashSet<Vector3I> activeBlockIndexes = [];
 
-        readonly Block[][][] blocks;
+        readonly Block[,,] blocks;
 
         public void Dispose() => Dispose(true);
         readonly SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
         bool disposed = false;
 
         public const int Size = 16;
-        public const int Height = 128;
+        //public const int Height = 128;
         public const int Last = Size - 1;
 
         readonly BlockMetadataProvider blockMetadata;
@@ -38,7 +38,7 @@ namespace SharpCraft.World
         readonly List<VertexPositionTextureLight> vertices = [];
         readonly List<VertexPositionTextureLight> transparentVertices = [];
 
-        readonly byte[][][] lightMap;
+        readonly byte[,,] lightMap;
         readonly HashSet<Vector3I> lightSourceIndexes = [];
         readonly Queue<LightNode> lightQueue = new();
 
@@ -51,39 +51,15 @@ namespace SharpCraft.World
 
             this.blockMetadata = blockMetadata;
 
-            blocks = new Block[Height][][];
-            for (int y = 0; y < Height; y++)
-            {
-                blocks[y] = new Block[Size][];
-
-                for (int x = 0; x < Size; x++)
-                {
-                    blocks[y][x] = new Block[Size];
-                }
-            }
-
-            Biomes = new BiomeType[Size][];
-            for (int x = 0; x < Biomes.Length; x++)
-            {
-                Biomes[x] = new BiomeType[Size];
-            }
-
-            lightMap = new byte[Height][][];
-            for (int y = 0; y < Height; y++)
-            {
-                lightMap[y] = new byte[Size][];
-
-                for (int x = 0; x < Size; x++)
-                {
-                    lightMap[y][x] = new byte[Size];
-                }
-            }
+            blocks = new Block[Size, Size, Size];
+            Biomes = new BiomeType[Size, Size];
+            lightMap = new byte[Size, Size, Size];
         }
 
         public Block this[int x, int y, int z]
         {
-            get => blocks[y][x][z];
-            set => blocks[y][x][z] = value;
+            get => blocks[y, x, z];
+            set => blocks[y, x, z] = value;
         }       
 
         public bool AddIndex(Vector3I index)
@@ -170,8 +146,8 @@ namespace SharpCraft.World
             {
                 for (int z = 0; z < Size; z++)
                 {
-                    SetLight(Height - 1, x, z, 15, skylight);
-                    lightQueue.Enqueue(new LightNode(this, x, Height - 1, z));
+                    SetLight(Size - 1, x, z, 15, skylight);
+                    lightQueue.Enqueue(new LightNode(this, x, Size - 1, z));
                 }
             }
 
@@ -335,7 +311,7 @@ namespace SharpCraft.World
             LightNode[] nodes = new LightNode[6];
             byte[] lightValues = new byte[6];
 
-            if (y + 1 < Height)
+            if (y + 1 < Size)
             {
                 nodes[0] = new LightNode(this, x, y + 1, z);
                 lightValues[0] = GetLight(y + 1, x, z, channel);
@@ -429,9 +405,9 @@ namespace SharpCraft.World
             }
 
 
-            if (y + 1 < Height &&
+            if (y + 1 < Size &&
                 IsBlockTransparent(chunk[x, y + 1, z]) &&
-                CompareValues(chunk.GetLight(y + 1, x, z, channel), light))
+                CompareLightValues(chunk.GetLight(y + 1, x, z, channel), light))
             {
                 chunk.SetLight(y + 1, x, z, nextLight, channel);
                 lightQueue.Enqueue(new LightNode(chunk, x, y + 1, z));
@@ -439,7 +415,7 @@ namespace SharpCraft.World
 
             if (y > 0 &&
                 IsBlockTransparent(chunk[x, y - 1, z]) &&
-                CompareValues(chunk.GetLight(y - 1, x, z, channel), light, amount: (byte)(channel ? 0 : 1)))
+                CompareLightValues(chunk.GetLight(y - 1, x, z, channel), light, amount: (byte)(channel ? 0 : 1)))
             {
                 if (channel)
                 {
@@ -458,14 +434,14 @@ namespace SharpCraft.World
             {
                 if (neighbors.XNeg != null &&
                     IsBlockTransparent(neighbors.XNeg[0, y, z]) &&
-                    CompareValues(neighbors.XNeg.GetLight(y, 0, z, channel), light))
+                    CompareLightValues(neighbors.XNeg.GetLight(y, 0, z, channel), light))
                 {
                     neighbors.XNeg.SetLight(y, 0, z, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(neighbors.XNeg, 0, y, z));
                 }
             }
             else if (IsBlockTransparent(chunk[x + 1, y, z]) &&
-                CompareValues(chunk.GetLight(y, x + 1, z, channel), light))
+                CompareLightValues(chunk.GetLight(y, x + 1, z, channel), light))
             {
                 chunk.SetLight(y, x + 1, z, nextLight, channel);
                 lightQueue.Enqueue(new LightNode(chunk, x + 1, y, z));
@@ -476,14 +452,14 @@ namespace SharpCraft.World
             {
                 if (neighbors.XPos != null &&
                     IsBlockTransparent(neighbors.XPos[Last, y, z]) &&
-                    CompareValues(neighbors.XPos.GetLight(y, Last, z, channel), light))
+                    CompareLightValues(neighbors.XPos.GetLight(y, Last, z, channel), light))
                 {
                     neighbors.XPos.SetLight(y, Last, z, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(neighbors.XPos, Last, y, z));
                 }
             }
             else if (IsBlockTransparent(chunk[x - 1, y, z]) &&
-                CompareValues(chunk.GetLight(y, x - 1, z, channel), light))
+                CompareLightValues(chunk.GetLight(y, x - 1, z, channel), light))
             {
                 chunk.SetLight(y, x - 1, z, nextLight, channel);
                 lightQueue.Enqueue(new LightNode(chunk, x - 1, y, z));
@@ -494,14 +470,14 @@ namespace SharpCraft.World
             {
                 if (neighbors.ZNeg != null &&
                     IsBlockTransparent(neighbors.ZNeg[x, y, 0]) &&
-                    CompareValues(neighbors.ZNeg.GetLight(y, x, 0, channel), light))
+                    CompareLightValues(neighbors.ZNeg.GetLight(y, x, 0, channel), light))
                 {
                     neighbors.ZNeg.SetLight(y, x, 0, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(neighbors.ZNeg, x, y, 0));
                 }
             }
             else if (IsBlockTransparent(chunk[x, y, z + 1]) &&
-                CompareValues(chunk.GetLight(y, x, z + 1, channel), light))
+                CompareLightValues(chunk.GetLight(y, x, z + 1, channel), light))
             {
                 chunk.SetLight(y, x, z + 1, nextLight, channel);
                 lightQueue.Enqueue(new LightNode(chunk, x, y, z + 1));
@@ -512,14 +488,14 @@ namespace SharpCraft.World
             {
                 if (neighbors.ZPos != null &&
                     IsBlockTransparent(neighbors.ZPos[x, y, Last]) &&
-                    CompareValues(neighbors.ZPos.GetLight(y, x, Last, channel), light))
+                    CompareLightValues(neighbors.ZPos.GetLight(y, x, Last, channel), light))
                 {
                     neighbors.ZPos.SetLight(y, x, Last, nextLight, channel);
                     lightQueue.Enqueue(new LightNode(neighbors.ZPos, x, y, Last));
                 }
             }
             else if (IsBlockTransparent(chunk[x, y, z - 1]) &&
-                CompareValues(chunk.GetLight(y, x, z - 1, channel), light))
+                CompareLightValues(chunk.GetLight(y, x, z - 1, channel), light))
             {
                 chunk.SetLight(y, x, z - 1, nextLight, channel);
                 lightQueue.Enqueue(new LightNode(chunk, x, y, z - 1));
@@ -535,11 +511,11 @@ namespace SharpCraft.World
                 if (z == Last)
                 {
                     if (neighbors.ZNeg != null)
-                        lightValues.ZPos = neighbors.ZNeg.lightMap[y][x][0];
+                        lightValues.ZPos = neighbors.ZNeg.lightMap[y, x, 0];
                 }
                 else
                 {
-                    lightValues.ZPos = lightMap[y][x][z + 1];
+                    lightValues.ZPos = lightMap[y, x, z + 1];
                 }
             }
 
@@ -548,22 +524,38 @@ namespace SharpCraft.World
                 if (z == 0)
                 {
                     if (neighbors.ZPos != null)
-                        lightValues.ZNeg = neighbors.ZPos.lightMap[y][x][Last];
+                        lightValues.ZNeg = neighbors.ZPos.lightMap[y, x, Last];
                 }
                 else
                 {
-                    lightValues.ZNeg = lightMap[y][x][z - 1];
+                    lightValues.ZNeg = lightMap[y, x, z - 1];
                 }
             }
 
             if (visibleFaces.YPos)
             {
-                lightValues.YPos = lightMap[y + 1][x][z];
+                if (y == Last)
+                {
+                    if (neighbors.YPos != null)
+                        lightValues.YPos = neighbors.YPos.lightMap[0, x, z];
+                }
+                else
+                {
+                    lightValues.YPos = lightMap[y + 1, x, z];
+                }
             }
 
             if (visibleFaces.YNeg)
             {
-                lightValues.YNeg = lightMap[y - 1][x][z];
+                if (y == 0)
+                {
+                    if (neighbors.YNeg != null)
+                        lightValues.YNeg = neighbors.YNeg.lightMap[Last, x, z];
+                }
+                else
+                {
+                    lightValues.YNeg = lightMap[y - 1, x, z];
+                }
             }
 
 
@@ -572,11 +564,11 @@ namespace SharpCraft.World
                 if (x == Last)
                 {
                     if (neighbors.XNeg != null)
-                        lightValues.XPos = neighbors.XNeg.lightMap[y][0][z];
+                        lightValues.XPos = neighbors.XNeg.lightMap[y, 0, z];
                 }
                 else
                 {
-                    lightValues.XPos = lightMap[y][x + 1][z];
+                    lightValues.XPos = lightMap[y, x + 1, z];
                 }
             }
 
@@ -585,11 +577,11 @@ namespace SharpCraft.World
                 if (x == 0)
                 {
                     if (neighbors.XPos != null)
-                        lightValues.XNeg = neighbors.XPos.lightMap[y][Last][z];
+                        lightValues.XNeg = neighbors.XPos.lightMap[y, Last, z];
                 }
                 else
                 {
-                    lightValues.XNeg = lightMap[y][x - 1][z];
+                    lightValues.XNeg = lightMap[y, x - 1, z];
                 }
             }
 
@@ -598,18 +590,18 @@ namespace SharpCraft.World
 
         public void AddLightSource(int y, int x, int z)
         {
-            lightSourceIndexes.Add(new Vector3I(y, x, z));
+            lightSourceIndexes.Add(new Vector3I(x, y, z));
         }
 
         public void SetLight(int y, int x, int z, byte value, bool skylight)
         {
             if (skylight)
             {
-                lightMap[y][x][z] = (byte)((lightMap[y][x][z] & 0xF) | (value << 4));
+                lightMap[y, x, z] = (byte)((lightMap[y, x, z] & 0xF) | (value << 4));
             }
             else
             {
-                lightMap[y][x][z] = (byte)((lightMap[y][x][z] & 0xF0) | value);
+                lightMap[y, x, z] = (byte)((lightMap[y, x, z] & 0xF0) | value);
             }
         }
 
@@ -617,13 +609,13 @@ namespace SharpCraft.World
         {
             if (skylight)
             {
-                return (byte)((lightMap[y][x][z] >> 4) & 0xF);
+                return (byte)((lightMap[y, x, z] >> 4) & 0xF);
             }
 
-            return (byte)(lightMap[y][x][z] & 0xF);
+            return (byte)(lightMap[y, x, z] & 0xF);
         }
 
-        bool CompareValues(byte val, byte light, byte amount = 1)
+        static bool CompareLightValues(byte val, byte light, byte amount = 1)
         {
             return val + amount < light;
         }

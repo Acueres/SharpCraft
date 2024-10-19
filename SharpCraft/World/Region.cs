@@ -12,10 +12,12 @@ namespace SharpCraft.World
     public class ChunkNeighbors
     {
         public Chunk Chunk {  get; set; }
-        public Chunk ZNeg { get; set; }
-        public Chunk ZPos { get; set; }
         public Chunk XNeg { get; set; }
         public Chunk XPos {  get; set; }
+        public Chunk YPos { get; set; }
+        public Chunk YNeg { get; set; }
+        public Chunk ZNeg { get; set; }
+        public Chunk ZPos { get; set; }
     }
 
     public class Region
@@ -50,10 +52,11 @@ namespace SharpCraft.World
 
         public void Update(Vector3 pos)
         {
-            int x = GetChunkIndex(pos.X);
-            int z = GetChunkIndex(pos.Z);
+            int x = CalculateChunkIndex(pos.X);
+            int y = CalculateChunkIndex(pos.Y);
+            int z = CalculateChunkIndex(pos.Z);
 
-            Vector3I center = new(x, 0, z);
+            Vector3I center = new(x, y, z);
 
             inactiveChunkIndexes.UnionWith(activeChunkIndexes);
 
@@ -71,25 +74,36 @@ namespace SharpCraft.World
             }
         }
 
-        public Vector3I[] GetReachableChunkIndexes(Vector3 pos)
+        public static HashSet<Vector3I> GetReachableChunkIndexes(Vector3 pos)
         {
-            int xIndex = GetChunkIndex(pos.X);
-            int xIndexPlus6 = GetChunkIndex(pos.X + 6);
-            int xIndexMinus6 = GetChunkIndex(pos.X - 6);
+            int xIndex = CalculateChunkIndex(pos.X);
+            int xIndexPlus6 = CalculateChunkIndex(pos.X + 6);
+            int xIndexMinus6 = CalculateChunkIndex(pos.X - 6);
+            Span<int> xValues = [xIndex, xIndexPlus6, xIndexMinus6];
 
-            int zIndex = GetChunkIndex(pos.Z);
-            int zIndexPlus6 = GetChunkIndex(pos.Z + 6);
-            int zIndexMinus6 = GetChunkIndex(pos.Z - 6);
+            int yIndex = CalculateChunkIndex(pos.Y);
+            int yIndexPlus6 = CalculateChunkIndex(pos.Y + 6);
+            int yIndexMinus6 = CalculateChunkIndex(pos.Y - 6);
+            Span<int> yValues = [yIndex, yIndexPlus6, yIndexMinus6];
 
-            return [
-                new(xIndex, 0, zIndex),
-                new(xIndexPlus6, 0, zIndexPlus6),
-                new(xIndexMinus6, 0, zIndexMinus6),
-                new(xIndex, 0, zIndexPlus6),
-                new(xIndex, 0, zIndexMinus6),
-                new(xIndexPlus6, 0, zIndex),
-                new(xIndexMinus6, 0, zIndex)
-            ];
+            int zIndex = CalculateChunkIndex(pos.Z);
+            int zIndexPlus6 = CalculateChunkIndex(pos.Z + 6);
+            int zIndexMinus6 = CalculateChunkIndex(pos.Z - 6);
+            Span<int> zValues = [zIndex, zIndexPlus6, zIndexMinus6];
+
+            HashSet<Vector3I> indexes = [];
+            foreach (int x in xValues)
+            {
+                foreach (int y in yValues)
+                {
+                    foreach(int z in zValues)
+                    {
+                        indexes.Add(new(x, y, z));
+                    }
+                }
+            }
+
+            return indexes;
         }
 
         public IEnumerable<Vector3I> GetActiveChunkIndexes()
@@ -106,24 +120,15 @@ namespace SharpCraft.World
                 Chunk = chunk
             };
 
-            Vector3I zNeg = chunk.Index + new Vector3I(0, 0, -1),
-                    zPos = chunk.Index + new Vector3I(0, 0, 1),
-                    xNeg = chunk.Index + new Vector3I(-1, 0, 0),
-                    xPos = chunk.Index + new Vector3I(1, 0, 0);
+            Vector3I xNeg = chunk.Index + new Vector3I(-1, 0, 0);
+            Vector3I xPos = chunk.Index + new Vector3I(1, 0, 0);
+            Vector3I yPos = chunk.Index + new Vector3I(0, 1, 0);
+            Vector3I yNeg = chunk.Index + new Vector3I(0, -1, 0);
+            Vector3I zNeg = chunk.Index + new Vector3I(0, 0, -1);
+            Vector3I zPos = chunk.Index + new Vector3I(0, 0, 1);
 
-            neighbors.ZNeg = neighborsMap.TryGetValue(zNeg, out ChunkNeighbors value) ? value.Chunk : null;
-            if (neighbors.ZNeg != null)
-            {
-                neighborsMap[zNeg].ZPos = chunk;
-            }
 
-            neighbors.ZPos = neighborsMap.TryGetValue(zPos, out value) ? value.Chunk : null;
-            if (neighbors.ZPos != null)
-            {
-                neighborsMap[zPos].ZNeg = chunk;
-            }
-
-            neighbors.XNeg = neighborsMap.TryGetValue(xNeg, out value) ? value.Chunk : null;
+            neighbors.XNeg = neighborsMap.TryGetValue(xNeg, out ChunkNeighbors value) ? value.Chunk : null;
             if (neighbors.XNeg != null)
             {
                 neighborsMap[xNeg].XPos = chunk;
@@ -135,6 +140,30 @@ namespace SharpCraft.World
                 neighborsMap[xPos].XNeg = chunk;
             }
 
+            neighbors.YNeg = neighborsMap.TryGetValue(yNeg, out value) ? value.Chunk : null;
+            if (neighbors.YNeg != null)
+            {
+                neighborsMap[yNeg].YPos = chunk;
+            }
+
+            neighbors.YPos = neighborsMap.TryGetValue(yPos, out value) ? value.Chunk : null;
+            if (neighbors.YPos != null)
+            {
+                neighborsMap[yPos].YNeg = chunk;
+            }
+
+            neighbors.ZNeg = neighborsMap.TryGetValue(zNeg, out value) ? value.Chunk : null;
+            if (neighbors.ZNeg != null)
+            {
+                neighborsMap[zNeg].ZPos = chunk;
+            }
+
+            neighbors.ZPos = neighborsMap.TryGetValue(zPos, out value) ? value.Chunk : null;
+            if (neighbors.ZPos != null)
+            {
+                neighborsMap[zPos].ZNeg = chunk;
+            }
+
             neighborsMap.Add(chunk.Index, neighbors);
         }
 
@@ -142,7 +171,7 @@ namespace SharpCraft.World
         {
             Chunk chunk = neighbors.Chunk;
 
-            for (int y = 0; y < Chunk.Height; y++)
+            for (int y = 0; y < Chunk.Size; y++)
             {
                 for (int x = 0; x < Chunk.Size; x++)
                 {
@@ -215,17 +244,39 @@ namespace SharpCraft.World
             }
             visibleFaces.ZNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
 
-            if (y + 1 < Chunk.Height)
+            if (y == Chunk.Last)
+            {
+                if (neighbors.YPos != null)
+                {
+                    adjacentBlock = neighbors.YPos[x, 0, z];
+                }
+                else
+                {
+                    adjacentBlock = new(1);
+                }
+            }
+            else
             {
                 adjacentBlock = chunk[x, y + 1, z];
-                visibleFaces.YPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
             }
+            visibleFaces.YPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
 
-            if (y > 0)
+            if (y == 0)
+            {
+                if (neighbors.YNeg != null)
+                {
+                    adjacentBlock = neighbors.YNeg[x, Chunk.Last, z];
+                }
+                else
+                {
+                    adjacentBlock = new(1);
+                }
+            }
+            else
             {
                 adjacentBlock = chunk[x, y - 1, z];
-                visibleFaces.YNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
             }
+            visibleFaces.YNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
 
 
             if (x == Chunk.Last)
@@ -270,10 +321,13 @@ namespace SharpCraft.World
             List<Vector3I> indexes = [];
             for (int x = -apothem; x <= apothem; x++)
             {
-                for (int z = -apothem; z <= apothem; z++)
+                for (int y = -apothem; y <= apothem; y++)
                 {
-                    Vector3I index = new(x, 0, z);
-                    indexes.Add(index);
+                    for (int z = -apothem; z <= apothem; z++)
+                    {
+                        Vector3I index = new(x, y, z);
+                        indexes.Add(index);
+                    }
                 }
             }
 
@@ -362,14 +416,14 @@ namespace SharpCraft.World
             neighborsMap.Remove(neighbors.Chunk.Index);
         }
 
-        static int GetChunkIndex(float val)
+        public static int CalculateChunkIndex(float val)
         {
-            if (val > 0)
+            if (Math.Sign(val) == -1)
             {
-                return -(int)Math.Floor(val / Chunk.Size);
+                return (int)(val / Chunk.Size) - 1;
             }
 
-            return (int)Math.Ceiling(-val / Chunk.Size);
+            return (int)(val / Chunk.Size);
         }
 
         public void CalculateMesh(ChunkNeighbors neighbors)
@@ -379,11 +433,11 @@ namespace SharpCraft.World
 
             foreach (Vector3I index in chunk.GetIndexes())
             {
-                int y = index.Y;
                 int x = index.X;
+                int y = index.Y;
                 int z = index.Z;
 
-                Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position;
+                Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
                 FacesState visibleFaces = GetVisibleFaces(y, x, z, neighbors);
                 FacesData<byte> lightValues = chunk.GetFacesLight(visibleFaces, y, x, z, neighbors);

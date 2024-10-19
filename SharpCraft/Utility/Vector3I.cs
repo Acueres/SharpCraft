@@ -12,6 +12,16 @@
         public static Vector3I operator +(Vector3I a, Vector3I b)
         => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
 
+        public static bool operator ==(Vector3I a, Vector3I b)
+        {
+            return a.X == b.X && a.Y == b.Y && a.Z == b.Z;
+        }
+
+        public static bool operator !=(Vector3I a, Vector3I b)
+        {
+            return a.X != b.X || a.Y != b.Y || a.Z != b.Z;
+        }
+
         public override int GetHashCode()
         {
             unchecked
