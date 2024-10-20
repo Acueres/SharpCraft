@@ -1,4 +1,6 @@
-﻿namespace SharpCraft.Utility
+﻿using System.Collections.Generic;
+
+namespace SharpCraft.Utility
 {
     public struct FacesData<T>
     {
@@ -21,6 +23,16 @@
                 Faces.ZNeg => ZNeg,
                 _ => default
             };
+        }
+
+        public readonly IEnumerable<T> GetValues()
+        {
+            yield return ZPos;
+            yield return ZNeg;
+            yield return YPos;
+            yield return YNeg;
+            yield return XPos;
+            yield return XNeg;
         }
     }
 }

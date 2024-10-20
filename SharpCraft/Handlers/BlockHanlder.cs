@@ -93,7 +93,7 @@ namespace SharpCraft.Handlers
 
             chunk.UpdateLight(y, x, z, Block.EmptyValue, neighbors, sourceRemoved: lightSource);
 
-            databaseHandler.AddDelta(position, y, x, z, Block.EmptyValue);
+            databaseHandler.AddDelta(position, y, x, z, Block.Empty);
 
             UpdateAdjacentBlocks(neighbors, y, x, z);
         }
@@ -110,7 +110,7 @@ namespace SharpCraft.Handlers
             AdjustIndices(side, player.Camera.Direction);
             Chunk chunk = region.GetChunk(position);
 
-            Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position;
+            Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
             if ((blockPosition - player.Position).Length() < 1.1f)
             {
@@ -131,12 +131,12 @@ namespace SharpCraft.Handlers
 
             chunk.UpdateLight(y, x, z, texture, neighbors);
 
-            databaseHandler.AddDelta(position, y, x, z, texture);
+            databaseHandler.AddDelta(position, y, x, z, new(texture));
 
             UpdateAdjacentBlocks(neighbors, y, x, z);
         }
 
-        void UpdateAdjacentBlocks(ChunkNeighbors neighbors, int y, int x, int z)
+        static void UpdateAdjacentBlocks(ChunkNeighbors neighbors, int y, int x, int z)
         {
             Chunk chunk = neighbors.Chunk;
             chunk.UpdateMesh = true;
@@ -152,34 +152,31 @@ namespace SharpCraft.Handlers
             if (x < Chunk.Last)
                 ActivateBlock(chunk, y, x + 1, z);
             else if (x == Chunk.Last)
-                ActivateBlock(neighbors.XNeg, y, 0, z);
+                ActivateBlock(neighbors.XPos, y, 0, z);
 
             if (x > 0)
                 ActivateBlock(chunk, y, x - 1, z);
             else if (x == 0)
-                ActivateBlock(neighbors.XPos, y, Chunk.Last, z);
+                ActivateBlock(neighbors.XNeg, y, Chunk.Last, z);
 
             if (z < Chunk.Last)
                 ActivateBlock(chunk, y, x, z + 1);
             else if (z == Chunk.Last)
-                ActivateBlock(neighbors.ZNeg, y, x, 0);
+                ActivateBlock(neighbors.ZPos, y, x, 0);
 
             if (z > 0)
                 ActivateBlock(chunk, y, x, z - 1);
             else if (z == 0)
-                ActivateBlock(neighbors.ZPos, y, x, Chunk.Last);
+                ActivateBlock(neighbors.ZNeg, y, x, Chunk.Last);
         }
 
-        void ActivateBlock(Chunk chunk, int y, int x, int z)
+        static void ActivateBlock(Chunk chunk, int y, int x, int z)
         {
-            if (chunk[x, y, z].IsEmpty)
+            if (!chunk[x, y, z].IsEmpty)
             {
-                return;
+                chunk.AddIndex(new(x, y, z));
+                chunk.UpdateMesh = true;
             }
-
-            chunk.AddIndex(new(x, y, z));
-
-            chunk.UpdateMesh = true;
         }
 
         void AdjustIndices(char face, Vector3 vector)

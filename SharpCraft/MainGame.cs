@@ -116,10 +116,10 @@ namespace SharpCraft
                             BlockSelector blockSelector = new(GraphicsDevice, assetServer);
 
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName, blockMetadata);
-                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
-                            renderer = new Renderer(this, GraphicsDevice, time, world.GetRegion(), screenshotHandler, blockSelector, assetServer, blockMetadata);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata, player);
+                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata);
+                            renderer = new Renderer(this, GraphicsDevice, time, world.GetRegion(), screenshotHandler, blockSelector, assetServer, blockMetadata);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 

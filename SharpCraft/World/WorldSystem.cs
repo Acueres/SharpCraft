@@ -90,11 +90,11 @@ namespace SharpCraft.World
                 chunk = region.GetChunk(chunkIndex);
                 foreach (Vector3I blockIndex in chunk.GetIndexes())
                 {
-                    int y = blockIndex.Y;
                     int x = blockIndex.X;
+                    int y = blockIndex.Y;
                     int z = blockIndex.Z;
 
-                    Vector3 blockPosition = new Vector3(x, y, z) - chunk.Position;
+                    Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
                     if ((player.Position - blockPosition).Length() > 6)
                     {

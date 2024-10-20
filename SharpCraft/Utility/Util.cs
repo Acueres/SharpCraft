@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Linq;
+using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-
 
 namespace SharpCraft.Utility
 {
@@ -18,35 +18,23 @@ namespace SharpCraft.Utility
             return char.ToUpper(str[0]) + str.Substring(1).ToLower();
         }
 
-        public static int ArgMax(byte[] arr)
+        public static Faces MaxFace(IEnumerable<byte> faces)
         {
+            Faces face = Faces.ZPos;
+            byte maxValue = 0;
             int index = 0;
-            int count = 0;
-            byte max = arr.Max();
 
-            for (int i = 0; i < arr.Length; i++)
+            foreach (byte value in faces)
             {
-                if (arr[i] == max)
+                if (value > maxValue)
                 {
-                    count++;
-                    index = i;
+                    maxValue = value;
+                    face = (Faces)index;
                 }
+                index++;
             }
 
-            if (count > 1)
-            {
-                Random rnd = new();
-                index = rnd.Next(0, 6);
-
-                while (arr[index] != max)
-                {
-                    index = rnd.Next(0, 6);
-                }
-
-                return index;
-            }
-
-            return index;
+            return face;
         }
 
         public static char MaxVectorComponent(Vector3 vector)

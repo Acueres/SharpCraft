@@ -26,7 +26,6 @@ namespace SharpCraft.World
         bool disposed = false;
 
         public const int Size = 16;
-        //public const int Height = 128;
         public const int Last = Size - 1;
 
         readonly BlockMetadataProvider blockMetadata;
@@ -146,8 +145,8 @@ namespace SharpCraft.World
             {
                 for (int z = 0; z < Size; z++)
                 {
-                    SetLight(Size - 1, x, z, 15, skylight);
-                    lightQueue.Enqueue(new LightNode(this, x, Size - 1, z));
+                    SetLight(Last, x, z, 15, skylight);
+                    lightQueue.Enqueue(new LightNode(this, x, Last, z));
                 }
             }
 
@@ -175,11 +174,13 @@ namespace SharpCraft.World
             if (texture == Block.EmptyValue)
             {
                 var (nodes, lightValues) = GetNeighborLightValues(y, x, z, skylight, neighbors);
-                lightQueue.Enqueue(nodes[Util.ArgMax(lightValues)]);
+                Faces maxFace = Util.MaxFace(lightValues.GetValues());
+                lightQueue.Enqueue(nodes.GetValue(maxFace));
                 Repropagate(skylight, neighbors);
 
                 (nodes, lightValues) = GetNeighborLightValues(y, x, z, blockLight, neighbors);
-                lightQueue.Enqueue(nodes[Util.ArgMax(lightValues)]);
+                maxFace = Util.MaxFace(lightValues.GetValues());
+                lightQueue.Enqueue(nodes.GetValue(maxFace));
                 Repropagate(blockLight, neighbors);
 
                 if (sourceRemoved)
@@ -232,9 +233,10 @@ namespace SharpCraft.World
 
                 for (int i = 0; i < 6; i++)
                 {
-                    if (lightValues[i] == (byte)(light - 1))
+                    Faces face = (Faces)i;
+                    if (lightValues.GetValue(face) == (byte)(light - 1))
                     {
-                        lightQueue.Enqueue(nodes[i]);
+                        lightQueue.Enqueue(nodes.GetValue(face));
                     }
                 }
             }
@@ -269,16 +271,17 @@ namespace SharpCraft.World
                 }
 
                 var (nodes, lightValues) = GetNeighborLightValues(node.Y, node.X, node.Z, channel, neighbors);
-                int max = Util.ArgMax(lightValues);
+                Faces maxFace = Util.MaxFace(lightValues.GetValues());
 
-                lightList.Add(nodes[max]);
+                lightList.Add(nodes.GetValue(maxFace));
 
                 for (int i = 0; i < 6; i++)
                 {
-                    if (lightValues[i] > 0 && (i == 1 || lightValues[i] < light) &&
-                       IsBlockTransparent(nodes[i].GetBlock()))
+                    Faces face = (Faces)i;
+                    if (lightValues.GetValue(face) > 0 && (face == Faces.YNeg || lightValues.GetValue(face) < light) &&
+                       IsBlockTransparent(nodes.GetValue(face).GetBlock()))
                     {
-                        lightQueue.Enqueue(nodes[i]);
+                        lightQueue.Enqueue(nodes.GetValue(face));
                     }
                 }
             }
@@ -306,67 +309,67 @@ namespace SharpCraft.World
             chunksToUpdate.Clear();
         }
 
-        (LightNode[] nodes, byte[] lightValues) GetNeighborLightValues(int y, int x, int z, bool channel, ChunkNeighbors neighbors)
+        (FacesData<LightNode> nodes, FacesData<byte> lightValues) GetNeighborLightValues(int y, int x, int z, bool channel, ChunkNeighbors neighbors)
         {
-            LightNode[] nodes = new LightNode[6];
-            byte[] lightValues = new byte[6];
+            FacesData<LightNode> nodes = new();
+            FacesData<byte> lightValues = new();
 
             if (y + 1 < Size)
             {
-                nodes[0] = new LightNode(this, x, y + 1, z);
-                lightValues[0] = GetLight(y + 1, x, z, channel);
+                nodes.YPos = new LightNode(this, x, y + 1, z);
+                lightValues.YPos = GetLight(y + 1, x, z, channel);
             }
 
             if (y > 0)
             {
-                nodes[1] = new LightNode(this, x, y - 1, z);
-                lightValues[1] = GetLight(y - 1, x, z, channel);
+                nodes.YNeg = new LightNode(this, x, y - 1, z);
+                lightValues.YNeg = GetLight(y - 1, x, z, channel);
             }
 
 
             if (x == Last)
             {
-                nodes[2] = new LightNode(neighbors.XNeg, 0, y, z);
-                lightValues[2] = neighbors.XNeg.GetLight(y, 0, z, channel);
+                nodes.XPos = new LightNode(neighbors.XPos, 0, y, z);
+                lightValues.XPos = neighbors.XPos.GetLight(y, 0, z, channel);
             }
             else
             {
-                nodes[2] = new LightNode(this, x + 1, y, z);
-                lightValues[2] = GetLight(y, x + 1, z, channel);
+                nodes.XPos = new LightNode(this, x + 1, y, z);
+                lightValues.XPos = GetLight(y, x + 1, z, channel);
             }
 
             if (x == 0)
             {
-                nodes[3] = new LightNode(neighbors.XPos, Last, y, z);
-                lightValues[3] = neighbors.XPos.GetLight(y, Last, z, channel);
+                nodes.XNeg = new LightNode(neighbors.XNeg, Last, y, z);
+                lightValues.XNeg = neighbors.XNeg.GetLight(y, Last, z, channel);
             }
             else
             {
-                nodes[3] = new LightNode(this, x - 1, y, z);
-                lightValues[3] = GetLight(y, x - 1, z, channel);
+                nodes.XNeg = new LightNode(this, x - 1, y, z);
+                lightValues.XNeg = GetLight(y, x - 1, z, channel);
             }
 
 
             if (z == Last)
             {
-                nodes[4] = new LightNode(neighbors.ZNeg, x, y, 0);
-                lightValues[4] = neighbors.ZNeg.GetLight(y, x, 0, channel);
+                nodes.ZPos = new LightNode(neighbors.ZPos, x, y, 0);
+                lightValues.ZPos = neighbors.ZPos.GetLight(y, x, 0, channel);
             }
             else
             {
-                nodes[4] = new LightNode(this, x, y, z + 1);
-                lightValues[4] = GetLight(y, x, z + 1, channel);
+                nodes.ZPos = new LightNode(this, x, y, z + 1);
+                lightValues.ZPos = GetLight(y, x, z + 1, channel);
             }
 
             if (z == 0)
             {
-                nodes[5] = new LightNode(neighbors.ZPos, x, y, Last);
-                lightValues[5] = neighbors.ZPos.GetLight(y, x, Last, channel);
+                nodes.ZNeg = new LightNode(neighbors.ZNeg, x, y, Last);
+                lightValues.ZNeg = neighbors.ZNeg.GetLight(y, x, Last, channel);
             }
             else
             {
-                nodes[5] = new LightNode(this, x, y, z - 1);
-                lightValues[5] = GetLight(y, x, z - 1, channel);
+                nodes.ZNeg = new LightNode(this, x, y, z - 1);
+                lightValues.ZNeg = GetLight(y, x, z - 1, channel);
             }
 
             return (nodes, lightValues);
@@ -432,12 +435,12 @@ namespace SharpCraft.World
 
             if (x == Last)
             {
-                if (neighbors.XNeg != null &&
-                    IsBlockTransparent(neighbors.XNeg[0, y, z]) &&
-                    CompareLightValues(neighbors.XNeg.GetLight(y, 0, z, channel), light))
+                if (neighbors.XPos != null &&
+                    IsBlockTransparent(neighbors.XPos[0, y, z]) &&
+                    CompareLightValues(neighbors.XPos.GetLight(y, 0, z, channel), light))
                 {
-                    neighbors.XNeg.SetLight(y, 0, z, nextLight, channel);
-                    lightQueue.Enqueue(new LightNode(neighbors.XNeg, 0, y, z));
+                    neighbors.XPos.SetLight(y, 0, z, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(neighbors.XPos, 0, y, z));
                 }
             }
             else if (IsBlockTransparent(chunk[x + 1, y, z]) &&
@@ -450,12 +453,12 @@ namespace SharpCraft.World
 
             if (x == 0)
             {
-                if (neighbors.XPos != null &&
-                    IsBlockTransparent(neighbors.XPos[Last, y, z]) &&
-                    CompareLightValues(neighbors.XPos.GetLight(y, Last, z, channel), light))
+                if (neighbors.XNeg != null &&
+                    IsBlockTransparent(neighbors.XNeg[Last, y, z]) &&
+                    CompareLightValues(neighbors.XNeg.GetLight(y, Last, z, channel), light))
                 {
-                    neighbors.XPos.SetLight(y, Last, z, nextLight, channel);
-                    lightQueue.Enqueue(new LightNode(neighbors.XPos, Last, y, z));
+                    neighbors.XNeg.SetLight(y, Last, z, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(neighbors.XNeg, Last, y, z));
                 }
             }
             else if (IsBlockTransparent(chunk[x - 1, y, z]) &&
@@ -468,12 +471,12 @@ namespace SharpCraft.World
 
             if (z == Last)
             {
-                if (neighbors.ZNeg != null &&
-                    IsBlockTransparent(neighbors.ZNeg[x, y, 0]) &&
-                    CompareLightValues(neighbors.ZNeg.GetLight(y, x, 0, channel), light))
+                if (neighbors.ZPos != null &&
+                    IsBlockTransparent(neighbors.ZPos[x, y, 0]) &&
+                    CompareLightValues(neighbors.ZPos.GetLight(y, x, 0, channel), light))
                 {
-                    neighbors.ZNeg.SetLight(y, x, 0, nextLight, channel);
-                    lightQueue.Enqueue(new LightNode(neighbors.ZNeg, x, y, 0));
+                    neighbors.ZPos.SetLight(y, x, 0, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(neighbors.ZPos, x, y, 0));
                 }
             }
             else if (IsBlockTransparent(chunk[x, y, z + 1]) &&
@@ -486,12 +489,12 @@ namespace SharpCraft.World
 
             if (z == 0)
             {
-                if (neighbors.ZPos != null &&
-                    IsBlockTransparent(neighbors.ZPos[x, y, Last]) &&
-                    CompareLightValues(neighbors.ZPos.GetLight(y, x, Last, channel), light))
+                if (neighbors.ZNeg != null &&
+                    IsBlockTransparent(neighbors.ZNeg[x, y, Last]) &&
+                    CompareLightValues(neighbors.ZNeg.GetLight(y, x, Last, channel), light))
                 {
-                    neighbors.ZPos.SetLight(y, x, Last, nextLight, channel);
-                    lightQueue.Enqueue(new LightNode(neighbors.ZPos, x, y, Last));
+                    neighbors.ZNeg.SetLight(y, x, Last, nextLight, channel);
+                    lightQueue.Enqueue(new LightNode(neighbors.ZNeg, x, y, Last));
                 }
             }
             else if (IsBlockTransparent(chunk[x, y, z - 1]) &&

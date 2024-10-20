@@ -15,11 +15,11 @@ namespace SharpCraft.Handlers
         SQLiteCommand cmd;
         SQLiteConnection connection;
 
-        const string insertCommand = @"INSERT OR REPLACE INTO chunks(chunkX, chunkZ, x, y, z, texture)
-                                VALUES(@chunkX, @chunkZ, @x, @y, @z, @texture)";
+        const string insertCommand = @"INSERT OR REPLACE INTO chunks(chunkX, chunkY, chunkZ, x, y, z, block)
+                                VALUES(@chunkX, @chunkY, @chunkZ, @x, @y, @z, @block)";
 
-        const string selectCommand = @"SELECT x, y, z, texture FROM chunks
-                                WHERE [chunkX] = @x AND [chunkZ] = @z";
+        const string selectCommand = @"SELECT x, y, z, block FROM chunks
+                                WHERE [chunkX] = @x AND [chunkY] = @y AND [chunkZ] = @z";
 
         Queue<SaveData> dataQueue;
 
@@ -27,19 +27,19 @@ namespace SharpCraft.Handlers
 
         class SaveData
         {
-            public Vector3I Position;
+            public Vector3I Index;
             public int X;
             public int Y;
             public int Z;
-            public ushort Texture;
+            public Block Block;
 
-            public SaveData(Vector3I position, int x, int y, int z, ushort texture)
+            public SaveData(Vector3I index, int x, int y, int z, Block block)
             {
-                Position = position;
+                Index = index;
                 X = x;
                 Y = y;
                 Z = z;
-                Texture = texture;
+                Block = block;
             }
         }
 
@@ -58,12 +58,13 @@ namespace SharpCraft.Handlers
             {
                 CommandText = @"CREATE TABLE IF NOT EXISTS chunks(
                                 chunkX INTEGER,
+                                chunkY INTEGER,
                                 chunkZ INTEGER,
                                 x INTEGER,
                                 y INTEGER,
                                 z INTEGER,
-                                texture INTEGER,
-                                PRIMARY KEY(chunkX, chunkZ, x, y, z))"
+                                block INTEGER,
+                                PRIMARY KEY(chunkX, chunkY, chunkZ, x, y, z))"
             };
             cmd.ExecuteNonQuery();
 
@@ -83,9 +84,9 @@ namespace SharpCraft.Handlers
             connection.Close();
         }
 
-        public void AddDelta(Vector3I position, int y, int x, int z, ushort texture)
+        public void AddDelta(Vector3I index, int y, int x, int z, Block block)
         {
-            dataQueue.Enqueue(new SaveData(position, x, y, z, texture));
+            dataQueue.Enqueue(new SaveData(index, x, y, z, block));
         }
 
         public void ApplyDelta(Chunk chunk)
@@ -96,24 +97,21 @@ namespace SharpCraft.Handlers
             };
 
             command.Parameters.AddWithValue("@x", chunk.Index.X);
+            command.Parameters.AddWithValue("@y", chunk.Index.Y);
             command.Parameters.AddWithValue("@z", chunk.Index.Z);
 
             var reader = command.ExecuteReader();
 
             while (reader.Read())
             {
-                ushort texture;
-                int value = reader.GetInt32(3);
-
-                texture = (ushort)value;
-
                 int x = reader.GetInt32(0);
                 int y = reader.GetInt32(1);
                 int z = reader.GetInt32(2);
+                ushort block = (ushort)reader.GetInt32(3);
 
-                chunk[x, y, z] = new(texture);
+                chunk[x, y, z] = new(block);
 
-                if (texture != Block.EmptyValue && blockMetadata.IsLightSource(texture))
+                if (block != Block.EmptyValue && blockMetadata.IsLightSource(block))
                 {
                     chunk.AddLightSource(y, x, z);
                 }
@@ -129,13 +127,13 @@ namespace SharpCraft.Handlers
                 data = dataQueue.Dequeue();
                 cmd.CommandText = insertCommand;
 
-                cmd.Parameters.AddWithValue("@chunkX", data.Position.X);
-                cmd.Parameters.AddWithValue("@chunkZ", data.Position.Z);
+                cmd.Parameters.AddWithValue("@chunkX", data.Index.X);
+                cmd.Parameters.AddWithValue("@chunkY", data.Index.Y);
+                cmd.Parameters.AddWithValue("@chunkZ", data.Index.Z);
                 cmd.Parameters.AddWithValue("@x", data.X);
                 cmd.Parameters.AddWithValue("@y", data.Y);
                 cmd.Parameters.AddWithValue("@z", data.Z);
-
-                cmd.Parameters.AddWithValue("@texture", data.Texture);
+                cmd.Parameters.AddWithValue("@block", data.Block.Value);
 
                 cmd.ExecuteNonQuery();
             }
