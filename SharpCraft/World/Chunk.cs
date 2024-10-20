@@ -510,8 +510,8 @@ namespace SharpCraft.World
             {
                 if (z == Last)
                 {
-                    if (neighbors.ZNeg != null)
-                        lightValues.ZPos = neighbors.ZNeg.lightMap[y, x, 0];
+                    if (neighbors.ZPos != null)
+                        lightValues.ZPos = neighbors.ZPos.lightMap[y, x, 0];
                 }
                 else
                 {
@@ -523,8 +523,8 @@ namespace SharpCraft.World
             {
                 if (z == 0)
                 {
-                    if (neighbors.ZPos != null)
-                        lightValues.ZNeg = neighbors.ZPos.lightMap[y, x, Last];
+                    if (neighbors.ZNeg != null)
+                        lightValues.ZNeg = neighbors.ZNeg.lightMap[y, x, Last];
                 }
                 else
                 {
@@ -563,8 +563,8 @@ namespace SharpCraft.World
             {
                 if (x == Last)
                 {
-                    if (neighbors.XNeg != null)
-                        lightValues.XPos = neighbors.XNeg.lightMap[y, 0, z];
+                    if (neighbors.XPos != null)
+                        lightValues.XPos = neighbors.XPos.lightMap[y, 0, z];
                 }
                 else
                 {
@@ -576,8 +576,8 @@ namespace SharpCraft.World
             {
                 if (x == 0)
                 {
-                    if (neighbors.XPos != null)
-                        lightValues.XNeg = neighbors.XPos.lightMap[y, Last, z];
+                    if (neighbors.XNeg != null)
+                        lightValues.XNeg = neighbors.XNeg.lightMap[y, Last, z];
                 }
                 else
                 {

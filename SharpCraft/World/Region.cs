@@ -212,9 +212,9 @@ namespace SharpCraft.World
 
             if (z == Chunk.Last)
             {
-                if (neighbors.ZNeg != null)
+                if (neighbors.ZPos != null)
                 {
-                    adjacentBlock = neighbors.ZNeg[x, y, 0];
+                    adjacentBlock = neighbors.ZPos[x, y, 0];
                 }
                 else
                 {
@@ -229,9 +229,9 @@ namespace SharpCraft.World
 
             if (z == 0)
             {
-                if (neighbors.ZPos != null)
+                if (neighbors.ZNeg != null)
                 {
-                    adjacentBlock = neighbors.ZPos[x, y, Chunk.Last];
+                    adjacentBlock = neighbors.ZNeg[x, y, Chunk.Last];
                 }
                 else
                 {
@@ -281,9 +281,9 @@ namespace SharpCraft.World
 
             if (x == Chunk.Last)
             {
-                if (neighbors.XNeg != null)
+                if (neighbors.XPos != null)
                 {
-                    adjacentBlock = neighbors.XNeg[0, y, z];
+                    adjacentBlock = neighbors.XPos[0, y, z];
                 }
                 else
                 {
@@ -298,9 +298,9 @@ namespace SharpCraft.World
 
             if (x == 0)
             {
-                if (neighbors.XPos != null)
+                if (neighbors.XNeg != null)
                 {
-                    adjacentBlock = neighbors.XPos[Chunk.Last, y, z];
+                    adjacentBlock = neighbors.XNeg[Chunk.Last, y, z];
                 }
                 else
                 {
