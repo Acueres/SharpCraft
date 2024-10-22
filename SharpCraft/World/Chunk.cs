@@ -16,7 +16,6 @@ namespace SharpCraft.World
         public Vector3I Index { get; }
         public Vector3 Position { get; }
 
-        public BiomeType[,] Biomes { get; }
         readonly HashSet<Vector3I> activeBlockIndexes = [];
 
         readonly Block[,,] blocks;
@@ -51,7 +50,6 @@ namespace SharpCraft.World
             this.blockMetadata = blockMetadata;
 
             blocks = new Block[Size, Size, Size];
-            Biomes = new BiomeType[Size, Size];
             lightMap = new byte[Size, Size, Size];
         }
 

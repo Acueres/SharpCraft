@@ -22,11 +22,16 @@
             return a.X != b.X || a.Y != b.Y || a.Z != b.Z;
         }
 
+        public override string ToString()
+        {
+            return $"X: {X}, Y: {Y}, Z: {Z}";
+        }
+
         public override int GetHashCode()
         {
             unchecked
             {
-                var hashCode = X.GetHashCode();
+                int hashCode = X.GetHashCode();
                 hashCode = (hashCode * 397) ^ Y.GetHashCode();
                 hashCode = (hashCode * 397) ^ Z.GetHashCode();
                 return hashCode;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using SharpCraft.Utility;
 
@@ -15,6 +16,9 @@ namespace SharpCraft.World
     {
         readonly int seed;
         readonly string type;
+
+        readonly Dictionary<Vector2I, int[,]> terrainLevelCache = [];
+        readonly Dictionary<Vector2I, BiomeType[,]> biomesCache = [];
 
         readonly int waterLevel;
 
@@ -70,6 +74,12 @@ namespace SharpCraft.World
             river.SetFrequency(0.001f);
         }
 
+        public void ClearCache()
+        {
+            terrainLevelCache.Clear();
+            biomesCache.Clear();
+        }
+
         public Chunk GenerateChunk(Vector3I position)
         {
             return type switch
@@ -85,30 +95,43 @@ namespace SharpCraft.World
             int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
             Random rnd = new(chunkSeed);
 
-            int[,] elevationMap = new int[Chunk.Size, Chunk.Size];
-
-            for (int x = 0; x < Chunk.Size; x++)
+            Vector2I cacheIndex = new(index.X, index.Z);
+            BiomeType[,] biomes;
+            if (!terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainLevel))
             {
-                for (int z = 0; z < Chunk.Size; z++)
+                terrainLevel = new int[Chunk.Size, Chunk.Size];
+                biomes = new BiomeType[Chunk.Size, Chunk.Size];
+
+                for (int x = 0; x < Chunk.Size; x++)
                 {
-                    (int height, BiomeType biome) = GetHeight(chunk.Position, x, z);
-                    elevationMap[x, z] = height;
-                    chunk.Biomes[x, z] = biome;
+                    for (int z = 0; z < Chunk.Size; z++)
+                    {
+                        (int height, BiomeType biome) = GetHeight(chunk.Position, x, z);
+                        terrainLevel[x, z] = height;
+                        biomes[x, z] = biome;
+                    }
                 }
+
+                terrainLevelCache.Add(cacheIndex, terrainLevel);
+                biomesCache.Add(cacheIndex, biomes);
+            }
+            else
+            {
+                biomes = biomesCache[cacheIndex];
             }
 
             for (int x = 0; x < Chunk.Size; x++)
             {
                 for (int z = 0; z < Chunk.Size; z++)
                 {
-                    if (chunk.Position.Y > elevationMap[x, z]) continue;
+                    if (chunk.Position.Y > terrainLevel[x, z]) continue;
 
-                    float diff = elevationMap[x, z] - chunk.Position.Y;
+                    float diff = terrainLevel[x, z] - chunk.Position.Y;
                     int yMax = Math.Clamp((int)diff, 0, Chunk.Size);
 
-                    for (int y = 0; /*(int)chunk.Position.Y + y < elevationMap[x, z] && y < Chunk.Size*/y < yMax; y++)
+                    for (int y = 0; y < yMax; y++)
                     {
-                        ushort texture = Fill(elevationMap[x, z], (int)chunk.Position.Y + y, chunk.Biomes[x, z], rnd);
+                        ushort texture = Fill(terrainLevel[x, z], (int)chunk.Position.Y + y, biomes[x, z], rnd);
                         chunk[x, y, z] = new(texture);
                     }
 
@@ -255,7 +278,7 @@ namespace SharpCraft.World
             return 0;
         }
 
-        void GenerateTrees(Chunk chunk, int[,] elevationMap, Random rnd)
+        void GenerateTrees(Chunk chunk, int[,] terrainlevel, BiomeType[,] biomes, Random rnd)
         {
             int n = rnd.Next(2, 6);
             int[,] coords = new int[n, 2];
@@ -283,8 +306,8 @@ namespace SharpCraft.World
                     continue;
                 }
 
-                if (chunk.Biomes[x, z] == (byte)BiomeType.River ||
-                    elevationMap[x, z] > 50)
+                if (biomes[x, z] == (byte)BiomeType.River ||
+                    terrainlevel[x, z] > 50)
                 {
                     i++;
                     continue;
@@ -304,7 +327,7 @@ namespace SharpCraft.World
                 if (x == 0 || z == 0)
                     break;
 
-                int y = elevationMap[x, z];
+                int y = terrainlevel[x, z];
 
                 ushort wood;
 

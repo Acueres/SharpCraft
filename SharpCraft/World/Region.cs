@@ -359,6 +359,8 @@ namespace SharpCraft.World
                 inactiveChunkIndexes.Remove(index);
             }
 
+            worldGenerator.ClearCache();
+
             foreach (Vector3I index in generatedChunks)
             {
                 Chunk chunk = chunks[index];
@@ -418,7 +420,7 @@ namespace SharpCraft.World
 
         public static int CalculateChunkIndex(float val)
         {
-            if (Math.Sign(val) == -1)
+            if (val < 0)
             {
                 return (int)(val / Chunk.Size) - 1;
             }
