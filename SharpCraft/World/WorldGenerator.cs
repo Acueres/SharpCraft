@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
+
 using Microsoft.Xna.Framework;
+
 using SharpCraft.Utility;
 
 namespace SharpCraft.World
@@ -95,6 +98,7 @@ namespace SharpCraft.World
             int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
             Random rnd = new(chunkSeed);
 
+            int maxElevation = int.MinValue;
             Vector2I cacheIndex = new(index.X, index.Z);
             BiomeType[,] biomes;
             if (!terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainLevel))
@@ -109,6 +113,11 @@ namespace SharpCraft.World
                         (int height, BiomeType biome) = GetHeight(chunk.Position, x, z);
                         terrainLevel[x, z] = height;
                         biomes[x, z] = biome;
+
+                        if (maxElevation < height)
+                        {
+                            maxElevation = height;
+                        }
                     }
                 }
 
@@ -117,7 +126,13 @@ namespace SharpCraft.World
             }
             else
             {
+                maxElevation = (from int h in terrainLevel select h).Max();
                 biomes = biomesCache[cacheIndex];
+            }
+
+            if (maxElevation < chunk.Position.Y)
+            {
+                return chunk;
             }
 
             for (int x = 0; x < Chunk.Size; x++)
