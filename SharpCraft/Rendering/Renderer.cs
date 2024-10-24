@@ -89,6 +89,8 @@ namespace SharpCraft.Rendering
             {
                 currentChunk = region.GetChunk(index);
 
+                if (!currentChunk.IsReady) continue;
+
                 BoundingBox chunkBounds = new(currentChunk.Position, chunkMax + currentChunk.Position);
 
                 bool isChunkVisible = false;

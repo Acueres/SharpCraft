@@ -18,6 +18,12 @@ namespace SharpCraft.World
         public Chunk YNeg { get; set; }
         public Chunk ZNeg { get; set; }
         public Chunk ZPos { get; set; }
+
+        public bool AllExist()
+        {
+            return XNeg is not null && XPos is not null && ZNeg is not null && ZPos is not null
+                && YNeg is not null && YPos is not null;
+        }
     }
 
     public class Region
@@ -34,6 +40,7 @@ namespace SharpCraft.World
         readonly List<Vector3I> proximityIndexes = [];
         readonly List<Vector3I> activeChunkIndexes = [];
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
+        readonly HashSet<Vector3I> unfinishedChunkIndexes = [];
 
         public Region(int apothem, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
         {
@@ -69,7 +76,11 @@ namespace SharpCraft.World
                 if (chunk.UpdateMesh)
                 {
                     var neighbors = GetChunkNeighbors(index);
-                    CalculateMesh(neighbors);
+
+                    if (neighbors.AllExist())
+                    {
+                        CalculateMesh(neighbors);
+                    }
                 }
             }
         }
@@ -164,7 +175,10 @@ namespace SharpCraft.World
                 neighborsMap[zPos].ZNeg = chunk;
             }
 
-            neighborsMap.Add(chunk.Index, neighbors);
+            if (!neighborsMap.TryAdd(chunk.Index, neighbors))
+            {
+                neighborsMap[chunk.Index] = neighbors;
+            }
         }
 
         void CalculateActiveBlocks(ChunkNeighbors neighbors)
@@ -212,14 +226,7 @@ namespace SharpCraft.World
 
             if (z == Chunk.Last)
             {
-                if (neighbors.ZPos != null)
-                {
-                    adjacentBlock = neighbors.ZPos[x, y, 0];
-                }
-                else
-                {
-                    adjacentBlock = new(1);
-                }
+                adjacentBlock = neighbors.ZPos[x, y, 0];
             }
             else
             {
@@ -229,14 +236,7 @@ namespace SharpCraft.World
 
             if (z == 0)
             {
-                if (neighbors.ZNeg != null)
-                {
-                    adjacentBlock = neighbors.ZNeg[x, y, Chunk.Last];
-                }
-                else
-                {
-                    adjacentBlock = new(1);
-                }
+                adjacentBlock = neighbors.ZNeg[x, y, Chunk.Last];
             }
             else
             {
@@ -246,14 +246,7 @@ namespace SharpCraft.World
 
             if (y == Chunk.Last)
             {
-                if (neighbors.YPos != null)
-                {
-                    adjacentBlock = neighbors.YPos[x, 0, z];
-                }
-                else
-                {
-                    adjacentBlock = new(1);
-                }
+                adjacentBlock = neighbors.YPos[x, 0, z];
             }
             else
             {
@@ -263,14 +256,7 @@ namespace SharpCraft.World
 
             if (y == 0)
             {
-                if (neighbors.YNeg != null)
-                {
-                    adjacentBlock = neighbors.YNeg[x, Chunk.Last, z];
-                }
-                else
-                {
-                    adjacentBlock = new(1);
-                }
+                adjacentBlock = neighbors.YNeg[x, Chunk.Last, z];
             }
             else
             {
@@ -281,14 +267,7 @@ namespace SharpCraft.World
 
             if (x == Chunk.Last)
             {
-                if (neighbors.XPos != null)
-                {
-                    adjacentBlock = neighbors.XPos[0, y, z];
-                }
-                else
-                {
-                    adjacentBlock = new(1);
-                }
+                adjacentBlock = neighbors.XPos[0, y, z];
             }
             else
             {
@@ -298,14 +277,7 @@ namespace SharpCraft.World
 
             if (x == 0)
             {
-                if (neighbors.XNeg != null)
-                {
-                    adjacentBlock = neighbors.XNeg[Chunk.Last, y, z];
-                }
-                else
-                {
-                    adjacentBlock = new(1);
-                }
+                adjacentBlock = neighbors.XNeg[Chunk.Last, y, z];
             }
             else
             {
@@ -354,6 +326,10 @@ namespace SharpCraft.World
 
                     generatedChunks.Add(index);
                 }
+                else if (unfinishedChunkIndexes.Remove(index))
+                {
+                    generatedChunks.Add(index);
+                }
 
                 activeChunkIndexes.Add(index);
                 inactiveChunkIndexes.Remove(index);
@@ -367,15 +343,31 @@ namespace SharpCraft.World
                 CalculateChunkNeighbors(chunk);
             }
 
-            foreach (Vector3I index in generatedChunks)
-            {
-                Chunk chunk = chunks[index];
-                ChunkNeighbors neighbors = GetChunkNeighbors(index);
-                CalculateActiveBlocks(neighbors);
-                chunk.InitializeLight(neighbors);
-            }
+            List<Vector3I> readyChunks = [];
 
             foreach (Vector3I index in generatedChunks)
+            {
+                ChunkNeighbors neighbors = GetChunkNeighbors(index);
+                neighbors.Chunk.IsReady = neighbors.AllExist();
+
+                if (neighbors.Chunk.IsReady)
+                {
+                    CalculateActiveBlocks(neighbors);
+                    readyChunks.Add(index);
+                }
+                else
+                {
+                    unfinishedChunkIndexes.Add(index);
+                }
+            }
+
+            foreach (Vector3I index in readyChunks)
+            {
+                ChunkNeighbors neighbors = GetChunkNeighbors(index);
+                neighbors.Chunk.InitializeLight(neighbors);
+            }
+
+            foreach (Vector3I index in readyChunks)
             {
                 ChunkNeighbors neighbors = GetChunkNeighbors(index);
                 CalculateMesh(neighbors);
