@@ -21,7 +21,7 @@ namespace SharpCraft.World
         HashSet<ushort> lightSources = [];
         Dictionary<ushort, byte> lightValues = [];
 
-        public int GetBlocksCount => blockNameToId.Count;
+        public int BlockCount => blockNameToId.Count;
         public ushort[] GetBlockIds => [.. blockIdToName.Keys];
         public ushort GetBlockIndex(string name) => blockNameToId[name];
         public string GetBlockName(ushort index) => blockIdToName[index];

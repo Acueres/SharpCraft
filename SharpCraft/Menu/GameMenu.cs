@@ -268,7 +268,7 @@ namespace SharpCraft.Menu
                 new Vector2(10, 30), Color.White);
             spriteBatch.DrawString(font14, time.ToString(), new Vector2(10, 50), Color.White);
             spriteBatch.DrawString(font14, $"X: {player.Position.X: 0.00}, Y: {player.Position.Y: 0.00}, Z: {player.Position.Z: 0.00}", new Vector2(10, 70), Color.White);
-            spriteBatch.DrawString(font14, $"CX: {Region.CalculateChunkIndex(player.Position.X)}, CY: {Region.CalculateChunkIndex(player.Position.Y)}, CZ: {Region.CalculateChunkIndex(player.Position.Z)}", new Vector2(10, 90), Color.White);
+            spriteBatch.DrawString(font14, $"CX: {Chunk.CalculateChunkIndex(player.Position.X)}, CY: {Chunk.CalculateChunkIndex(player.Position.Y)}, CZ: {Chunk.CalculateChunkIndex(player.Position.Z)}", new Vector2(10, 90), Color.White);
         }
     }
 }

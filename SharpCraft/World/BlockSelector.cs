@@ -7,14 +7,14 @@ using SharpCraft.Assets;
 using SharpCraft.Utility;
 
 
-namespace SharpCraft.Rendering
+namespace SharpCraft.World
 {
     class BlockSelector
     {
         GraphicsDevice graphics;
         Effect effect;
 
-        VertexPositionTextureLight[] vertices;
+        List<VertexPositionTextureLight> vertices = [];
 
         Dictionary<int, char> faceMap;
 
@@ -26,8 +26,6 @@ namespace SharpCraft.Rendering
         public BlockSelector(GraphicsDevice graphics, AssetServer assetServer)
         {
             this.graphics = graphics;
-
-            vertices = new VertexPositionTextureLight[36];
 
             faceMap = new Dictionary<int, char>
             {
@@ -52,16 +50,18 @@ namespace SharpCraft.Rendering
 
         public void Draw()
         {
+            if (vertices.Count == 0) return;
+
             effect.Parameters["Alpha"].SetValue(1f);
             effect.Parameters["Texture"].SetValue(texture);
 
-            buffer.SetData(vertices);
+            buffer.SetData(vertices.ToArray());
             graphics.SetVertexBuffer(buffer);
 
             foreach (EffectPass pass in effect.CurrentTechnique.Passes)
             {
                 pass.Apply();
-                graphics.DrawPrimitives(PrimitiveType.TriangleList, 0, vertices.Length / 3);
+                graphics.DrawPrimitives(PrimitiveType.TriangleList, 0, vertices.Count / 3);
             }
         }
 
@@ -80,15 +80,14 @@ namespace SharpCraft.Rendering
                     VertexPositionTextureLight vertex = Cube.Faces[(byte)face][i];
 
                     vertex.Position += position;
-
-                    vertices[i + (int)face * 6] = vertex;
+                    vertices.Add(vertex);
                 }
             }
         }
 
         public void Clear()
         {
-            Array.Clear(vertices, 0, 36);
+            vertices.Clear();
         }
     }
 }

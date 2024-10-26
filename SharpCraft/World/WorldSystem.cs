@@ -2,7 +2,6 @@
 
 using SharpCraft.Handlers;
 using SharpCraft.Menu;
-using SharpCraft.Rendering;
 using SharpCraft.Utility;
 using System.Collections.Generic;
 
@@ -20,6 +19,7 @@ namespace SharpCraft.World
         readonly DatabaseHandler databaseHandler;
         readonly BlockSelector blockSelector;
         readonly BlockMetadataProvider blockMetadata;
+        readonly Time time;
 
         readonly Region region;
 
@@ -27,11 +27,12 @@ namespace SharpCraft.World
 
 
         public WorldSystem(GameMenu gameMenu, DatabaseHandler databaseHandler,
-            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata)
+            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata, Time time, RegionRenderer regionRenderer)
         {
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
             this.blockMetadata = blockMetadata;
+            this.time = time;
 
             water = blockMetadata.GetBlockIndex("water");
 
@@ -40,7 +41,7 @@ namespace SharpCraft.World
 
             Outline = new VertexPositionTextureLight[36];
 
-            region = new Region(Settings.RenderDistance, worldGenerator, databaseHandler, blockMetadata);
+            region = new Region(Settings.RenderDistance, worldGenerator, databaseHandler, regionRenderer);
         }
 
         public void SetPlayer(MainGame game, Player player, Parameters parameters)
@@ -70,6 +71,11 @@ namespace SharpCraft.World
             region.Update(player.Position);
         }
 
+        public void Render()
+        {
+            region.Render(player, time);
+        }
+
         public Region GetRegion() => region;
 
         public void UpdateBlocks()
@@ -88,7 +94,7 @@ namespace SharpCraft.World
             foreach (Vector3I chunkIndex in reachableChunkIndexes)
             {
                 chunk = region.GetChunk(chunkIndex);
-                foreach (Vector3I blockIndex in chunk.GetIndexes())
+                foreach (Vector3I blockIndex in chunk.GetActiveIndexes())
                 {
                     int x = blockIndex.X;
                     int y = blockIndex.Y;
@@ -117,7 +123,7 @@ namespace SharpCraft.World
                         else
                         {
                             var neighbors = region.GetChunkNeighbors(chunkIndex);
-                            FacesState visibleFaces = region.GetVisibleFaces(y, x, z, neighbors);
+                            FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, neighbors);
                             player.Physics.Collision(blockPosition, visibleFaces);
                         }
                     }

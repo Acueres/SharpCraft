@@ -64,7 +64,7 @@ namespace SharpCraft.GUI
                 hotbarItems = parameters.Inventory;
             }
 
-            int nRows = blockMetadata.GetBlocksCount / 9 + 1;
+            int nRows = blockMetadata.BlockCount / 9 + 1;
             items = new ushort[nRows, 9];
 
             int col = 0, row = 0;

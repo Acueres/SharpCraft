@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 using Microsoft.Xna.Framework;
 
-using SharpCraft.Rendering;
 using System.Linq;
 using SharpCraft.Utility;
 
@@ -30,18 +29,23 @@ namespace SharpCraft.World
 
         readonly BlockMetadataProvider blockMetadata;
 
-        public bool UpdateMesh { get; set; }
-        public int VertexCount => vertices.Count;
-        public int TransparentVertexCount => transparentVertices.Count;
-
-        readonly List<VertexPositionTextureLight> vertices = [];
-        readonly List<VertexPositionTextureLight> transparentVertices = [];
+        public bool RecalculateMesh { get; set; }
 
         readonly byte[,,] lightMap;
         readonly HashSet<Vector3I> lightSourceIndexes = [];
         readonly Queue<LightNode> lightQueue = new();
 
         readonly HashSet<Chunk> chunksToUpdate = [];
+
+        public static int CalculateChunkIndex(float val)
+        {
+            if (val < 0)
+            {
+                return (int)(val / Size) - 1;
+            }
+
+            return (int)(val / Size);
+        }
 
         public Chunk(Vector3I position, BlockMetadataProvider blockMetadata)
         {
@@ -56,8 +60,8 @@ namespace SharpCraft.World
 
         public Block this[int x, int y, int z]
         {
-            get => blocks[y, x, z];
-            set => blocks[y, x, z] = value;
+            get => blocks[x, y, z];
+            set => blocks[x, y, z] = value;
         }       
 
         public bool AddIndex(Vector3I index)
@@ -75,12 +79,19 @@ namespace SharpCraft.World
             return activeBlockIndexes.Where((index, id) => id == i).Single();
         }
 
-        public IEnumerable<Vector3I> GetIndexes()
+        public int ActiveBlocksCount => activeBlockIndexes.Count;
+
+        public IEnumerable<Vector3I> GetActiveIndexes()
         {
             foreach (Vector3I index in activeBlockIndexes)
             {
                 yield return index;
             }
+        }
+
+        public override int GetHashCode()
+        {
+            return Index.GetHashCode();
         }
 
         void Dispose(bool disposing)
@@ -98,40 +109,110 @@ namespace SharpCraft.World
             disposed = true;
         }
 
-        public VertexPositionTextureLight[] GetVertices() => [.. vertices];
-        public VertexPositionTextureLight[] GetTransparentVertices() => [.. transparentVertices];
-
-        public void ClearVerticesData()
+        public void CalculateActiveBlocks(ChunkNeighbors neighbors)
         {
-            vertices.Clear();
-            transparentVertices.Clear();
-        }
-
-        public void AddVertexData(Faces face, byte light, Vector3 position, ushort texture, bool transparent = false)
-        {
-            var targetVertices = transparent ? transparentVertices : vertices;
-            int textureCount = blockMetadata.GetBlocksCount;
-            for (int i = 0; i < 6; i++)
+            for (int y = 0; y < Size; y++)
             {
-                VertexPositionTextureLight vertex = Cube.Faces[(byte)face][i];
-                vertex.Position += position;
-
-                int skylight = (light >> 4) & 0xF;
-                int blockLight = light & 0xF;
-
-                vertex.Light = skylight + 397 * blockLight;
-
-                if (vertex.TextureCoordinate.Y == 0)
+                for (int x = 0; x < Size; x++)
                 {
-                    vertex.TextureCoordinate.Y = (float)texture / textureCount;
+                    for (int z = 0; z < Size; z++)
+                    {
+                        if (blocks[x, y, z].IsEmpty)
+                        {
+                            continue;
+                        }
+
+                        FacesState visibleFaces = GetVisibleFaces(y, x, z, neighbors, calculateOpacity: false);
+
+                        if (visibleFaces.Any())
+                        {
+                            AddIndex(new(x, y, z));
+                        }
+                    }
                 }
-                else
-                {
-                    vertex.TextureCoordinate.Y = (float)(texture + 1) / textureCount;
-                }
-                targetVertices.Add(vertex);
             }
         }
+
+        public FacesState GetVisibleFaces(int y, int x, int z, ChunkNeighbors neighbors,
+                                    bool calculateOpacity = true)
+        {
+            FacesState visibleFaces = new();
+
+            Block block = blocks[x, y, z];
+
+            Block adjacentBlock;
+
+            bool blockOpaque = true;
+            if (calculateOpacity)
+            {
+                blockOpaque = !(block.IsEmpty || blockMetadata.IsBlockTransparent(block.Value));
+            }
+
+            if (z == Last)
+            {
+                adjacentBlock = neighbors.ZPos[x, y, 0];
+            }
+            else
+            {
+                adjacentBlock = blocks[x, y, z + 1];
+            }
+            visibleFaces.ZPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            if (z == 0)
+            {
+                adjacentBlock = neighbors.ZNeg[x, y, Last];
+            }
+            else
+            {
+                adjacentBlock = blocks[x, y, z - 1];
+            }
+            visibleFaces.ZNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            if (y == Last)
+            {
+                adjacentBlock = neighbors.YPos[x, 0, z];
+            }
+            else
+            {
+                adjacentBlock = blocks[x, y + 1, z];
+            }
+            visibleFaces.YPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            if (y == 0)
+            {
+                adjacentBlock = neighbors.YNeg[x, Last, z];
+            }
+            else
+            {
+                adjacentBlock = blocks[x, y - 1, z];
+            }
+            visibleFaces.YNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+
+            if (x == Last)
+            {
+                adjacentBlock = neighbors.XPos[0, y, z];
+            }
+            else
+            {
+                adjacentBlock = blocks[x + 1, y, z];
+            }
+            visibleFaces.XPos = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            if (x == 0)
+            {
+                adjacentBlock = neighbors.XNeg[Last, y, z];
+            }
+            else
+            {
+                adjacentBlock = blocks[x - 1, y, z];
+            }
+            visibleFaces.XNeg = adjacentBlock.IsEmpty || (blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque);
+
+            return visibleFaces;
+        }
+
+        //TODO: refactor light section
 
         public void InitializeLight(ChunkNeighbors neighbors)
         {
@@ -241,7 +322,7 @@ namespace SharpCraft.World
 
             foreach (Chunk chunk in chunksToUpdate)
             {
-                chunk.UpdateMesh = true;
+                chunk.RecalculateMesh = true;
             }
 
             chunksToUpdate.Clear();
@@ -301,7 +382,7 @@ namespace SharpCraft.World
 
             foreach (Chunk chunk in chunksToUpdate)
             {
-                chunk.UpdateMesh = true;
+                chunk.RecalculateMesh = true;
             }
 
             chunksToUpdate.Clear();
@@ -440,7 +521,7 @@ namespace SharpCraft.World
                     lightQueue.Enqueue(new LightNode(neighbors.XPos, 0, y, z));
                 }
 
-                neighbors.XPos.UpdateMesh = true;
+                neighbors.XPos.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x + 1, y, z]) &&
                 CompareLightValues(chunk.GetLight(y, x + 1, z, channel), light))
@@ -459,7 +540,7 @@ namespace SharpCraft.World
                     lightQueue.Enqueue(new LightNode(neighbors.XNeg, Last, y, z));
                 }
 
-                neighbors.XNeg.UpdateMesh = true;
+                neighbors.XNeg.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x - 1, y, z]) &&
                 CompareLightValues(chunk.GetLight(y, x - 1, z, channel), light))
@@ -478,7 +559,7 @@ namespace SharpCraft.World
                     lightQueue.Enqueue(new LightNode(neighbors.ZPos, x, y, 0));
                 }
 
-                neighbors.ZPos.UpdateMesh = true;
+                neighbors.ZPos.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x, y, z + 1]) &&
                 CompareLightValues(chunk.GetLight(y, x, z + 1, channel), light))
@@ -497,7 +578,7 @@ namespace SharpCraft.World
                     lightQueue.Enqueue(new LightNode(neighbors.ZNeg, x, y, Last));
                 }
 
-                neighbors.ZNeg.UpdateMesh = true;
+                neighbors.ZNeg.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x, y, z - 1]) &&
                 CompareLightValues(chunk.GetLight(y, x, z - 1, channel), light))

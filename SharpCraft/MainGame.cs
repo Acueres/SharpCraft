@@ -5,7 +5,6 @@ using Microsoft.Xna.Framework;
 
 using SharpCraft.Handlers;
 using SharpCraft.Menu;
-using SharpCraft.Rendering;
 using SharpCraft.World;
 using SharpCraft.Utility;
 using SharpCraft.Assets;
@@ -36,7 +35,6 @@ namespace SharpCraft
         WorldSystem world;
         GameMenu gameMenu;
         MainMenu mainMenu;
-        Renderer renderer;
         DatabaseHandler databaseHandler;
         Save currentSave;
         Time time;
@@ -118,8 +116,8 @@ namespace SharpCraft
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName, blockMetadata);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata);
-                            renderer = new Renderer(this, GraphicsDevice, time, world.GetRegion(), screenshotHandler, blockSelector, assetServer, blockMetadata);
+                            RegionRenderer regionRenderer = new(GraphicsDevice, screenshotHandler, blockSelector, assetServer, blockMetadata);
+                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata, time, regionRenderer);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 
@@ -127,7 +125,7 @@ namespace SharpCraft
                             {
                                 player.Update(gameTime);
                                 world.Update();
-                                renderer.Draw(player);
+                                world.Render();
                                 screenshotHandler.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }
 
@@ -146,7 +144,6 @@ namespace SharpCraft
                             world = null;
                             databaseHandler = null;
                             gameMenu = null;
-                            renderer = null;
 
                             GC.Collect();
 
@@ -173,7 +170,7 @@ namespace SharpCraft
             {
                 case GameState.Started:
                     {
-                        renderer.Draw(player);
+                        world.Render();
                         gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
                         break;
                     }

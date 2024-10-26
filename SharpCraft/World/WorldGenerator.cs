@@ -15,7 +15,7 @@ namespace SharpCraft.World
         Mountain
     }
 
-    public class WorldGenerator
+    class WorldGenerator
     {
         readonly int seed;
         readonly string type;

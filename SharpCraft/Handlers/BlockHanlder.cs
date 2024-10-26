@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 
 using SharpCraft.Menu;
-using SharpCraft.Rendering;
 using SharpCraft.World;
 
 using SharpCraft.Utility;
@@ -62,15 +61,18 @@ namespace SharpCraft.Handlers
                 AddBlock(neighbors);
             }
 
-            if (y != -1 && !region.GetChunk(position)[x, y, z].IsEmpty)
-            {
-                FacesState visibleFaces = region.GetVisibleFaces(y, x, z, neighbors);
-
-                blockSelector.Update(visibleFaces, new Vector3(x, y, z) - region.GetChunk(position).Position, player.Camera.Direction);
-            }
-            else
+            if (y == -1)
             {
                 blockSelector.Clear();
+                return;
+            }
+
+            Chunk chunk = region.GetChunk(position);
+            if (!chunk[x, y, z].IsEmpty)
+            {
+                FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, neighbors);
+
+                blockSelector.Update(visibleFaces, new Vector3(x, y, z) + region.GetChunk(position).Position, player.Camera.Direction);
             }
         }
 
@@ -139,7 +141,7 @@ namespace SharpCraft.Handlers
         static void UpdateAdjacentBlocks(ChunkNeighbors neighbors, int y, int x, int z)
         {
             Chunk chunk = neighbors.Chunk;
-            chunk.UpdateMesh = true;
+            chunk.RecalculateMesh = true;
 
             if (!chunk[x, y, z].IsEmpty)
             {
@@ -175,7 +177,7 @@ namespace SharpCraft.Handlers
             if (!chunk[x, y, z].IsEmpty)
             {
                 chunk.AddIndex(new(x, y, z));
-                chunk.UpdateMesh = true;
+                chunk.RecalculateMesh = true;
             }
         }
 
