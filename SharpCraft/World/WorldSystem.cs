@@ -1,8 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
+using SharpCraft.Assets;
 using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Utility;
+
 using System.Collections.Generic;
 
 namespace SharpCraft.World
@@ -20,6 +23,7 @@ namespace SharpCraft.World
         readonly BlockSelector blockSelector;
         readonly BlockMetadataProvider blockMetadata;
         readonly Time time;
+        readonly LightSystem lightSystem;
 
         readonly Region region;
 
@@ -27,7 +31,8 @@ namespace SharpCraft.World
 
 
         public WorldSystem(GameMenu gameMenu, DatabaseHandler databaseHandler,
-            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata, Time time, RegionRenderer regionRenderer)
+            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata, Time time,
+            AssetServer assetServer, GraphicsDevice graphicsDevice, ScreenshotHandler screenshotHandler)
         {
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
@@ -41,7 +46,9 @@ namespace SharpCraft.World
 
             Outline = new VertexPositionTextureLight[36];
 
-            region = new Region(Settings.RenderDistance, worldGenerator, databaseHandler, regionRenderer);
+            lightSystem = new(blockMetadata);
+            RegionRenderer regionRenderer = new(graphicsDevice, screenshotHandler, blockSelector, assetServer, blockMetadata, lightSystem);
+            region = new Region(Settings.RenderDistance, worldGenerator, databaseHandler, regionRenderer, lightSystem);
         }
 
         public void SetPlayer(MainGame game, Player player, Parameters parameters)
@@ -49,7 +56,7 @@ namespace SharpCraft.World
             this.player = player;
             player.Flying = true;
 
-            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, blockMetadata);
+            blockHanlder = new BlockHanlder(game, player, region, gameMenu, databaseHandler, blockMetadata, lightSystem);
 
             region.Update(player.Position);
 

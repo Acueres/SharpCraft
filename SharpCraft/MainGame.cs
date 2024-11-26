@@ -116,8 +116,7 @@ namespace SharpCraft
                             databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName, blockMetadata);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata, player);
-                            RegionRenderer regionRenderer = new(GraphicsDevice, screenshotHandler, blockSelector, assetServer, blockMetadata);
-                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata, time, regionRenderer);
+                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata, time, assetServer, GraphicsDevice, screenshotHandler);
 
                             world.SetPlayer(this, player, currentSave.Parameters);
 

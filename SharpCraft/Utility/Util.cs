@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using SharpCraft.World;
 
 namespace SharpCraft.Utility
 {
@@ -18,13 +19,13 @@ namespace SharpCraft.Utility
             return char.ToUpper(str[0]) + str.Substring(1).ToLower();
         }
 
-        public static Faces MaxFace(IEnumerable<byte> faces)
+        public static Faces MaxFace(IEnumerable<LightValue> faceValues)
         {
-            Faces face = Faces.ZPos;
-            byte maxValue = 0;
+            Faces face = Faces.YPos;
+            LightValue maxValue = LightValue.Null;
             int index = 0;
 
-            foreach (byte value in faces)
+            foreach (LightValue value in faceValues)
             {
                 if (value > maxValue)
                 {

@@ -34,6 +34,7 @@ namespace SharpCraft.World
         readonly WorldGenerator worldGenerator;
         readonly DatabaseHandler databaseHandler;
         readonly RegionRenderer renderer;
+        readonly LightSystem lightSystem;
 
         readonly Dictionary<Vector3I, Chunk> chunks = [];
         readonly Dictionary<Vector3I, ChunkNeighbors> neighborsMap = [];
@@ -42,7 +43,7 @@ namespace SharpCraft.World
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
         readonly HashSet<Vector3I> unfinishedChunkIndexes = [];
 
-        public Region(int apothem, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, RegionRenderer renderer)
+        public Region(int apothem, WorldGenerator worldGenerator, DatabaseHandler databaseHandler, RegionRenderer renderer, LightSystem lightSystem)
         {
             this.apothem = apothem;
             this.worldGenerator = worldGenerator;
@@ -50,6 +51,7 @@ namespace SharpCraft.World
             this.renderer = renderer;
 
             proximityIndexes = GenerateProximityIndexes();
+            this.lightSystem = lightSystem;
         }
 
         public Chunk GetChunk(Vector3I index)
@@ -262,7 +264,7 @@ namespace SharpCraft.World
             foreach (Vector3I index in readyChunks)
             {
                 ChunkNeighbors neighbors = GetChunkNeighbors(index);
-                neighbors.Chunk.InitializeLight(neighbors);
+                lightSystem.InitializeLight(neighbors);
             }
 
             foreach (Vector3I index in readyChunks)

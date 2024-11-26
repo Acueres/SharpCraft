@@ -86,6 +86,8 @@ namespace SharpCraft.World
         readonly BlockMetadataProvider blockMetadata;
         readonly ScreenshotHandler screenshotHandler;
         readonly BlockSelector blockSelector;
+        readonly LightSystem lightSystem;
+
         readonly Texture2D atlas;
         readonly Effect effect;
         readonly DynamicVertexBuffer buffer;
@@ -96,12 +98,13 @@ namespace SharpCraft.World
 
         public RegionRenderer(GraphicsDevice graphics,
             ScreenshotHandler screenshotTaker, BlockSelector blockSelector,
-            AssetServer assetServer, BlockMetadataProvider blockMetadata)
+            AssetServer assetServer, BlockMetadataProvider blockMetadata, LightSystem lightSystem)
         {
             this.graphics = graphics;
             this.blockMetadata = blockMetadata;
             screenshotHandler = screenshotTaker;
             this.blockSelector = blockSelector;
+            this.lightSystem = lightSystem;
 
             blockCount = blockMetadata.BlockCount;
 
@@ -240,12 +243,12 @@ namespace SharpCraft.World
                 Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
                 FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, neighbors);
-                FacesData<byte> lightValues = chunk.GetFacesLight(visibleFaces, y, x, z, neighbors);
+                FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, y, x, z, neighbors);
 
                 foreach (Faces face in visibleFaces.GetFaces())
                 {
                     ushort texture = chunk[x, y, z].Value;
-                    byte light = lightValues.GetValue(face);
+                    LightValue light = lightValues.GetValue(face);
 
                     if (blockMetadata.IsBlockTransparent(texture))
                     {
@@ -266,7 +269,7 @@ namespace SharpCraft.World
             return ([.. vertices], [.. transparentVertices]);
         }
 
-        VertexPositionTextureLight[] GetBlockVertices(Faces face, byte light, Vector3 position, ushort texture)
+        VertexPositionTextureLight[] GetBlockVertices(Faces face, LightValue light, Vector3 position, ushort texture)
         {
             const int nVertices = 6;
             VertexPositionTextureLight[] vertices = new VertexPositionTextureLight[nVertices];
@@ -275,8 +278,8 @@ namespace SharpCraft.World
                 VertexPositionTextureLight vertex = Cube.Faces[(byte)face][i];
                 vertex.Position += position;
 
-                int skylight = (light >> 4) & 0xF;
-                int blockLight = light & 0xF;
+                int skylight = light.SkyValue;
+                int blockLight = light.BlockValue;
 
                 vertex.Light = skylight + 397 * blockLight;
 

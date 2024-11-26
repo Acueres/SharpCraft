@@ -4,6 +4,7 @@ using SharpCraft.Menu;
 using SharpCraft.World;
 
 using SharpCraft.Utility;
+using Newtonsoft.Json.Linq;
 
 
 namespace SharpCraft.Handlers
@@ -16,6 +17,7 @@ namespace SharpCraft.Handlers
         GameMenu gameMenu;
         DatabaseHandler databaseHandler;
         readonly BlockMetadataProvider blockMetadata;
+        readonly LightSystem lightSystem;
 
         int x, y, z;
         Vector3I position;
@@ -23,7 +25,7 @@ namespace SharpCraft.Handlers
 
 
         public BlockHanlder(MainGame game, Player player, Region region,
-            GameMenu gameMenu, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata)
+            GameMenu gameMenu, DatabaseHandler databaseHandler, BlockMetadataProvider blockMetadata, LightSystem lightSystem)
         {
             this.game = game;
             this.player = player;
@@ -31,6 +33,7 @@ namespace SharpCraft.Handlers
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
             this.blockMetadata = blockMetadata;
+            this.lightSystem = lightSystem;
         }
 
         public void Reset()
@@ -93,7 +96,7 @@ namespace SharpCraft.Handlers
 
             chunk.RemoveIndex(new(x, y, z));
 
-            chunk.UpdateLight(y, x, z, Block.EmptyValue, neighbors, sourceRemoved: lightSource);
+            lightSystem.UpdateLight(x, y, z, Block.EmptyValue, neighbors, sourceRemoved: lightSource);
 
             databaseHandler.AddDelta(position, y, x, z, Block.Empty);
 
@@ -131,7 +134,7 @@ namespace SharpCraft.Handlers
 
             chunk[x, y, z] = new(texture);
 
-            chunk.UpdateLight(y, x, z, texture, neighbors);
+            lightSystem.UpdateLight(x, y, z, texture, neighbors);
 
             databaseHandler.AddDelta(position, y, x, z, new(texture));
 

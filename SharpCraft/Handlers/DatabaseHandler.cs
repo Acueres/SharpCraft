@@ -113,7 +113,7 @@ namespace SharpCraft.Handlers
 
                 if (block != Block.EmptyValue && blockMetadata.IsLightSource(block))
                 {
-                    chunk.AddLightSource(y, x, z);
+                    chunk.AddLightSource(x, y, z);
                 }
             }
         }
