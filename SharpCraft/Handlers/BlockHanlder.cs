@@ -5,6 +5,7 @@ using SharpCraft.World;
 
 using SharpCraft.Utility;
 using Newtonsoft.Json.Linq;
+using SharpCraft.World.Light;
 
 
 namespace SharpCraft.Handlers

@@ -7,32 +7,30 @@ using Microsoft.Xna.Framework;
 
 using System.Linq;
 using SharpCraft.Utility;
+using SharpCraft.World.Light;
 
 namespace SharpCraft.World
 {
     public class Chunk : IDisposable
     {
+        public const int Size = 16;
+        public const int Last = Size - 1;
+
         public Vector3I Index { get; }
         public Vector3 Position { get; }
         public bool IsReady { get; set; }
 
         readonly HashSet<Vector3I> activeBlockIndexes = [];
-
         readonly Block[,,] blocks;
+        readonly LightChunk lightChunk;
 
         public void Dispose() => Dispose(true);
         readonly SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
         bool disposed = false;
 
-        public const int Size = 16;
-        public const int Last = Size - 1;
-
         readonly BlockMetadataProvider blockMetadata;
 
         public bool RecalculateMesh { get; set; }
-
-        readonly LightValue[,,] lightMap;
-        readonly HashSet<Vector3I> lightSourceIndexes = [];
 
         public static int CalculateChunkIndex(float val)
         {
@@ -52,7 +50,7 @@ namespace SharpCraft.World
             this.blockMetadata = blockMetadata;
 
             blocks = new Block[Size, Size, Size];
-            lightMap = new LightValue[Size, Size, Size];
+            lightChunk = new();
         }
 
         public Block this[int x, int y, int z]
@@ -63,12 +61,12 @@ namespace SharpCraft.World
 
         public LightValue GetLight(int x, int y, int z)
         {
-            return lightMap[x, y, z];
+            return lightChunk[x, y, z];
         }
 
         public void SetLight(int x, int y, int z, LightValue value)
         {
-            lightMap[x, y, z] = value;
+            lightChunk[x, y, z] = value;
         }
 
         public bool AddIndex(Vector3I index)
@@ -88,7 +86,7 @@ namespace SharpCraft.World
 
         public void AddLightSource(int x, int y, int z)
         {
-            lightSourceIndexes.Add(new Vector3I(x, y, z));
+            lightChunk.AddLightSource(x, y, z);
         }
 
         public int ActiveBlocksCount => activeBlockIndexes.Count;
@@ -100,7 +98,7 @@ namespace SharpCraft.World
 
         public IEnumerable<Vector3I> GetLightSources()
         {
-            foreach (Vector3I index in lightSourceIndexes) yield return index;
+            return lightChunk.GetLightSources();
         }
 
         public override int GetHashCode()

@@ -5,7 +5,7 @@ using SharpCraft.Assets;
 using SharpCraft.Handlers;
 using SharpCraft.Menu;
 using SharpCraft.Utility;
-
+using SharpCraft.World.Light;
 using System.Collections.Generic;
 
 namespace SharpCraft.World

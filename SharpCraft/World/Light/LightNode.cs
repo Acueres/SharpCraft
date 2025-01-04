@@ -1,22 +1,13 @@
 ﻿using System;
 
-namespace SharpCraft.World
+namespace SharpCraft.World.Light
 {
-    readonly struct LightNode
+    readonly struct LightNode(Chunk chunk, int x, int y, int z)
     {
-        public Chunk Chunk {  get; }
-        public int X { get; }
-        public int Y { get; }
-        public int Z { get; }
-
-
-        public LightNode(Chunk chunk, int x, int y, int z)
-        {
-            Chunk = chunk;
-            X = x;
-            Y = y;
-            Z = z;
-        }
+        public Chunk Chunk { get; } = chunk;
+        public int X { get; } = x;
+        public int Y { get; } = y;
+        public int Z { get; } = z;
 
         public readonly Block GetBlock()
         {
