@@ -91,7 +91,7 @@ namespace SharpCraft.World
                 _ => Default(position),
             };
         }
-        
+
         IChunk Default(Vector3I index)
         {
             FullChunk chunk = new(index, blockMetadata);
@@ -132,7 +132,8 @@ namespace SharpCraft.World
 
             if (maxElevation < chunk.Position.Y)
             {
-                return chunk;
+                chunk.Dispose();
+                return new AirChunk(index);
             }
 
             for (int x = 0; x < FullChunk.Size; x++)

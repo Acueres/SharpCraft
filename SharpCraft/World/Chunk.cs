@@ -8,6 +8,7 @@ using Microsoft.Xna.Framework;
 using System.Linq;
 using SharpCraft.Utility;
 using SharpCraft.World.Light;
+using System.Drawing;
 
 namespace SharpCraft.World
 {
@@ -27,7 +28,77 @@ namespace SharpCraft.World
         bool AddIndex(Vector3I index);
         bool RemoveIndex(Vector3I index);
         IEnumerable<Vector3I> GetLightSources();
-        public void Dispose();
+        void Dispose();
+        int GetHashCode();
+    }
+
+    public class AirChunk : IChunk, IDisposable
+    {
+        public Vector3I Index { get; }
+        public Vector3 Position { get; }
+        public bool IsReady { get; set; }
+        public bool RecalculateMesh { get; set; }
+
+        LightValue lightValue;
+
+        public void Dispose() => Dispose(true);
+        readonly SafeHandle safeHandle = new SafeFileHandle(IntPtr.Zero, true);
+        bool disposed = false;
+
+        public AirChunk(Vector3I index)
+        {
+            Index = index;
+            Position = FullChunk.Size * new Vector3(index.X, index.Y, index.Z);
+        }
+
+        void Dispose(bool disposing)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                safeHandle?.Dispose();
+            }
+
+            disposed = true;
+        }
+
+        public Block this[int x, int y, int z]
+        {
+            get => Block.Empty;
+            set { }
+        }
+
+        public LightValue GetLight(int x, int y, int z)
+        {
+            return lightValue;
+        }
+
+        public void SetLight(int x, int y, int z, LightValue value)
+        {
+            lightValue = value;
+        }
+
+        public bool AddIndex(Vector3I index) => true;
+
+        public bool RemoveIndex(Vector3I index) => true;
+
+        public IEnumerable<Vector3I> GetActiveIndexes() => [];
+
+        public IEnumerable<Vector3I> GetLightSources() => [];
+
+        public void CalculateActiveBlocks(ChunkNeighbors neighbors) { }
+
+        public FacesState GetVisibleFaces(int y, int x, int z, ChunkNeighbors neighbors,
+                                    bool calculateOpacity = true) => new(false);
+
+        public override int GetHashCode()
+        {
+            return Index.GetHashCode();
+        }
     }
 
     public class FullChunk : IChunk, IDisposable
@@ -61,10 +132,10 @@ namespace SharpCraft.World
             return (int)(val / Size);
         }
 
-        public FullChunk(Vector3I position, BlockMetadataProvider blockMetadata)
+        public FullChunk(Vector3I index, BlockMetadataProvider blockMetadata)
         {
-            Index = position;
-            Position = Size * new Vector3(position.X, position.Y, position.Z);
+            Index = index;
+            Position = Size * new Vector3(index.X, index.Y, index.Z);
 
             this.blockMetadata = blockMetadata;
 
@@ -96,11 +167,6 @@ namespace SharpCraft.World
         public bool RemoveIndex(Vector3I index)
         {
             return activeBlockIndexes.Remove(index);
-        }
-
-        public Vector3I GetIndex(int i)
-        {
-            return activeBlockIndexes.Where((index, id) => id == i).Single();
         }
 
         public void AddLightSource(int x, int y, int z)

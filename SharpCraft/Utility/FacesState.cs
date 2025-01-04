@@ -16,6 +16,21 @@ namespace SharpCraft.Utility
     {
         byte data;
 
+        public FacesState()
+        {
+            data = 0;
+        }
+
+        public FacesState(bool value)
+        {
+            XPos = value;
+            XNeg = value;
+            YPos = value;
+            YNeg = value;
+            ZPos = value;
+            ZNeg = value;
+        }
+
         public readonly bool Any()
         {
             return YPos || XPos || XNeg || ZPos || ZNeg || YNeg;
