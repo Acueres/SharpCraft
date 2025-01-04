@@ -71,7 +71,7 @@ namespace SharpCraft.Handlers
                 return;
             }
 
-            Chunk chunk = region.GetChunk(position);
+            IChunk chunk = region.GetChunk(position);
             if (!chunk[x, y, z].IsEmpty)
             {
                 FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, neighbors);
@@ -87,7 +87,7 @@ namespace SharpCraft.Handlers
                 return;
             }
 
-            Chunk chunk = region.GetChunk(position);
+            IChunk chunk = region.GetChunk(position);
 
             Block block = chunk[x, y, z];
 
@@ -114,7 +114,7 @@ namespace SharpCraft.Handlers
             char side = Util.MaxVectorComponent(player.Camera.Direction);
 
             AdjustIndices(side, player.Camera.Direction);
-            Chunk chunk = region.GetChunk(position);
+            IChunk chunk = region.GetChunk(position);
 
             Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
@@ -144,7 +144,7 @@ namespace SharpCraft.Handlers
 
         static void UpdateAdjacentBlocks(ChunkNeighbors neighbors, int y, int x, int z)
         {
-            Chunk chunk = neighbors.Chunk;
+            IChunk chunk = neighbors.Chunk;
             chunk.RecalculateMesh = true;
 
             if (!chunk[x, y, z].IsEmpty)
@@ -155,28 +155,28 @@ namespace SharpCraft.Handlers
             ActivateBlock(chunk, y + 1, x, z);
             ActivateBlock(chunk, y - 1, x, z);
 
-            if (x < Chunk.Last)
+            if (x < FullChunk.Last)
                 ActivateBlock(chunk, y, x + 1, z);
-            else if (x == Chunk.Last)
+            else if (x == FullChunk.Last)
                 ActivateBlock(neighbors.XPos, y, 0, z);
 
             if (x > 0)
                 ActivateBlock(chunk, y, x - 1, z);
             else if (x == 0)
-                ActivateBlock(neighbors.XNeg, y, Chunk.Last, z);
+                ActivateBlock(neighbors.XNeg, y, FullChunk.Last, z);
 
-            if (z < Chunk.Last)
+            if (z < FullChunk.Last)
                 ActivateBlock(chunk, y, x, z + 1);
-            else if (z == Chunk.Last)
+            else if (z == FullChunk.Last)
                 ActivateBlock(neighbors.ZPos, y, x, 0);
 
             if (z > 0)
                 ActivateBlock(chunk, y, x, z - 1);
             else if (z == 0)
-                ActivateBlock(neighbors.ZNeg, y, x, Chunk.Last);
+                ActivateBlock(neighbors.ZNeg, y, x, FullChunk.Last);
         }
 
-        static void ActivateBlock(Chunk chunk, int y, int x, int z)
+        static void ActivateBlock(IChunk chunk, int y, int x, int z)
         {
             if (!chunk[x, y, z].IsEmpty)
             {
@@ -199,7 +199,7 @@ namespace SharpCraft.Handlers
                     if (vector.X > 0) x--;
                     else x++;
 
-                    if (x > Chunk.Last)
+                    if (x > FullChunk.Last)
                     {
                         position = xNeg;
                         x = 0;
@@ -208,7 +208,7 @@ namespace SharpCraft.Handlers
                     else if (x < 0)
                     {
                         position = xPos;
-                        x = Chunk.Last;
+                        x = FullChunk.Last;
                     }
 
                     break;
@@ -223,7 +223,7 @@ namespace SharpCraft.Handlers
                     if (vector.Z > 0) z--;
                     else z++;
 
-                    if (z > Chunk.Last)
+                    if (z > FullChunk.Last)
                     {
                         position = zNeg;
                         z = 0;
@@ -232,7 +232,7 @@ namespace SharpCraft.Handlers
                     else if (z < 0)
                     {
                         position = zPos;
-                        z = Chunk.Last;
+                        z = FullChunk.Last;
                     }
 
                     break;

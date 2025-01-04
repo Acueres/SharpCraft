@@ -12,13 +12,13 @@ namespace SharpCraft.World
 {
     public class ChunkNeighbors
     {
-        public Chunk Chunk {  get; set; }
-        public Chunk XNeg { get; set; }
-        public Chunk XPos {  get; set; }
-        public Chunk YPos { get; set; }
-        public Chunk YNeg { get; set; }
-        public Chunk ZNeg { get; set; }
-        public Chunk ZPos { get; set; }
+        public IChunk Chunk {  get; set; }
+        public IChunk XNeg { get; set; }
+        public IChunk XPos {  get; set; }
+        public IChunk YPos { get; set; }
+        public IChunk YNeg { get; set; }
+        public IChunk ZNeg { get; set; }
+        public IChunk ZPos { get; set; }
 
         public bool AllExist()
         {
@@ -37,7 +37,7 @@ namespace SharpCraft.World
         readonly RegionRenderer renderer;
         readonly LightSystem lightSystem;
 
-        readonly Dictionary<Vector3I, Chunk> chunks = [];
+        readonly Dictionary<Vector3I, IChunk> chunks = [];
         readonly Dictionary<Vector3I, ChunkNeighbors> neighborsMap = [];
         readonly List<Vector3I> proximityIndexes = [];
         readonly List<Vector3I> activeChunkIndexes = [];
@@ -55,16 +55,16 @@ namespace SharpCraft.World
             this.lightSystem = lightSystem;
         }
 
-        public Chunk GetChunk(Vector3I index)
+        public IChunk GetChunk(Vector3I index)
         {
             return chunks[index];
         }
 
         public void Update(Vector3 pos)
         {
-            int x = Chunk.CalculateChunkIndex(pos.X);
-            int y = Chunk.CalculateChunkIndex(pos.Y);
-            int z = Chunk.CalculateChunkIndex(pos.Z);
+            int x = FullChunk.CalculateChunkIndex(pos.X);
+            int y = FullChunk.CalculateChunkIndex(pos.Y);
+            int z = FullChunk.CalculateChunkIndex(pos.Z);
 
             Vector3I center = new(x, y, z);
 
@@ -75,7 +75,7 @@ namespace SharpCraft.World
 
             foreach (Vector3I index in activeChunkIndexes)
             {
-                Chunk chunk = GetChunk(index);
+                IChunk chunk = GetChunk(index);
                 if (chunk.RecalculateMesh)
                 {
                     var neighbors = GetChunkNeighbors(index);
@@ -95,19 +95,19 @@ namespace SharpCraft.World
 
         public static HashSet<Vector3I> GetReachableChunkIndexes(Vector3 pos)
         {
-            int xIndex = Chunk.CalculateChunkIndex(pos.X);
-            int xIndexPlus6 = Chunk.CalculateChunkIndex(pos.X + 6);
-            int xIndexMinus6 = Chunk.CalculateChunkIndex(pos.X - 6);
+            int xIndex = FullChunk.CalculateChunkIndex(pos.X);
+            int xIndexPlus6 = FullChunk.CalculateChunkIndex(pos.X + 6);
+            int xIndexMinus6 = FullChunk.CalculateChunkIndex(pos.X - 6);
             Span<int> xValues = [xIndex, xIndexPlus6, xIndexMinus6];
 
-            int yIndex = Chunk.CalculateChunkIndex(pos.Y);
-            int yIndexPlus6 = Chunk.CalculateChunkIndex(pos.Y + 6);
-            int yIndexMinus6 = Chunk.CalculateChunkIndex(pos.Y - 6);
+            int yIndex = FullChunk.CalculateChunkIndex(pos.Y);
+            int yIndexPlus6 = FullChunk.CalculateChunkIndex(pos.Y + 6);
+            int yIndexMinus6 = FullChunk.CalculateChunkIndex(pos.Y - 6);
             Span<int> yValues = [yIndex, yIndexPlus6, yIndexMinus6];
 
-            int zIndex = Chunk.CalculateChunkIndex(pos.Z);
-            int zIndexPlus6 = Chunk.CalculateChunkIndex(pos.Z + 6);
-            int zIndexMinus6 = Chunk.CalculateChunkIndex(pos.Z - 6);
+            int zIndex = FullChunk.CalculateChunkIndex(pos.Z);
+            int zIndexPlus6 = FullChunk.CalculateChunkIndex(pos.Z + 6);
+            int zIndexMinus6 = FullChunk.CalculateChunkIndex(pos.Z - 6);
             Span<int> zValues = [zIndex, zIndexPlus6, zIndexMinus6];
 
             HashSet<Vector3I> indexes = [];
@@ -125,14 +125,14 @@ namespace SharpCraft.World
             return indexes;
         }
 
-        public IEnumerable<Chunk> GetActiveChunks()
+        public IEnumerable<IChunk> GetActiveChunks()
         {
             foreach (Vector3I index in activeChunkIndexes) { yield return chunks[index]; }
         }
 
         public ChunkNeighbors GetChunkNeighbors(Vector3I index) => neighborsMap[index];
 
-        void CalculateChunkNeighbors(Chunk chunk)
+        void CalculateChunkNeighbors(IChunk chunk)
         {
             ChunkNeighbors neighbors = new()
             {
@@ -220,7 +220,7 @@ namespace SharpCraft.World
 
                 if (!chunks.ContainsKey(index))
                 {
-                    Chunk chunk = worldGenerator.GenerateChunk(index);
+                    IChunk chunk = worldGenerator.GenerateChunk(index);
                     chunks.Add(index, chunk);
 
                     databaseHandler.ApplyDelta(chunks[index]);
@@ -240,7 +240,7 @@ namespace SharpCraft.World
 
             foreach (Vector3I index in generatedChunks)
             {
-                Chunk chunk = chunks[index];
+                IChunk chunk = chunks[index];
                 CalculateChunkNeighbors(chunk);
             }
 

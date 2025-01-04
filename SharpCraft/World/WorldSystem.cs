@@ -94,7 +94,7 @@ namespace SharpCraft.World
             Vector3 blockMax = new(0.5f, 0.5f, 0.5f);
             Vector3 blockMin = new(-0.5f, -0.5f, -0.5f);
 
-            Chunk chunk;
+            IChunk chunk;
 
             HashSet<Vector3I> reachableChunkIndexes = Region.GetReachableChunkIndexes(player.Position);
 

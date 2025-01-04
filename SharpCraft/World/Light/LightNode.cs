@@ -2,9 +2,9 @@
 
 namespace SharpCraft.World.Light
 {
-    readonly struct LightNode(Chunk chunk, int x, int y, int z)
+    readonly struct LightNode(IChunk chunk, int x, int y, int z)
     {
-        public Chunk Chunk { get; } = chunk;
+        public IChunk Chunk { get; } = chunk;
         public int X { get; } = x;
         public int Y { get; } = y;
         public int Z { get; } = z;

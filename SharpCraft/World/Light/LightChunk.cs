@@ -10,7 +10,7 @@ namespace SharpCraft.World.Light
 
         public LightChunk()
         {
-            lightMap = new LightValue[Chunk.Size, Chunk.Size, Chunk.Size];
+            lightMap = new LightValue[FullChunk.Size, FullChunk.Size, FullChunk.Size];
         }
 
         public LightValue this[int x, int y, int z]

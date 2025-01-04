@@ -11,7 +11,26 @@ using SharpCraft.World.Light;
 
 namespace SharpCraft.World
 {
-    public class Chunk : IDisposable
+    public interface IChunk
+    {
+        Vector3I Index { get; }
+        Vector3 Position { get; }
+        bool IsReady { get; set; }
+        bool RecalculateMesh { get; set; }
+
+        Block this[int x, int y, int z] { get; set; }
+        LightValue GetLight(int x, int y, int z);
+        void SetLight(int x, int y, int z, LightValue value);
+        void CalculateActiveBlocks(ChunkNeighbors neighbors);
+        IEnumerable<Vector3I> GetActiveIndexes();
+        FacesState GetVisibleFaces(int y, int x, int z, ChunkNeighbors neighbors, bool calculateOpacity = true);
+        bool AddIndex(Vector3I index);
+        bool RemoveIndex(Vector3I index);
+        IEnumerable<Vector3I> GetLightSources();
+        public void Dispose();
+    }
+
+    public class FullChunk : IChunk, IDisposable
     {
         public const int Size = 16;
         public const int Last = Size - 1;
@@ -42,7 +61,7 @@ namespace SharpCraft.World
             return (int)(val / Size);
         }
 
-        public Chunk(Vector3I position, BlockMetadataProvider blockMetadata)
+        public FullChunk(Vector3I position, BlockMetadataProvider blockMetadata)
         {
             Index = position;
             Position = Size * new Vector3(position.X, position.Y, position.Z);

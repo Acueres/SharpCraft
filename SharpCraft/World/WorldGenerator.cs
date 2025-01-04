@@ -83,7 +83,7 @@ namespace SharpCraft.World
             biomesCache.Clear();
         }
 
-        public Chunk GenerateChunk(Vector3I position)
+        public IChunk GenerateChunk(Vector3I position)
         {
             return type switch
             {
@@ -92,9 +92,9 @@ namespace SharpCraft.World
             };
         }
         
-        Chunk Default(Vector3I index)
+        IChunk Default(Vector3I index)
         {
-            Chunk chunk = new(index, blockMetadata);
+            FullChunk chunk = new(index, blockMetadata);
             int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
             Random rnd = new(chunkSeed);
 
@@ -103,12 +103,12 @@ namespace SharpCraft.World
             BiomeType[,] biomes;
             if (!terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainLevel))
             {
-                terrainLevel = new int[Chunk.Size, Chunk.Size];
-                biomes = new BiomeType[Chunk.Size, Chunk.Size];
+                terrainLevel = new int[FullChunk.Size, FullChunk.Size];
+                biomes = new BiomeType[FullChunk.Size, FullChunk.Size];
 
-                for (int x = 0; x < Chunk.Size; x++)
+                for (int x = 0; x < FullChunk.Size; x++)
                 {
-                    for (int z = 0; z < Chunk.Size; z++)
+                    for (int z = 0; z < FullChunk.Size; z++)
                     {
                         (int height, BiomeType biome) = GetHeight(chunk.Position, x, z);
                         terrainLevel[x, z] = height;
@@ -135,14 +135,14 @@ namespace SharpCraft.World
                 return chunk;
             }
 
-            for (int x = 0; x < Chunk.Size; x++)
+            for (int x = 0; x < FullChunk.Size; x++)
             {
-                for (int z = 0; z < Chunk.Size; z++)
+                for (int z = 0; z < FullChunk.Size; z++)
                 {
                     if (chunk.Position.Y > terrainLevel[x, z]) continue;
 
                     float diff = terrainLevel[x, z] - chunk.Position.Y;
-                    int yMax = Math.Clamp((int)diff, 0, Chunk.Size);
+                    int yMax = Math.Clamp((int)diff, 0, FullChunk.Size);
 
                     for (int y = 0; y < yMax; y++)
                     {
@@ -193,14 +193,14 @@ namespace SharpCraft.World
             return (height, biome);
         }
 
-        Chunk Flat(Vector3I position)
+        FullChunk Flat(Vector3I position)
         {
-            Chunk chunk = new(position, blockMetadata);
+            FullChunk chunk = new(position, blockMetadata);
             for (int y = 0; y < 5; y++)
             {
-                for (int x = 0; x < Chunk.Size; x++)
+                for (int x = 0; x < FullChunk.Size; x++)
                 {
-                    for (int z = 0; z < Chunk.Size; z++)
+                    for (int z = 0; z < FullChunk.Size; z++)
                     {
                         ushort texture;
 
@@ -293,7 +293,7 @@ namespace SharpCraft.World
             return 0;
         }
 
-        void GenerateTrees(Chunk chunk, int[,] terrainlevel, BiomeType[,] biomes, Random rnd)
+        void GenerateTrees(FullChunk chunk, int[,] terrainlevel, BiomeType[,] biomes, Random rnd)
         {
             int n = rnd.Next(2, 6);
             int[,] coords = new int[n, 2];
@@ -302,8 +302,8 @@ namespace SharpCraft.World
 
             while (i < n)
             {
-                int x = rnd.Next(1, Chunk.Last - 1);
-                int z = rnd.Next(1, Chunk.Last - 1);
+                int x = rnd.Next(1, FullChunk.Last - 1);
+                int z = rnd.Next(1, FullChunk.Last - 1);
 
                 bool skip = false;
                 for (int j = 0; j < i; j++)
@@ -355,7 +355,7 @@ namespace SharpCraft.World
             }
         }
 
-        void MakeTree(Chunk chunk, ushort wood, int y, int x, int z, Random rnd)
+        void MakeTree(FullChunk chunk, ushort wood, int y, int x, int z, Random rnd)
         {
             if (chunk[x, y - 1, z].Value != grass &&
                 chunk[x, y - 1, z].Value != dirt)

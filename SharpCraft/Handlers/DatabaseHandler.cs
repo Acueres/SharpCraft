@@ -89,16 +89,18 @@ namespace SharpCraft.Handlers
             dataQueue.Enqueue(new SaveData(index, x, y, z, block));
         }
 
-        public void ApplyDelta(Chunk chunk)
+        public void ApplyDelta(IChunk chunk)
         {
+            if (chunk is not FullChunk fullChunk) return;
+
             var command = new SQLiteCommand(connection)
             {
                 CommandText = selectCommand
             };
 
-            command.Parameters.AddWithValue("@x", chunk.Index.X);
-            command.Parameters.AddWithValue("@y", chunk.Index.Y);
-            command.Parameters.AddWithValue("@z", chunk.Index.Z);
+            command.Parameters.AddWithValue("@x", fullChunk.Index.X);
+            command.Parameters.AddWithValue("@y", fullChunk.Index.Y);
+            command.Parameters.AddWithValue("@z", fullChunk.Index.Z);
 
             var reader = command.ExecuteReader();
 
@@ -109,11 +111,11 @@ namespace SharpCraft.Handlers
                 int z = reader.GetInt32(2);
                 ushort block = (ushort)reader.GetInt32(3);
 
-                chunk[x, y, z] = new(block);
+                fullChunk[x, y, z] = new(block);
 
                 if (block != Block.EmptyValue && blockMetadata.IsLightSource(block))
                 {
-                    chunk.AddLightSource(x, y, z);
+                    fullChunk.AddLightSource(x, y, z);
                 }
             }
         }

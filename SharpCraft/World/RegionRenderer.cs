@@ -152,13 +152,13 @@ namespace SharpCraft.World
             transparentVerticesCache.Remove(index);
         }
 
-        public void Render(IEnumerable<Chunk> chunks, Player player, Time time)
+        public void Render(IEnumerable<IChunk> chunks, Player player, Time time)
         {
-            Vector3 chunkMax = new(Chunk.Size);
+            Vector3 chunkMax = new(FullChunk.Size);
 
             float lightIntensity = time.LightIntensity;
 
-            HashSet<Chunk> visibleChunks = [];
+            HashSet<FullChunk> visibleChunks = [];
 
             effect.Parameters["World"].SetValue(Matrix.Identity);
             effect.Parameters["View"].SetValue(player.Camera.View);
@@ -169,24 +169,24 @@ namespace SharpCraft.World
             graphics.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
 
             //Drawing opaque blocks
-            foreach (Chunk chunk in chunks)
+            foreach (IChunk chunk in chunks)
             {
-                if (!chunk.IsReady) continue;
+                if (chunk is not FullChunk fullChunk || !fullChunk.IsReady) continue;
 
-                BoundingBox chunkBounds = new(chunk.Position, chunkMax + chunk.Position);
+                BoundingBox chunkBounds = new(fullChunk.Position, chunkMax + fullChunk.Position);
 
                 bool isChunkVisible = false;
                 if (player.Camera.Frustum.Intersects(chunkBounds))
                 {
-                    visibleChunks.Add(chunk);
+                    visibleChunks.Add(fullChunk);
                     isChunkVisible = true;
                 }
 
-                if (isChunkVisible && chunk.ActiveBlocksCount > 0)
+                if (isChunkVisible && fullChunk.ActiveBlocksCount > 0)
                 {
                     effect.Parameters["Alpha"].SetValue(1f);
 
-                    var vertices = verticesCache[chunk.Index];
+                    var vertices = verticesCache[fullChunk.Index];
 
                     if (vertices.Length == 0) continue;
 
@@ -202,7 +202,7 @@ namespace SharpCraft.World
             }
 
             //Drawing transparent blocks
-            foreach (Chunk chunk in visibleChunks)
+            foreach (FullChunk chunk in visibleChunks)
             {
                 var vertices = transparentVerticesCache[chunk.Index];
                 if (vertices.Length == 0) continue;
@@ -230,25 +230,27 @@ namespace SharpCraft.World
 
         public (VertexPositionTextureLight[], VertexPositionTextureLight[]) CalculateMesh(ChunkNeighbors neighbors)
         {
-            Chunk chunk = neighbors.Chunk;
+            IChunk chunk = neighbors.Chunk;
 
             List<VertexPositionTextureLight> vertices = [];
             List<VertexPositionTextureLight> transparentVertices = [];
 
-            foreach (Vector3I index in chunk.GetActiveIndexes())
+            if (chunk is not FullChunk fullChunk) return ([], []);
+
+            foreach (Vector3I index in fullChunk.GetActiveIndexes())
             {
                 int x = index.X;
                 int y = index.Y;
                 int z = index.Z;
 
-                Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
+                Vector3 blockPosition = new Vector3(x, y, z) + fullChunk.Position;
 
-                FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, neighbors);
+                FacesState visibleFaces = fullChunk.GetVisibleFaces(y, x, z, neighbors);
                 FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, y, x, z, neighbors);
 
                 foreach (Faces face in visibleFaces.GetFaces())
                 {
-                    ushort texture = chunk[x, y, z].Value;
+                    ushort texture = fullChunk[x, y, z].Value;
                     LightValue light = lightValues.GetValue(face);
 
                     if (blockMetadata.IsBlockTransparent(texture))
@@ -265,7 +267,7 @@ namespace SharpCraft.World
                 }
             }
 
-            chunk.RecalculateMesh = false;
+            fullChunk.RecalculateMesh = false;
 
             return ([.. vertices], [.. transparentVertices]);
         }
