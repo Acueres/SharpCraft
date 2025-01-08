@@ -22,6 +22,7 @@ namespace SharpCraft.World
 
         readonly Dictionary<Vector2I, int[,]> terrainLevelCache = [];
         readonly Dictionary<Vector2I, BiomeType[,]> biomesCache = [];
+        readonly Dictionary<Vector2I, int> elevationCache = [];
 
         readonly int waterLevel;
 
@@ -81,6 +82,8 @@ namespace SharpCraft.World
         {
             terrainLevelCache.Clear();
             biomesCache.Clear();
+            elevationCache.Clear();
+
         }
 
         public IChunk GenerateChunk(Vector3I position)
@@ -90,6 +93,18 @@ namespace SharpCraft.World
                 "Flat" => Flat(position),
                 _ => Default(position),
             };
+        }
+
+        public List<Vector3I> GetSkyLevel()
+        {
+            List<Vector3I> indexes = new(elevationCache.Count);
+            foreach ((Vector2I index, int value) in elevationCache)
+            {
+                int y = FullChunk.CalculateChunkIndex(value) + 1;
+                indexes.Add(new Vector3I(index.X, y, index.Z));
+            }
+
+            return indexes;
         }
 
         IChunk Default(Vector3I index)
@@ -129,11 +144,13 @@ namespace SharpCraft.World
                 maxElevation = (from int h in terrainLevel select h).Max();
                 biomes = biomesCache[cacheIndex];
             }
+            
+            elevationCache.TryAdd(cacheIndex, maxElevation);
 
             if (maxElevation < chunk.Position.Y)
             {
                 chunk.Dispose();
-                return new AirChunk(index);
+                return new SkyChunk(index);
             }
 
             for (int x = 0; x < FullChunk.Size; x++)

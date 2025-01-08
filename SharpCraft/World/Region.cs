@@ -20,7 +20,7 @@ namespace SharpCraft.World
         public IChunk ZNeg { get; set; }
         public IChunk ZPos { get; set; }
 
-        public bool AllExist()
+        public bool All()
         {
             return XNeg is not null && XPos is not null && ZNeg is not null && ZPos is not null
                 && YNeg is not null && YPos is not null;
@@ -80,7 +80,7 @@ namespace SharpCraft.World
                 {
                     var neighbors = GetChunkNeighbors(index);
 
-                    if (neighbors.AllExist())
+                    if (neighbors.All())
                     {
                         renderer.Update(neighbors);
                     }
@@ -130,7 +130,11 @@ namespace SharpCraft.World
             foreach (Vector3I index in activeChunkIndexes) { yield return chunks[index]; }
         }
 
-        public ChunkNeighbors GetChunkNeighbors(Vector3I index) => neighborsMap[index];
+        public ChunkNeighbors GetChunkNeighbors(Vector3I index)
+        {
+            neighborsMap.TryGetValue(index, out var res);
+            return res;
+        }
 
         void CalculateChunkNeighbors(IChunk chunk)
         {
@@ -236,25 +240,23 @@ namespace SharpCraft.World
                 inactiveChunkIndexes.Remove(index);
             }
 
-            worldGenerator.ClearCache();
-
             foreach (Vector3I index in generatedChunks)
             {
                 IChunk chunk = chunks[index];
                 CalculateChunkNeighbors(chunk);
             }
 
-            List<Vector3I> readyChunks = [];
+            List<ChunkNeighbors> readyChunks = [];
 
             foreach (Vector3I index in generatedChunks)
             {
                 ChunkNeighbors neighbors = GetChunkNeighbors(index);
-                neighbors.Chunk.IsReady = neighbors.AllExist();
+                neighbors.Chunk.IsReady = neighbors.All();
 
                 if (neighbors.Chunk.IsReady)
                 {
                     neighbors.Chunk.CalculateActiveBlocks(neighbors);
-                    readyChunks.Add(index);
+                    if (neighbors.Chunk is not SkyChunk) readyChunks.Add(neighbors);
                 }
                 else
                 {
@@ -262,17 +264,26 @@ namespace SharpCraft.World
                 }
             }
 
-            foreach (Vector3I index in readyChunks)
+            List<ChunkNeighbors> skyChunks = [.. worldGenerator.GetSkyLevel().Select(GetChunkNeighbors).Where(x => x is not null && x.All())];
+
+            foreach (ChunkNeighbors n in skyChunks)
             {
-                ChunkNeighbors neighbors = GetChunkNeighbors(index);
-                lightSystem.InitializeLight(neighbors);
+                lightSystem.InitializeSkylight(n);
             }
 
-            foreach (Vector3I index in readyChunks)
+            foreach (ChunkNeighbors n in readyChunks)
             {
-                ChunkNeighbors neighbors = GetChunkNeighbors(index);
-                renderer.Add(neighbors);
+                lightSystem.InitializeLight(n);
             }
+
+            lightSystem.FloodFill(neighborsMap);
+
+            foreach (ChunkNeighbors n in readyChunks)
+            {
+                renderer.AddMesh(n);
+            }
+
+            worldGenerator.ClearCache();
         }
 
         void RemoveInactiveChunks()

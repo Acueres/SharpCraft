@@ -1,5 +1,6 @@
-﻿using SharpCraft.Utility;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+
+using SharpCraft.Utility;
 
 namespace SharpCraft.World.Light
 {
@@ -15,19 +16,26 @@ namespace SharpCraft.World.Light
             this.blockMetadata = blockMetadata;
         }
 
+        public void InitializeSkylight(ChunkNeighbors neighbors)
+        {
+            if (neighbors.YNeg is FullChunk yNeg)
+            {
+                for (int x = 0; x < FullChunk.Size; x++)
+                {
+                    for (int z = 0; z < FullChunk.Size; z++)
+                    {
+                        if (!yNeg[x, FullChunk.Last, z].IsEmpty) continue;
+
+                        yNeg.SetLight(x, FullChunk.Last, z, LightValue.Sunlight);
+                        lightQueue.Enqueue(new LightNode(yNeg, x, FullChunk.Last, z));
+                    }
+                }
+            }
+        }
+
         public void InitializeLight(ChunkNeighbors neighbors)
         {
             IChunk chunk = neighbors.Chunk;
-
-            //Set the topmost layer to maximum light value
-            for (int x = 0; x < FullChunk.Size; x++)
-            {
-                for (int z = 0; z < FullChunk.Size; z++)
-                {
-                    chunk.SetLight(x, FullChunk.Last, z, LightValue.Sunlight);
-                    lightQueue.Enqueue(new LightNode(chunk, x, FullChunk.Last, z));
-                }
-            }
 
             foreach (Vector3I lightSourceIndex in chunk.GetLightSources())
             {
@@ -41,8 +49,21 @@ namespace SharpCraft.World.Light
                 chunk.SetLight(x, y, z, sourceLight);
                 lightQueue.Enqueue(new LightNode(chunk, x, y, z));
             }
+        }
 
-            FloodFill(neighbors);
+        public void FloodFill(Dictionary<Vector3I, ChunkNeighbors> neighborsMap)
+        {
+            while (lightQueue.Count > 0)
+            {
+                LightNode node = lightQueue.Dequeue();
+
+                node.Chunk.RecalculateMesh = true;
+
+                if (neighborsMap.TryGetValue(node.Chunk.Index, out ChunkNeighbors neighbors) && neighbors.All())
+                {
+                    Propagate(neighbors, node.X, node.Y, node.Z);
+                }
+            }
         }
 
         public void UpdateLight(int x, int y, int z, ushort texture, ChunkNeighbors neighbors, bool sourceRemoved = false)
@@ -260,10 +281,9 @@ namespace SharpCraft.World.Light
 
         void FloodFill(ChunkNeighbors neighbors)
         {
-            LightNode node;
             while (lightQueue.Count > 0)
             {
-                node = lightQueue.Dequeue();
+                LightNode node = lightQueue.Dequeue();
 
                 node.Chunk.RecalculateMesh = true;
 

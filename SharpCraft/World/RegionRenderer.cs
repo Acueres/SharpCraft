@@ -132,7 +132,7 @@ namespace SharpCraft.World
                         (int)2e4, BufferUsage.WriteOnly);
         }
 
-        public void Add(ChunkNeighbors neighbors)
+        public void AddMesh(ChunkNeighbors neighbors)
         {
             var (vertices, transparentVertices) = CalculateMesh(neighbors);
             verticesCache.Add(neighbors.Chunk.Index, vertices);
