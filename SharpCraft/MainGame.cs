@@ -92,7 +92,17 @@ namespace SharpCraft
                                 if (player.UpdateOccured)
                                 {
                                     world.UpdateBlocks();
+                                }
+
+                                Vector3I currentPlayerIndex = new(FullChunk.CalculateChunkIndex(
+                                    player.Position.X), FullChunk.CalculateChunkIndex(
+                                    player.Position.Y), FullChunk.CalculateChunkIndex(
+                                    player.Position.Z));
+
+                                if (player.Index != currentPlayerIndex)
+                                {
                                     world.Update();
+                                    player.Index = currentPlayerIndex;
                                 }
                             }
 

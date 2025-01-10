@@ -9,43 +9,26 @@ namespace SharpCraft
 {
     public class Player
     { 
-        public bool LeftClick
-        {
-            get
-            {
-                return Clicked && Util.LeftButtonClicked(currentMouseState, previousMouseState);
-            }
-        }
+        public bool LeftClick => HasClicked && Util.LeftButtonClicked(currentMouseState, previousMouseState);
 
-        public bool RightClick
-        {
-            get
-            {
-                return Clicked && Util.RightButtonClicked(currentMouseState, previousMouseState);
-            }
-        }
+        public bool RightClick => HasClicked && Util.RightButtonClicked(currentMouseState, previousMouseState);
 
-        public Vector3 Position;
+        public Vector3I Index { get; set; }
+        public Vector3 Position { get; set; }
 
-        public Camera Camera;
-        public Physics Physics;
+        public Camera Camera { get; set; }
+        public Physics Physics { get; set; }
 
-        public Ray Ray;
-        public BoundingBox Bound;
+        public Ray Ray { get; set; }
+        public BoundingBox Bound { get; set; }
 
-        public bool Flying;
-        public bool Walking;
-        public bool Sprinting;
-        public bool UpdateOccured;
-        public bool Swimming;
+        public bool Flying { get; set; }
+        public bool Walking { get; set; }
+        public bool Sprinting { get; set; }
+        public bool UpdateOccured { get; set; }
+        public bool Swimming { get; set; }
 
-        bool Clicked
-        {
-            get
-            {
-                return gameTime.TotalGameTime.TotalMilliseconds - lastClickTime > 100;
-            }
-        }
+        bool HasClicked => gameTime.TotalGameTime.TotalMilliseconds - lastClickTime > 100;
 
         double lastClickTime;
         double lastPressTime;
@@ -109,11 +92,9 @@ namespace SharpCraft
 
             UpdateOccured = Camera.UpdateOccured || Physics.Moving || LeftClick || RightClick;
 
-            Ray.Position = Position;
-            Ray.Direction = Camera.Direction;
+            Ray = new Ray(Position, Camera.Direction);
 
-            Bound.Min = boundMin + Position;
-            Bound.Max = boundMax + Position;
+            Bound = new BoundingBox(boundMin + Position, boundMax + Position);
 
             previousKeyboardState = currentKeyboardState;
         }
@@ -145,7 +126,7 @@ namespace SharpCraft
 
                 if (!Flying && Walking)
                 {
-                    Position.Y += 0.1f;
+                    Position = new Vector3(Position.X, Position.Y + 0.1f, Position.Z);
 
                     Physics.Velocity.Y = -0.12f;
 

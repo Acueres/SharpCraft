@@ -69,7 +69,7 @@ namespace SharpCraft
             //Floor collision
             if (deltaY > 0.5f && insideBlock)
             {
-                player.Position.Y = blockPosition.Y + 1.97f;
+                player.Position = new Vector3(player.Position.X, blockPosition.Y + 1.97f, player.Position.Z);
                 Velocity.Y = 0;
 
                 player.Flying = false;
