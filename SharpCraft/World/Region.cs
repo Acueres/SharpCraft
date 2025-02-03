@@ -15,8 +15,8 @@ namespace SharpCraft.World
         public IChunk Chunk {  get; set; }
         public IChunk XNeg { get; set; }
         public IChunk XPos {  get; set; }
-        public IChunk YPos { get; set; }
         public IChunk YNeg { get; set; }
+        public IChunk YPos { get; set; }
         public IChunk ZNeg { get; set; }
         public IChunk ZPos { get; set; }
 
@@ -24,6 +24,22 @@ namespace SharpCraft.World
         {
             return XNeg is not null && XPos is not null && ZNeg is not null && ZPos is not null
                 && YNeg is not null && YPos is not null;
+        }
+
+        public IEnumerable<Vector3I> GetNullChunksIndexes()
+        {
+            if (XNeg is null)
+                yield return Chunk.Index - new Vector3I(1, 0, 0);
+            if (XPos is null)
+                yield return Chunk.Index + new Vector3I(1, 0, 0);
+            if (YNeg is null)
+                yield return Chunk.Index - new Vector3I(0, 1, 0);
+            if (YPos is null)
+                yield return Chunk.Index + new Vector3I(0, 1, 0);
+            if (ZNeg is null)
+                yield return Chunk.Index - new Vector3I(0, 0, 1);
+            if (ZPos is null)
+                yield return Chunk.Index + new Vector3I(0, 0, 1);
         }
     }
 

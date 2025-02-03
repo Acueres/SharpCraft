@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-
 using SharpCraft.Utility;
 
 namespace SharpCraft.World.Light
@@ -10,6 +9,7 @@ namespace SharpCraft.World.Light
         readonly BlockMetadataProvider blockMetadata;
 
         readonly Queue<LightNode> lightQueue = [];
+        readonly Dictionary<Vector3I, Queue<LightNode>> leftoverLight = [];
 
         public LightSystem(BlockMetadataProvider blockMetadata)
         {
@@ -18,6 +18,7 @@ namespace SharpCraft.World.Light
 
         public void InitializeSkylight(ChunkNeighbors neighbors)
         {
+            //Propagate light downward from a sky chunk
             if (neighbors.YNeg is FullChunk yNeg)
             {
                 for (int x = 0; x < FullChunk.Size; x++)
@@ -37,6 +38,17 @@ namespace SharpCraft.World.Light
         {
             IChunk chunk = neighbors.Chunk;
 
+            //take light from upper chunk
+            for (int x = 0; x < FullChunk.Size; x++)
+            {
+                for (int z = 0; z < FullChunk.Size; z++)
+                {
+                    if (!neighbors.YPos[x, 0, z].IsEmpty) continue;
+
+                    lightQueue.Enqueue(new LightNode(neighbors.YPos, x, 0, z));
+                }
+            }
+
             foreach (Vector3I lightSourceIndex in chunk.GetLightSources())
             {
                 int x = lightSourceIndex.X;
@@ -53,16 +65,68 @@ namespace SharpCraft.World.Light
 
         public void FloodFill(Dictionary<Vector3I, ChunkNeighbors> neighborsMap)
         {
+            List<Vector3I> deleted = [];
+            Vector3I[] leftoverIndexes = [.. leftoverLight.Keys];
+
+            foreach (Vector3I index in leftoverIndexes)
+            {
+                if (neighborsMap.ContainsKey(index))
+                {
+                    var queue = leftoverLight[index];
+
+                    while (queue.Count > 0)
+                    {
+                        LightNode node = queue.Dequeue();
+
+                        node.Chunk.RecalculateMesh = true;
+
+                        ProcessLightNode(node, neighborsMap);
+                    }
+
+                    deleted.Add(index);
+                }
+            }
+
+            foreach (Vector3I index in deleted)
+            {
+                leftoverLight.Remove(index);
+            }
+
             while (lightQueue.Count > 0)
             {
                 LightNode node = lightQueue.Dequeue();
 
                 node.Chunk.RecalculateMesh = true;
 
-                if (neighborsMap.TryGetValue(node.Chunk.Index, out ChunkNeighbors neighbors) && neighbors.All())
+                ProcessLightNode(node, neighborsMap);
+            }
+        }
+
+        void ProcessLightNode(LightNode node, Dictionary<Vector3I, ChunkNeighbors> neighborsMap)
+        {
+            node.Chunk.RecalculateMesh = true;
+
+            if (!neighborsMap.TryGetValue(node.Chunk.Index, out ChunkNeighbors neighbors))
+            {
+                return;
+            }
+
+            if (neighbors.All())
+            {
+                Propagate(neighbors, node.X, node.Y, node.Z);
+                return;
+            }
+
+            foreach (var nullChunkIndex in neighbors.GetNullChunksIndexes())
+            {
+                if (!leftoverLight.TryGetValue(nullChunkIndex, out var queue))
                 {
-                    Propagate(neighbors, node.X, node.Y, node.Z);
+                    queue = [];
+                    queue.Enqueue(node);
+                    leftoverLight.Add(nullChunkIndex, queue);
                 }
+
+                queue.Enqueue(node);
             }
         }
 
