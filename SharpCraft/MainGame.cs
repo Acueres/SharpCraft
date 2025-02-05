@@ -2,12 +2,13 @@
 using System.IO;
 
 using Microsoft.Xna.Framework;
-
-using SharpCraft.Handlers;
-using SharpCraft.Menu;
 using SharpCraft.World;
 using SharpCraft.Utility;
 using SharpCraft.Assets;
+using SharpCraft.World.Blocks;
+using SharpCraft.World.Chunks;
+using SharpCraft.GUI.Menus;
+using SharpCraft.Persistence;
 
 namespace SharpCraft
 {
@@ -35,7 +36,7 @@ namespace SharpCraft
         WorldSystem world;
         GameMenu gameMenu;
         MainMenu mainMenu;
-        DatabaseHandler databaseHandler;
+        DatabaseService databaseHandler;
         Save currentSave;
         Time time;
 
@@ -94,9 +95,9 @@ namespace SharpCraft
                                     world.UpdateBlocks();
                                 }
 
-                                Vector3I currentPlayerIndex = new(FullChunk.CalculateChunkIndex(
-                                    player.Position.X), FullChunk.CalculateChunkIndex(
-                                    player.Position.Y), FullChunk.CalculateChunkIndex(
+                                Vector3I currentPlayerIndex = new(Chunk.CalculateChunkIndex(
+                                    player.Position.X), Chunk.CalculateChunkIndex(
+                                    player.Position.Y), Chunk.CalculateChunkIndex(
                                     player.Position.Z));
 
                                 if (player.Index != currentPlayerIndex)
@@ -119,11 +120,11 @@ namespace SharpCraft
 
                             time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
 
-                            ScreenshotHandler screenshotHandler = new(GraphicsDevice, Window.ClientBounds.Width,
+                            ScreenshotTaker screenshotHandler = new(GraphicsDevice, Window.ClientBounds.Width,
                                                                                   Window.ClientBounds.Height);
                             BlockSelector blockSelector = new(GraphicsDevice, assetServer);
 
-                            databaseHandler = new DatabaseHandler(this, currentSave.Parameters.SaveName, blockMetadata);
+                            databaseHandler = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata, player);
                             world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata, time, assetServer, GraphicsDevice, screenshotHandler);

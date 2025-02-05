@@ -5,9 +5,11 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Assets;
-using SharpCraft.Handlers;
 using SharpCraft.Utility;
 using SharpCraft.World.Light;
+using SharpCraft.World.Blocks;
+using SharpCraft.World.Chunks;
+using SharpCraft.Persistence;
 
 namespace SharpCraft.World
 {
@@ -85,7 +87,7 @@ namespace SharpCraft.World
     {
         readonly GraphicsDevice graphics;
         readonly BlockMetadataProvider blockMetadata;
-        readonly ScreenshotHandler screenshotHandler;
+        readonly ScreenshotTaker screenshotHandler;
         readonly BlockSelector blockSelector;
         readonly LightSystem lightSystem;
 
@@ -98,7 +100,7 @@ namespace SharpCraft.World
         readonly int blockCount;
 
         public RegionRenderer(GraphicsDevice graphics,
-            ScreenshotHandler screenshotTaker, BlockSelector blockSelector,
+            ScreenshotTaker screenshotTaker, BlockSelector blockSelector,
             AssetServer assetServer, BlockMetadataProvider blockMetadata, LightSystem lightSystem)
         {
             this.graphics = graphics;
@@ -154,11 +156,11 @@ namespace SharpCraft.World
 
         public void Render(IEnumerable<IChunk> chunks, Player player, Time time)
         {
-            Vector3 chunkMax = new(FullChunk.Size);
+            Vector3 chunkMax = new(Chunk.Size);
 
             float lightIntensity = time.LightIntensity;
 
-            HashSet<FullChunk> visibleChunks = [];
+            HashSet<Chunk> visibleChunks = [];
 
             effect.Parameters["World"].SetValue(Matrix.Identity);
             effect.Parameters["View"].SetValue(player.Camera.View);
@@ -171,7 +173,7 @@ namespace SharpCraft.World
             //Drawing opaque blocks
             foreach (IChunk chunk in chunks)
             {
-                if (chunk is not FullChunk fullChunk || !fullChunk.IsReady) continue;
+                if (chunk is not Chunk fullChunk || !fullChunk.IsReady) continue;
 
                 BoundingBox chunkBounds = new(fullChunk.Position, chunkMax + fullChunk.Position);
 
@@ -202,7 +204,7 @@ namespace SharpCraft.World
             }
 
             //Drawing transparent blocks
-            foreach (FullChunk chunk in visibleChunks)
+            foreach (Chunk chunk in visibleChunks)
             {
                 var vertices = transparentVerticesCache[chunk.Index];
                 if (vertices.Length == 0) continue;
@@ -235,7 +237,7 @@ namespace SharpCraft.World
             List<VertexPositionTextureLight> vertices = [];
             List<VertexPositionTextureLight> transparentVertices = [];
 
-            if (chunk is not FullChunk fullChunk) return ([], []);
+            if (chunk is not Chunk fullChunk) return ([], []);
 
             foreach (Vector3I index in fullChunk.GetActiveIndexes())
             {

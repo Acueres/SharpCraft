@@ -1,2 +1,10 @@
-﻿using var game = new SharpCraft.MainGame();
-game.Run();
+﻿namespace SharpCraft;
+
+static class Program
+{
+    internal static void Main()
+    {
+        using var game = new MainGame();
+        game.Run();
+    }
+}

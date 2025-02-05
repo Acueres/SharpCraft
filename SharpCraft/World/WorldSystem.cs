@@ -2,9 +2,12 @@
 using Microsoft.Xna.Framework.Graphics;
 
 using SharpCraft.Assets;
-using SharpCraft.Handlers;
-using SharpCraft.Menu;
+using SharpCraft.GUI.Menus;
+using SharpCraft.Persistence;
 using SharpCraft.Utility;
+using SharpCraft.World.Blocks;
+using SharpCraft.World.Chunks;
+using SharpCraft.World.Generation;
 using SharpCraft.World.Light;
 using System.Collections.Generic;
 
@@ -19,7 +22,7 @@ namespace SharpCraft.World
 
         readonly GameMenu gameMenu;
         readonly WorldGenerator worldGenerator;
-        readonly DatabaseHandler databaseHandler;
+        readonly DatabaseService databaseHandler;
         readonly BlockSelector blockSelector;
         readonly BlockMetadataProvider blockMetadata;
         readonly Time time;
@@ -30,9 +33,9 @@ namespace SharpCraft.World
         readonly ushort water;
 
 
-        public WorldSystem(GameMenu gameMenu, DatabaseHandler databaseHandler,
+        public WorldSystem(GameMenu gameMenu, DatabaseService databaseHandler,
             BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata, Time time,
-            AssetServer assetServer, GraphicsDevice graphicsDevice, ScreenshotHandler screenshotHandler)
+            AssetServer assetServer, GraphicsDevice graphicsDevice, ScreenshotTaker screenshotHandler)
         {
             this.gameMenu = gameMenu;
             this.databaseHandler = databaseHandler;
