@@ -35,9 +35,9 @@ namespace SharpCraft.World.Chunks
 
         public IEnumerable<Vector3I> GetLightSources() => [];
 
-        public void CalculateActiveBlocks(ChunkNeighbors neighbors) { }
+        public void CalculateActiveBlocks(ChunkAdjacency adjacency) { }
 
-        public FacesState GetVisibleFaces(int y, int x, int z, ChunkNeighbors neighbors,
+        public FacesState GetVisibleFaces(int y, int x, int z, ChunkAdjacency adjacency,
                                     bool calculateOpacity = true) => new(false);
 
         public void Dispose() { }

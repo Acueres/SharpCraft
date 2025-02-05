@@ -23,7 +23,7 @@ namespace SharpCraft.World.Blocks
 
         int x, y, z;
         Vector3I position;
-        ChunkNeighbors neighbors;
+        ChunkAdjacency adjacency;
 
 
         public BlockHanlder(MainGame game, Player player, Region region,
@@ -43,13 +43,13 @@ namespace SharpCraft.World.Blocks
             y = -1;
         }
 
-        public void Set(int x, int y, int z, Vector3I position, ChunkNeighbors neighbors)
+        public void Set(int x, int y, int z, Vector3I position, ChunkAdjacency adjacency)
         {
             this.x = x;
             this.y = y;
             this.z = z;
             this.position = position;
-            this.neighbors = neighbors;
+            this.adjacency = adjacency;
         }
 
         public void Update(BlockSelector blockSelector)
@@ -57,13 +57,13 @@ namespace SharpCraft.World.Blocks
             if (player.LeftClick && !game.ExitedMenu)
             {
                 player.SetLastClickTime();
-                RemoveBlock(neighbors);
+                RemoveBlock(adjacency);
             }
 
             else if (player.RightClick)
             {
                 player.SetLastClickTime();
-                AddBlock(neighbors);
+                AddBlock(adjacency);
             }
 
             if (y == -1)
@@ -75,13 +75,13 @@ namespace SharpCraft.World.Blocks
             IChunk chunk = region.GetChunk(position);
             if (!chunk[x, y, z].IsEmpty)
             {
-                FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, neighbors);
+                FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, adjacency);
 
                 blockSelector.Update(visibleFaces, new Vector3(x, y, z) + region.GetChunk(position).Position, player.Camera.Direction);
             }
         }
 
-        void RemoveBlock(ChunkNeighbors neighbors)
+        void RemoveBlock(ChunkAdjacency adjacency)
         {
             if (y < 1)
             {
@@ -98,14 +98,14 @@ namespace SharpCraft.World.Blocks
 
             chunk.RemoveIndex(new(x, y, z));
 
-            lightSystem.UpdateLight(x, y, z, Block.EmptyValue, neighbors, sourceRemoved: lightSource);
+            lightSystem.UpdateLight(x, y, z, Block.EmptyValue, adjacency, sourceRemoved: lightSource);
 
             databaseHandler.AddDelta(position, y, x, z, Block.Empty);
 
-            UpdateAdjacentBlocks(neighbors, y, x, z);
+            UpdateAdjacentBlocks(adjacency, y, x, z);
         }
 
-        void AddBlock(ChunkNeighbors neighbors)
+        void AddBlock(ChunkAdjacency adjacency)
         {
             if (y == -1)
             {
@@ -136,16 +136,16 @@ namespace SharpCraft.World.Blocks
 
             chunk[x, y, z] = new(texture);
 
-            lightSystem.UpdateLight(x, y, z, texture, neighbors);
+            lightSystem.UpdateLight(x, y, z, texture, adjacency);
 
             databaseHandler.AddDelta(position, y, x, z, new(texture));
 
-            UpdateAdjacentBlocks(neighbors, y, x, z);
+            UpdateAdjacentBlocks(adjacency, y, x, z);
         }
 
-        static void UpdateAdjacentBlocks(ChunkNeighbors neighbors, int y, int x, int z)
+        static void UpdateAdjacentBlocks(ChunkAdjacency adjacency, int y, int x, int z)
         {
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
             chunk.RecalculateMesh = true;
 
             if (!chunk[x, y, z].IsEmpty)
@@ -159,22 +159,22 @@ namespace SharpCraft.World.Blocks
             if (x < Chunk.Last)
                 ActivateBlock(chunk, y, x + 1, z);
             else if (x == Chunk.Last)
-                ActivateBlock(neighbors.XPos, y, 0, z);
+                ActivateBlock(adjacency.XPos.Root, y, 0, z);
 
             if (x > 0)
                 ActivateBlock(chunk, y, x - 1, z);
             else if (x == 0)
-                ActivateBlock(neighbors.XNeg, y, Chunk.Last, z);
+                ActivateBlock(adjacency.XNeg.Root, y, Chunk.Last, z);
 
             if (z < Chunk.Last)
                 ActivateBlock(chunk, y, x, z + 1);
             else if (z == Chunk.Last)
-                ActivateBlock(neighbors.ZPos, y, x, 0);
+                ActivateBlock(adjacency.ZPos.Root, y, x, 0);
 
             if (z > 0)
                 ActivateBlock(chunk, y, x, z - 1);
             else if (z == 0)
-                ActivateBlock(neighbors.ZNeg, y, x, Chunk.Last);
+                ActivateBlock(adjacency.ZNeg.Root, y, x, Chunk.Last);
         }
 
         static void ActivateBlock(IChunk chunk, int y, int x, int z)

@@ -27,6 +27,7 @@ namespace SharpCraft.World
         readonly BlockMetadataProvider blockMetadata;
         readonly Time time;
         readonly LightSystem lightSystem;
+        readonly AdjacencyGraph adjacencyGraph;
 
         readonly Region region;
 
@@ -49,9 +50,11 @@ namespace SharpCraft.World
 
             Outline = new VertexPositionTextureLight[36];
 
-            lightSystem = new(blockMetadata);
+            adjacencyGraph = new();
+            lightSystem = new(blockMetadata, adjacencyGraph);
+
             RegionRenderer regionRenderer = new(graphicsDevice, screenshotHandler, blockSelector, assetServer, blockMetadata, lightSystem);
-            region = new Region(Settings.RenderDistance, worldGenerator, databaseHandler, regionRenderer, lightSystem);
+            region = new Region(Settings.RenderDistance, adjacencyGraph, worldGenerator, databaseHandler, regionRenderer, lightSystem);
         }
 
         public void SetPlayer(MainGame game, Player player, Parameters parameters)
@@ -65,9 +68,6 @@ namespace SharpCraft.World
 
             if (parameters.Position == Vector3.Zero)
             {
-                //Chunk center = region.GetChunk(new(0, 0, 0));
-                //Vector3I spawningIndex = center.GetIndex(0);
-                //player.Position = new Vector3(spawningIndex.X, spawningIndex.Y + 2f, spawningIndex.Z);
                 player.Position = new Vector3(0, 100, 0);
             }
             else
@@ -132,8 +132,8 @@ namespace SharpCraft.World
                         }
                         else
                         {
-                            var neighbors = region.GetChunkNeighbors(chunkIndex);
-                            FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, neighbors);
+                            var adjacency = adjacencyGraph.GetAdjacency(chunkIndex);
+                            FacesState visibleFaces = chunk.GetVisibleFaces(y, x, z, adjacency);
                             player.Physics.Collision(blockPosition, visibleFaces);
                         }
                     }
@@ -144,8 +144,8 @@ namespace SharpCraft.World
                         if (rayBlockDistance != null && rayBlockDistance < minDistance)
                         {
                             minDistance = (float)rayBlockDistance;
-                            var neighbors = region.GetChunkNeighbors(chunkIndex);
-                            blockHanlder.Set(x, y, z, chunkIndex, neighbors);
+                            var adjacency = adjacencyGraph.GetAdjacency(chunkIndex);
+                            blockHanlder.Set(x, y, z, chunkIndex, adjacency);
                         }
                     }
                 }

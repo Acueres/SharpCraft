@@ -134,18 +134,18 @@ namespace SharpCraft.World
                         (int)2e4, BufferUsage.WriteOnly);
         }
 
-        public void AddMesh(ChunkNeighbors neighbors)
+        public void AddMesh(ChunkAdjacency adjacency)
         {
-            var (vertices, transparentVertices) = CalculateMesh(neighbors);
-            verticesCache.Add(neighbors.Chunk.Index, vertices);
-            transparentVerticesCache.Add(neighbors.Chunk.Index, transparentVertices);
+            var (vertices, transparentVertices) = CalculateMesh(adjacency);
+            verticesCache.Add(adjacency.Root.Index, vertices);
+            transparentVerticesCache.Add(adjacency.Root.Index, transparentVertices);
         }
 
-        public void Update(ChunkNeighbors neighbors)
+        public void Update(ChunkAdjacency adjacency)
         {
-            var (vertices, transparentVertices) = CalculateMesh(neighbors);
-            verticesCache[neighbors.Chunk.Index] = vertices;
-            transparentVerticesCache[neighbors.Chunk.Index] = transparentVertices;
+            var (vertices, transparentVertices) = CalculateMesh(adjacency);
+            verticesCache[adjacency.Root.Index] = vertices;
+            transparentVerticesCache[adjacency.Root.Index] = transparentVertices;
         }
 
         public void Remove(Vector3I index)
@@ -230,9 +230,9 @@ namespace SharpCraft.World
             blockSelector.Draw();
         }
 
-        public (VertexPositionTextureLight[], VertexPositionTextureLight[]) CalculateMesh(ChunkNeighbors neighbors)
+        public (VertexPositionTextureLight[], VertexPositionTextureLight[]) CalculateMesh(ChunkAdjacency adjacency)
         {
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
 
             List<VertexPositionTextureLight> vertices = [];
             List<VertexPositionTextureLight> transparentVertices = [];
@@ -247,8 +247,8 @@ namespace SharpCraft.World
 
                 Vector3 blockPosition = new Vector3(x, y, z) + fullChunk.Position;
 
-                FacesState visibleFaces = fullChunk.GetVisibleFaces(y, x, z, neighbors);
-                FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, y, x, z, neighbors);
+                FacesState visibleFaces = fullChunk.GetVisibleFaces(y, x, z, adjacency);
+                FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, y, x, z, adjacency);
 
                 foreach (Faces face in visibleFaces.GetFaces())
                 {

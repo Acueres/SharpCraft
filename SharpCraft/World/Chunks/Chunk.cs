@@ -116,7 +116,7 @@ namespace SharpCraft.World.Chunks
             disposed = true;
         }
 
-        public void CalculateActiveBlocks(ChunkNeighbors neighbors)
+        public void CalculateActiveBlocks(ChunkAdjacency adjacency)
         {
             for (int y = 0; y < Size; y++)
             {
@@ -129,7 +129,7 @@ namespace SharpCraft.World.Chunks
                             continue;
                         }
 
-                        FacesState visibleFaces = GetVisibleFaces(y, x, z, neighbors, calculateOpacity: false);
+                        FacesState visibleFaces = GetVisibleFaces(y, x, z, adjacency, calculateOpacity: false);
 
                         if (visibleFaces.Any())
                         {
@@ -140,7 +140,7 @@ namespace SharpCraft.World.Chunks
             }
         }
 
-        public FacesState GetVisibleFaces(int y, int x, int z, ChunkNeighbors neighbors,
+        public FacesState GetVisibleFaces(int y, int x, int z, ChunkAdjacency adjacency,
                                     bool calculateOpacity = true)
         {
             FacesState visibleFaces = new();
@@ -157,7 +157,7 @@ namespace SharpCraft.World.Chunks
 
             if (z == Last)
             {
-                adjacentBlock = neighbors.ZPos[x, y, 0];
+                adjacentBlock = adjacency.ZPos.Root[x, y, 0];
             }
             else
             {
@@ -167,7 +167,7 @@ namespace SharpCraft.World.Chunks
 
             if (z == 0)
             {
-                adjacentBlock = neighbors.ZNeg[x, y, Last];
+                adjacentBlock = adjacency.ZNeg.Root[x, y, Last];
             }
             else
             {
@@ -177,7 +177,7 @@ namespace SharpCraft.World.Chunks
 
             if (y == Last)
             {
-                adjacentBlock = neighbors.YPos[x, 0, z];
+                adjacentBlock = adjacency.YPos.Root[x, 0, z];
             }
             else
             {
@@ -187,7 +187,7 @@ namespace SharpCraft.World.Chunks
 
             if (y == 0)
             {
-                adjacentBlock = neighbors.YNeg[x, Last, z];
+                adjacentBlock = adjacency.YNeg.Root[x, Last, z];
             }
             else
             {
@@ -198,7 +198,7 @@ namespace SharpCraft.World.Chunks
 
             if (x == Last)
             {
-                adjacentBlock = neighbors.XPos[0, y, z];
+                adjacentBlock = adjacency.XPos.Root[0, y, z];
             }
             else
             {
@@ -208,7 +208,7 @@ namespace SharpCraft.World.Chunks
 
             if (x == 0)
             {
-                adjacentBlock = neighbors.XNeg[Last, y, z];
+                adjacentBlock = adjacency.XNeg.Root[Last, y, z];
             }
             else
             {

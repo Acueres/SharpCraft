@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
-using SharpCraft.Utility;
+﻿using SharpCraft.Utility;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
+using System.Collections.Generic;
 
 namespace SharpCraft.World.Light
 {
@@ -9,19 +9,21 @@ namespace SharpCraft.World.Light
     public class LightSystem
     {
         readonly BlockMetadataProvider blockMetadata;
+        readonly AdjacencyGraph adjacencyGraph;
 
         readonly Queue<LightNode> lightQueue = [];
         readonly Dictionary<Vector3I, Queue<LightNode>> leftoverLight = [];
 
-        public LightSystem(BlockMetadataProvider blockMetadata)
+        public LightSystem(BlockMetadataProvider blockMetadata, AdjacencyGraph adjacencyGraph)
         {
             this.blockMetadata = blockMetadata;
+            this.adjacencyGraph = adjacencyGraph;
         }
 
-        public void InitializeSkylight(ChunkNeighbors neighbors)
+        public void InitializeSkylight(ChunkAdjacency adjacency)
         {
             //Propagate light downward from a sky chunk
-            if (neighbors.YNeg is Chunk yNeg)
+            if (adjacency.YNeg.Root is Chunk yNeg)
             {
                 for (int x = 0; x < Chunk.Size; x++)
                 {
@@ -36,18 +38,18 @@ namespace SharpCraft.World.Light
             }
         }
 
-        public void InitializeLight(ChunkNeighbors neighbors)
+        public void InitializeLight(ChunkAdjacency adjacency)
         {
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
 
             //take light from upper chunk
             for (int x = 0; x < Chunk.Size; x++)
             {
                 for (int z = 0; z < Chunk.Size; z++)
                 {
-                    if (!neighbors.YPos[x, 0, z].IsEmpty) continue;
+                    if (!adjacency.YPos.Root[x, 0, z].IsEmpty) continue;
 
-                    lightQueue.Enqueue(new LightNode(neighbors.YPos, x, 0, z));
+                    lightQueue.Enqueue(new LightNode(adjacency.YPos.Root, x, 0, z));
                 }
             }
 
@@ -65,14 +67,15 @@ namespace SharpCraft.World.Light
             }
         }
 
-        public void FloodFill(Dictionary<Vector3I, ChunkNeighbors> neighborsMap)
+        public void FloodFill()
         {
             List<Vector3I> deleted = [];
             Vector3I[] leftoverIndexes = [.. leftoverLight.Keys];
 
             foreach (Vector3I index in leftoverIndexes)
             {
-                if (neighborsMap.ContainsKey(index))
+                ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(index);
+                if (adjacency != null)
                 {
                     var queue = leftoverLight[index];
 
@@ -82,7 +85,7 @@ namespace SharpCraft.World.Light
 
                         node.Chunk.RecalculateMesh = true;
 
-                        ProcessLightNode(node, neighborsMap);
+                        ProcessLightNode(node);
                     }
 
                     deleted.Add(index);
@@ -100,26 +103,28 @@ namespace SharpCraft.World.Light
 
                 node.Chunk.RecalculateMesh = true;
 
-                ProcessLightNode(node, neighborsMap);
+                ProcessLightNode(node);
             }
         }
 
-        void ProcessLightNode(LightNode node, Dictionary<Vector3I, ChunkNeighbors> neighborsMap)
+        void ProcessLightNode(LightNode node)
         {
             node.Chunk.RecalculateMesh = true;
 
-            if (!neighborsMap.TryGetValue(node.Chunk.Index, out ChunkNeighbors neighbors))
+            ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(node.Chunk.Index);
+
+            if (adjacency == null)
             {
                 return;
             }
 
-            if (neighbors.All())
+            if (adjacency.All())
             {
-                Propagate(neighbors, node.X, node.Y, node.Z);
+                Propagate(adjacency, node.X, node.Y, node.Z);
                 return;
             }
 
-            foreach (var nullChunkIndex in neighbors.GetNullChunksIndexes())
+            foreach (var nullChunkIndex in adjacency.GetNullChunksIndexes())
             {
                 if (!leftoverLight.TryGetValue(nullChunkIndex, out var queue))
                 {
@@ -132,26 +137,26 @@ namespace SharpCraft.World.Light
             }
         }
 
-        public void UpdateLight(int x, int y, int z, ushort texture, ChunkNeighbors neighbors, bool sourceRemoved = false)
+        public void UpdateLight(int x, int y, int z, ushort texture, ChunkAdjacency adjacency, bool sourceRemoved = false)
         {
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
 
             //Propagate light to an empty cell
             if (texture == Block.EmptyValue)
             {
-                var (nodes, _) = GetNeighborLightValues(y, x, z, neighbors);
+                var (nodes, _) = GetNeighborLightValues(y, x, z, adjacency);
 
                 foreach (var node in nodes.GetValues())
                 {
                     lightQueue.Enqueue(node);
                 }
 
-                FloodFill(neighbors);
+                FloodFill(adjacency);
 
                 if (sourceRemoved)
                 {
                     lightQueue.Enqueue(new LightNode(chunk, x, y, z));
-                    RemoveSource(neighbors);
+                    RemoveSource(adjacency);
                 }
             }
             //Recalculate light after block placement
@@ -170,18 +175,18 @@ namespace SharpCraft.World.Light
 
                 if (sourceAdded)
                 {
-                    FloodFill(neighbors);
+                    FloodFill(adjacency);
                 }
                 else
                 {
-                    FloodRemove(neighbors);
+                    FloodRemove(adjacency);
                 }
             }
         }
 
-        void RemoveSource(ChunkNeighbors neighbors)
+        void RemoveSource(ChunkAdjacency adjacency)
         {
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
 
             while (lightQueue.Count > 0)
             {
@@ -193,7 +198,7 @@ namespace SharpCraft.World.Light
 
                 node.SetLight(new(light.SkyValue, 0));
 
-                var (nodes, lightValues) = GetNeighborLightValues(node.Y, node.X, node.Z, neighbors);
+                var (nodes, lightValues) = GetNeighborLightValues(node.Y, node.X, node.Z, adjacency);
 
                 for (int i = 0; i < 6; i++)
                 {
@@ -206,7 +211,7 @@ namespace SharpCraft.World.Light
             }
         }
 
-        void FloodRemove(ChunkNeighbors neighbors)
+        void FloodRemove(ChunkAdjacency adjacency)
         {
             List<LightNode> lightList = [];
 
@@ -227,7 +232,7 @@ namespace SharpCraft.World.Light
                     node.SetLight(LightValue.Null);
                 }
 
-                var (nodes, lightValues) = GetNeighborLightValues(node.Y, node.X, node.Z, neighbors);
+                var (nodes, lightValues) = GetNeighborLightValues(node.Y, node.X, node.Z, adjacency);
 
                 Faces maxFace = Util.MaxFace(lightValues.GetValues());
 
@@ -252,19 +257,19 @@ namespace SharpCraft.World.Light
                 }
             }
 
-            FloodFill(neighbors);
+            FloodFill(adjacency);
         }
 
-        (FacesData<LightNode> nodes, FacesData<LightValue> lightValues) GetNeighborLightValues(int y, int x, int z, ChunkNeighbors neighbors)
+        (FacesData<LightNode> nodes, FacesData<LightValue> lightValues) GetNeighborLightValues(int y, int x, int z, ChunkAdjacency adjacency)
         {
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
 
             FacesData<LightNode> nodes = new();
             FacesData<LightValue> lightValues = new();
             
             if (y == Chunk.Last)
             {
-                nodes.YPos = new LightNode(neighbors.YPos, x, 0, z);
+                nodes.YPos = new LightNode(adjacency.YPos.Root, x, 0, z);
                 LightValue light = chunk.GetLight(x, 0, z);
                 lightValues.YPos = light;
             }
@@ -277,7 +282,7 @@ namespace SharpCraft.World.Light
 
             if (y == 0)
             {
-                nodes.YNeg = new LightNode(neighbors.YNeg, x, Chunk.Last, z);
+                nodes.YNeg = new LightNode(adjacency.YNeg.Root, x, Chunk.Last, z);
                 LightValue light = chunk.GetLight(x, Chunk.Last, z);
                 lightValues.YNeg = light;
             }
@@ -291,7 +296,7 @@ namespace SharpCraft.World.Light
 
             if (x == Chunk.Last)
             {
-                nodes.XPos = new LightNode(neighbors.XPos, 0, y, z);
+                nodes.XPos = new LightNode(adjacency.XPos.Root, 0, y, z);
                 LightValue light = chunk.GetLight(0, y, z);
                 lightValues.XPos = light;
             }
@@ -304,7 +309,7 @@ namespace SharpCraft.World.Light
 
             if (x == 0)
             {
-                nodes.XNeg = new LightNode(neighbors.XNeg, Chunk.Last, y, z);
+                nodes.XNeg = new LightNode(adjacency.XNeg.Root, Chunk.Last, y, z);
                 LightValue light = chunk.GetLight(Chunk.Last, y, z);
                 lightValues.XNeg = light;
             }
@@ -318,7 +323,7 @@ namespace SharpCraft.World.Light
 
             if (z == Chunk.Last)
             {
-                nodes.ZPos = new LightNode(neighbors.ZPos, x, y, 0);
+                nodes.ZPos = new LightNode(adjacency.ZPos.Root, x, y, 0);
                 LightValue light = chunk.GetLight(x, y, 0);
                 lightValues.ZPos = light;
             }
@@ -331,7 +336,7 @@ namespace SharpCraft.World.Light
 
             if (z == 0)
             {
-                nodes.ZNeg = new LightNode(neighbors.ZNeg, x, y, Chunk.Last);
+                nodes.ZNeg = new LightNode(adjacency.ZNeg.Root, x, y, Chunk.Last);
                 LightValue light = chunk.GetLight(x, y, Chunk.Last);
                 lightValues.ZNeg = light;
             }
@@ -345,7 +350,7 @@ namespace SharpCraft.World.Light
             return (nodes, lightValues);
         }
 
-        void FloodFill(ChunkNeighbors neighbors)
+        void FloodFill(ChunkAdjacency adjacency)
         {
             while (lightQueue.Count > 0)
             {
@@ -353,13 +358,13 @@ namespace SharpCraft.World.Light
 
                 node.Chunk.RecalculateMesh = true;
 
-                Propagate(neighbors, node.X, node.Y, node.Z);
+                Propagate(adjacency, node.X, node.Y, node.Z);
             }
         }
 
-        void Propagate(ChunkNeighbors neighbors, int x, int y, int z)
+        void Propagate(ChunkAdjacency adjacency, int x, int y, int z)
         {
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
 
             LightValue lightValue = chunk.GetLight(x, y, z);
 
@@ -383,14 +388,14 @@ namespace SharpCraft.World.Light
 
             if (y == Chunk.Last)
             {
-                if (IsBlockTransparent(neighbors.YPos[x, 0, z]) &&
-                    neighbors.YPos.GetLight(x, 0, z).Compare(nextLightValue, out value))
+                if (IsBlockTransparent(adjacency.YPos.Root[x, 0, z]) &&
+                    adjacency.YPos.Root.GetLight(x, 0, z).Compare(nextLightValue, out value))
                 {
-                    neighbors.YPos.SetLight(x, 0, z, value);
-                    lightQueue.Enqueue(new LightNode(neighbors.YPos, x, 0, z));
+                    adjacency.YPos.Root.SetLight(x, 0, z, value);
+                    lightQueue.Enqueue(new LightNode(adjacency.YPos.Root, x, 0, z));
                 }
 
-                neighbors.YPos.RecalculateMesh = true;
+                adjacency.YPos.Root.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x, y + 1, z]) &&
                 chunk.GetLight(x, y + 1, z).Compare(nextLightValue, out value))
@@ -401,14 +406,14 @@ namespace SharpCraft.World.Light
 
             if (y == 0)
             {
-                if (IsBlockTransparent(neighbors.YNeg[x, Chunk.Last, z]) &&
-                    neighbors.YNeg.GetLight(x, Chunk.Last, z).Compare(lightValue.SubtractBlockValue(1), out value))
+                if (IsBlockTransparent(adjacency.YNeg.Root[x, Chunk.Last, z]) &&
+                    adjacency.YNeg.Root.GetLight(x, Chunk.Last, z).Compare(lightValue.SubtractBlockValue(1), out value))
                 {
-                    neighbors.YNeg.SetLight(x, Chunk.Last, z, value);
-                    lightQueue.Enqueue(new LightNode(neighbors.YNeg, x, Chunk.Last, z));
+                    adjacency.YNeg.Root.SetLight(x, Chunk.Last, z, value);
+                    lightQueue.Enqueue(new LightNode(adjacency.YNeg.Root, x, Chunk.Last, z));
                 }
 
-                neighbors.YNeg.RecalculateMesh = true;
+                adjacency.YNeg.Root.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x, y - 1, z]) &&
                 chunk.GetLight(x, y - 1, z).Compare(lightValue.SubtractBlockValue(1), out value))
@@ -420,14 +425,14 @@ namespace SharpCraft.World.Light
 
             if (x == Chunk.Last)
             {
-                if (IsBlockTransparent(neighbors.XPos[0, y, z]) &&
-                    neighbors.XPos.GetLight(0, y, z).Compare(nextLightValue, out value))
+                if (IsBlockTransparent(adjacency.XPos.Root[0, y, z]) &&
+                    adjacency.XPos.Root.GetLight(0, y, z).Compare(nextLightValue, out value))
                 {
-                    neighbors.XPos.SetLight(0, y, z, value);
-                    lightQueue.Enqueue(new LightNode(neighbors.XPos, 0, y, z));
+                    adjacency.XPos.Root.SetLight(0, y, z, value);
+                    lightQueue.Enqueue(new LightNode(adjacency.XPos.Root, 0, y, z));
                 }
 
-                neighbors.XPos.RecalculateMesh = true;
+                adjacency.XPos.Root.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x + 1, y, z]) &&
                 chunk.GetLight(x + 1, y, z).Compare(nextLightValue, out value))
@@ -439,14 +444,14 @@ namespace SharpCraft.World.Light
 
             if (x == 0)
             {
-                if (IsBlockTransparent(neighbors.XNeg[Chunk.Last, y, z]) &&
-                    neighbors.XNeg.GetLight(Chunk.Last, y, z).Compare(nextLightValue, out value))
+                if (IsBlockTransparent(adjacency.XNeg.Root[Chunk.Last, y, z]) &&
+                    adjacency.XNeg.Root.GetLight(Chunk.Last, y, z).Compare(nextLightValue, out value))
                 {
-                    neighbors.XNeg.SetLight(Chunk.Last, y, z, value);
-                    lightQueue.Enqueue(new LightNode(neighbors.XNeg, Chunk.Last, y, z));
+                    adjacency.XNeg.Root.SetLight(Chunk.Last, y, z, value);
+                    lightQueue.Enqueue(new LightNode(adjacency.XNeg.Root, Chunk.Last, y, z));
                 }
 
-                neighbors.XNeg.RecalculateMesh = true;
+                adjacency.XNeg.Root.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x - 1, y, z]) &&
                 chunk.GetLight(x - 1, y, z).Compare(nextLightValue, out value))
@@ -458,14 +463,14 @@ namespace SharpCraft.World.Light
 
             if (z == Chunk.Last)
             {
-                if (IsBlockTransparent(neighbors.ZPos[x, y, 0]) &&
-                    neighbors.ZPos.GetLight(x, y, 0).Compare(nextLightValue, out value))
+                if (IsBlockTransparent(adjacency.ZPos.Root[x, y, 0]) &&
+                    adjacency.ZPos.Root.GetLight(x, y, 0).Compare(nextLightValue, out value))
                 {
-                    neighbors.ZPos.SetLight(x, y, 0, value);
-                    lightQueue.Enqueue(new LightNode(neighbors.ZPos, x, y, 0));
+                    adjacency.ZPos.Root.SetLight(x, y, 0, value);
+                    lightQueue.Enqueue(new LightNode(adjacency.ZPos.Root, x, y, 0));
                 }
 
-                neighbors.ZPos.RecalculateMesh = true;
+                adjacency.ZPos.Root.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x, y, z + 1]) &&
                 chunk.GetLight(x, y, z + 1).Compare(nextLightValue, out value))
@@ -477,14 +482,14 @@ namespace SharpCraft.World.Light
 
             if (z == 0)
             {
-                if (IsBlockTransparent(neighbors.ZNeg[x, y, Chunk.Last]) &&
-                    neighbors.ZNeg.GetLight(x, y, Chunk.Last).Compare(nextLightValue, out value))
+                if (IsBlockTransparent(adjacency.ZNeg.Root[x, y, Chunk.Last]) &&
+                    adjacency.ZNeg.Root.GetLight(x, y, Chunk.Last).Compare(nextLightValue, out value))
                 {
-                    neighbors.ZNeg.SetLight(x, y, Chunk.Last, value);
-                    lightQueue.Enqueue(new LightNode(neighbors.ZNeg, x, y, Chunk.Last));
+                    adjacency.ZNeg.Root.SetLight(x, y, Chunk.Last, value);
+                    lightQueue.Enqueue(new LightNode(adjacency.ZNeg.Root, x, y, Chunk.Last));
                 }
 
-                neighbors.ZNeg.RecalculateMesh = true;
+                adjacency.ZNeg.Root.RecalculateMesh = true;
             }
             else if (IsBlockTransparent(chunk[x, y, z - 1]) &&
                 chunk.GetLight(x, y, z - 1).Compare(nextLightValue, out value))
@@ -494,16 +499,16 @@ namespace SharpCraft.World.Light
             }
         }
 
-        public FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int y, int x, int z, ChunkNeighbors neighbors)
+        public FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int y, int x, int z, ChunkAdjacency adjacency)
         {
             FacesData<LightValue> lightValues = new();
-            IChunk chunk = neighbors.Chunk;
+            IChunk chunk = adjacency.Root;
 
             if (visibleFaces.ZPos)
             {
                 if (z == Chunk.Last)
                 {
-                    lightValues.ZPos = neighbors.ZPos.GetLight(x, y, 0);
+                    lightValues.ZPos = adjacency.ZPos.Root.GetLight(x, y, 0);
                 }
                 else
                 {
@@ -515,7 +520,7 @@ namespace SharpCraft.World.Light
             {
                 if (z == 0)
                 {
-                    lightValues.ZNeg = neighbors.ZNeg.GetLight(x, y, Chunk.Last);
+                    lightValues.ZNeg = adjacency.ZNeg.Root.GetLight(x, y, Chunk.Last);
                 }
                 else
                 {
@@ -527,7 +532,7 @@ namespace SharpCraft.World.Light
             {
                 if (y == Chunk.Last)
                 {
-                    lightValues.YPos = neighbors.YPos.GetLight(x, 0, z);
+                    lightValues.YPos = adjacency.YPos.Root.GetLight(x, 0, z);
                 }
                 else
                 {
@@ -539,7 +544,7 @@ namespace SharpCraft.World.Light
             {
                 if (y == 0)
                 {
-                    lightValues.YNeg = neighbors.YNeg.GetLight(x, Chunk.Last, z);
+                    lightValues.YNeg = adjacency.YNeg.Root.GetLight(x, Chunk.Last, z);
                 }
                 else
                 {
@@ -552,7 +557,7 @@ namespace SharpCraft.World.Light
             {
                 if (x == Chunk.Last)
                 {
-                    lightValues.XPos = neighbors.XPos.GetLight(0, y, z);
+                    lightValues.XPos = adjacency.XPos.Root.GetLight(0, y, z);
                 }
                 else
                 {
@@ -564,7 +569,7 @@ namespace SharpCraft.World.Light
             {
                 if (x == 0)
                 {
-                    lightValues.XNeg = neighbors.XNeg.GetLight(Chunk.Last, y, z);
+                    lightValues.XNeg = adjacency.XNeg.Root.GetLight(Chunk.Last, y, z);
                 }
                 else
                 {
