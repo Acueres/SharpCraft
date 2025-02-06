@@ -22,9 +22,9 @@ namespace SharpCraft
 
     public class MainGame : Game
     {
-        public GameState State;
-        public bool Paused;
-        public bool ExitedMenu;
+        public GameState State { get; set; }
+        public bool Paused { get; set; }
+        public bool ExitedMenu { get; set; }
 
         GraphicsDeviceManager graphics;
 
@@ -92,7 +92,7 @@ namespace SharpCraft
                                 player.Update(gameTime);
                                 if (player.UpdateOccured)
                                 {
-                                    world.UpdateBlocks();
+                                    world.UpdateBlocks(ExitedMenu);
                                 }
 
                                 Vector3I currentPlayerIndex = new(Chunk.CalculateChunkIndex(
@@ -102,8 +102,12 @@ namespace SharpCraft
 
                                 if (player.Index != currentPlayerIndex)
                                 {
-                                    world.Update();
+                                    world.Update(true);
                                     player.Index = currentPlayerIndex;
+                                }
+                                else
+                                {
+                                    world.Update(false);
                                 }
                             }
 
@@ -134,7 +138,7 @@ namespace SharpCraft
                             if (!File.Exists($@"Saves\{currentSave.Parameters.SaveName}\save_icon.png"))
                             {
                                 player.Update(gameTime);
-                                world.Update();
+                                world.Update(true);
                                 world.Render();
                                 screenshotHandler.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }

@@ -129,7 +129,7 @@ namespace SharpCraft.World.Chunks
                             continue;
                         }
 
-                        FacesState visibleFaces = GetVisibleFaces(y, x, z, adjacency, calculateOpacity: false);
+                        FacesState visibleFaces = GetVisibleFaces(new Vector3I(x, y, z), adjacency, calculateOpacity: false);
 
                         if (visibleFaces.Any())
                         {
@@ -140,10 +140,14 @@ namespace SharpCraft.World.Chunks
             }
         }
 
-        public FacesState GetVisibleFaces(int y, int x, int z, ChunkAdjacency adjacency,
+        public FacesState GetVisibleFaces(Vector3I index, ChunkAdjacency adjacency,
                                     bool calculateOpacity = true)
         {
             FacesState visibleFaces = new();
+
+            int x = index.X;
+            int y = index.Y;
+            int z = index.Z;
 
             Block block = blocks[x, y, z];
 

@@ -1,7 +1,8 @@
 ﻿using System.Collections.Generic;
 using SharpCraft.Utility;
+using SharpCraft.World.Chunks;
 
-namespace SharpCraft.World.Chunks;
+namespace SharpCraft.World.ChunkSystems;
 
 public class AdjacencyGraph
 {

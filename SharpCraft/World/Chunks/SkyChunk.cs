@@ -37,7 +37,7 @@ namespace SharpCraft.World.Chunks
 
         public void CalculateActiveBlocks(ChunkAdjacency adjacency) { }
 
-        public FacesState GetVisibleFaces(int y, int x, int z, ChunkAdjacency adjacency,
+        public FacesState GetVisibleFaces(Vector3I index, ChunkAdjacency adjacency,
                                     bool calculateOpacity = true) => new(false);
 
         public void Dispose() { }

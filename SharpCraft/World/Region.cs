@@ -8,6 +8,7 @@ using SharpCraft.World.Light;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
 using SharpCraft.Persistence;
+using SharpCraft.World.ChunkSystems;
 
 namespace SharpCraft.World
 {
@@ -57,7 +58,10 @@ namespace SharpCraft.World
 
             GenerateChunks(center);
             RemoveInactiveChunks();
+        }
 
+        public void UpdateMeshes()
+        {
             foreach (Vector3I index in activeChunkIndexes)
             {
                 IChunk chunk = GetChunk(index);

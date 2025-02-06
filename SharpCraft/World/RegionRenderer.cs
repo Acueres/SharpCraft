@@ -247,7 +247,7 @@ namespace SharpCraft.World
 
                 Vector3 blockPosition = new Vector3(x, y, z) + fullChunk.Position;
 
-                FacesState visibleFaces = fullChunk.GetVisibleFaces(y, x, z, adjacency);
+                FacesState visibleFaces = fullChunk.GetVisibleFaces(index, adjacency);
                 FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, y, x, z, adjacency);
 
                 foreach (Faces face in visibleFaces.GetFaces())
