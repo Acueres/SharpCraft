@@ -15,7 +15,7 @@ namespace SharpCraft
     public enum GameState
     {
         Loading,
-        Started,
+        Running,
         MainMenu,
         Exiting
     }
@@ -36,7 +36,7 @@ namespace SharpCraft
         WorldSystem world;
         GameMenu gameMenu;
         MainMenu mainMenu;
-        DatabaseService databaseHandler;
+        DatabaseService db;
         Save currentSave;
         Time time;
 
@@ -85,7 +85,7 @@ namespace SharpCraft
             {
                 switch (State)
                 {
-                    case GameState.Started:
+                    case GameState.Running:
                         {
                             if (!Paused)
                             {
@@ -118,7 +118,7 @@ namespace SharpCraft
 
                     case GameState.Loading:
                         {
-                            State = GameState.Started;
+                            State = GameState.Running;
 
                             currentSave = mainMenu.CurrentSave;
 
@@ -128,12 +128,14 @@ namespace SharpCraft
                                                                                   Window.ClientBounds.Height);
                             BlockSelector blockSelector = new(GraphicsDevice, assetServer);
 
-                            databaseHandler = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
+                            db = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
+                            db.Initialize();
+
                             player = new Player(this, GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(gameMenu, databaseHandler, blockSelector, currentSave.Parameters, blockMetadata, time, assetServer, GraphicsDevice, screenshotHandler);
+                            world = new WorldSystem(gameMenu, db, blockSelector, currentSave.Parameters, blockMetadata, time, assetServer, GraphicsDevice, screenshotHandler);
 
-                            world.SetPlayer(this, player, currentSave.Parameters);
+                            world.SetPlayer(player, currentSave.Parameters);
 
                             if (!File.Exists($@"Saves\{currentSave.Parameters.SaveName}\save_icon.png"))
                             {
@@ -148,7 +150,7 @@ namespace SharpCraft
 
                     case GameState.Exiting:
                         {
-                            databaseHandler.Close();
+                            db.Close();
 
                             player.SaveParameters(currentSave.Parameters);
                             time.SaveParameters(currentSave.Parameters);
@@ -156,7 +158,7 @@ namespace SharpCraft
 
                             player = null;
                             world = null;
-                            databaseHandler = null;
+                            db = null;
                             gameMenu = null;
 
                             GC.Collect();
@@ -182,7 +184,7 @@ namespace SharpCraft
         {
             switch (State)
             {
-                case GameState.Started:
+                case GameState.Running:
                     {
                         world.Render();
                         gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));

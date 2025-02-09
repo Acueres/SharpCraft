@@ -7,8 +7,9 @@ using SharpCraft.Utility;
 using SharpCraft.World.Light;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
-using SharpCraft.Persistence;
 using SharpCraft.World.ChunkSystems;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace SharpCraft.World
 {
@@ -18,22 +19,20 @@ namespace SharpCraft.World
         readonly int apothem;
 
         readonly WorldGenerator worldGenerator;
-        readonly DatabaseService databaseHandler;
         readonly RegionRenderer renderer;
         readonly LightSystem lightSystem;
         readonly AdjacencyGraph adjacencyGraph;
 
-        readonly Dictionary<Vector3I, IChunk> chunks = [];
+        readonly ConcurrentDictionary<Vector3I, IChunk> chunks = [];
         readonly List<Vector3I> proximityIndexes = [];
-        readonly List<Vector3I> activeChunkIndexes = [];
+        readonly ConcurrentBag<Vector3I> activeChunkIndexes = [];
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
         readonly HashSet<Vector3I> unfinishedChunkIndexes = [];
 
-        public Region(int apothem, AdjacencyGraph adjacencyGraph, WorldGenerator worldGenerator, DatabaseService databaseHandler, RegionRenderer renderer, LightSystem lightSystem)
+        public Region(int apothem, AdjacencyGraph adjacencyGraph, WorldGenerator worldGenerator, RegionRenderer renderer, LightSystem lightSystem)
         {
             this.apothem = apothem;
             this.worldGenerator = worldGenerator;
-            this.databaseHandler = databaseHandler;
             this.renderer = renderer;
 
             proximityIndexes = GenerateProximityIndexes();
@@ -142,29 +141,32 @@ namespace SharpCraft.World
         void GenerateChunks(Vector3I center)
         {
             activeChunkIndexes.Clear();
-            List<Vector3I> generatedChunks = [];
+            ConcurrentBag<Vector3I> generatedChunks = [];
 
-            foreach (Vector3I proximityIndex in proximityIndexes)
+            Parallel.ForEach(proximityIndexes, proximityIndex =>
             {
                 Vector3I index = center + proximityIndex;
 
-                if (!chunks.ContainsKey(index))
+                if (chunks.ContainsKey(index))
+                {
+                    lock (unfinishedChunkIndexes)
+                    {
+                        if (unfinishedChunkIndexes.Remove(index))
+                            generatedChunks.Add(index);
+                    }
+                }
+                else
                 {
                     IChunk chunk = worldGenerator.GenerateChunk(index);
-                    chunks.Add(index, chunk);
-
-                    databaseHandler.ApplyDelta(chunks[index]);
-
-                    generatedChunks.Add(index);
-                }
-                else if (unfinishedChunkIndexes.Remove(index))
-                {
+                    chunks.TryAdd(index, chunk);
                     generatedChunks.Add(index);
                 }
 
                 activeChunkIndexes.Add(index);
-                inactiveChunkIndexes.Remove(index);
-            }
+
+                lock (inactiveChunkIndexes)
+                    inactiveChunkIndexes.Remove(index);
+            });
 
             foreach (Vector3I index in generatedChunks)
             {
@@ -218,7 +220,7 @@ namespace SharpCraft.World
             {
                 adjacencyGraph.Dereference(index);
                 chunks[index].Dispose();
-                chunks.Remove(index);
+                chunks.Remove(index, out _);
                 renderer.Remove(index);
             }
             inactiveChunkIndexes.Clear();

@@ -30,7 +30,7 @@ namespace SharpCraft.World
 
         readonly ushort water;
 
-        public WorldSystem(GameMenu gameMenu, DatabaseService databaseHandler,
+        public WorldSystem(GameMenu gameMenu, DatabaseService db,
             BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata, Time time,
             AssetServer assetServer, GraphicsDevice graphicsDevice, ScreenshotTaker screenshotHandler)
         {
@@ -39,19 +39,19 @@ namespace SharpCraft.World
 
             water = blockMetadata.GetBlockIndex("water");
 
-            worldGenerator = new WorldGenerator(parameters, blockMetadata);
+            worldGenerator = new WorldGenerator(parameters, db, blockMetadata);
             this.blockSelector = blockSelector;
 
             adjacencyGraph = new();
             lightSystem = new(blockMetadata, adjacencyGraph);
 
-            blockModSystem = new BlockModificationSystem(databaseHandler, blockMetadata, lightSystem);
+            blockModSystem = new BlockModificationSystem(db, blockMetadata, lightSystem);
 
             RegionRenderer regionRenderer = new(graphicsDevice, screenshotHandler, blockSelector, assetServer, blockMetadata, lightSystem);
-            region = new Region(Settings.RenderDistance, adjacencyGraph, worldGenerator, databaseHandler, regionRenderer, lightSystem);
+            region = new Region(Settings.RenderDistance, adjacencyGraph, worldGenerator, regionRenderer, lightSystem);
         }
 
-        public void SetPlayer(MainGame game, Player player, Parameters parameters)
+        public void SetPlayer(Player player, Parameters parameters)
         {
             this.player = player;
             player.Flying = true;

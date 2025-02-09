@@ -72,7 +72,7 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
         lightSystem.UpdateLight(blockIndex.X, blockIndex.Y, blockIndex.Z, Block.EmptyValue, adjacency, sourceRemoved: lightSource);
 
-        db.AddDelta(adjacency.Root.Index, blockIndex.Y, blockIndex.X, blockIndex.Z, Block.Empty);
+        db.AddDelta(adjacency.Root.Index, blockIndex, Block.Empty);
 
         UpdateAdjacentBlocks(adjacency, blockIndex.Y, blockIndex.X, blockIndex.Z);
     }
@@ -92,7 +92,7 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
         lightSystem.UpdateLight(newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z, block.Value, adjacency);
 
-        db.AddDelta(chunk.Index, newBlockIndex.Y, newBlockIndex.X, newBlockIndex.Z, block);
+        db.AddDelta(chunk.Index, newBlockIndex, block);
 
         UpdateAdjacentBlocks(newAdjacency, newBlockIndex.Y, newBlockIndex.X, newBlockIndex.Z);
     }

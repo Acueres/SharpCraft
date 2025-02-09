@@ -8,6 +8,7 @@ using SharpCraft.Utility;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
+using System.Collections.Concurrent;
 
 namespace SharpCraft.World.Generation
 {
@@ -22,10 +23,12 @@ namespace SharpCraft.World.Generation
     {
         readonly int seed;
         readonly string type;
+        readonly DatabaseService db;
+        readonly BlockMetadataProvider blockMetadata;
 
-        readonly Dictionary<Vector2I, int[,]> terrainLevelCache = [];
-        readonly Dictionary<Vector2I, BiomeType[,]> biomesCache = [];
-        readonly Dictionary<Vector2I, int> elevationCache = [];
+        readonly ConcurrentDictionary<Vector2I, int[,]> terrainLevelCache = [];
+        readonly ConcurrentDictionary<Vector2I, BiomeType[,]> biomesCache = [];
+        readonly ConcurrentDictionary<Vector2I, int> elevationCache = [];
 
         readonly int waterLevel;
 
@@ -38,13 +41,12 @@ namespace SharpCraft.World.Generation
                leaves, birch, oak, water,
                sand, sandstone;
 
-        readonly BlockMetadataProvider blockMetadata;
 
-
-        public WorldGenerator(Parameters parameters, BlockMetadataProvider blockMetadata)
+        public WorldGenerator(Parameters parameters, DatabaseService databaseService, BlockMetadataProvider blockMetadata)
         {
             this.blockMetadata = blockMetadata;
             type = parameters.WorldType;
+            db = databaseService;
 
             waterLevel = 40;
 
@@ -139,8 +141,8 @@ namespace SharpCraft.World.Generation
                     }
                 }
 
-                terrainLevelCache.Add(cacheIndex, terrainLevel);
-                biomesCache.Add(cacheIndex, biomes);
+                terrainLevelCache.TryAdd(cacheIndex, terrainLevel);
+                biomesCache.TryAdd(cacheIndex, biomes);
             }
             else
             {
@@ -180,6 +182,8 @@ namespace SharpCraft.World.Generation
                     }*/
                 }
             }
+
+            db.ApplyDelta(chunk);
 
             //GenerateTrees(chunk, elevationMap, rnd);
 
@@ -236,6 +240,8 @@ namespace SharpCraft.World.Generation
                     }
                 }
             }
+
+            db.ApplyDelta(chunk);
 
             return chunk;
         }

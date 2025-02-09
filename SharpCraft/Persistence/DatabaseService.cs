@@ -1,144 +1,182 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Data.SQLite;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
+
 using SharpCraft.Utility;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 
+namespace SharpCraft.Persistence;
 
-namespace SharpCraft.Persistence
+internal class SaveData(Vector3I chunkIndex, Vector3I blockIndex, Block block)
 {
-    public class DatabaseService
+    public Vector3I ChunkIndex { get; } = chunkIndex;
+    public Vector3I BlockIndex { get; } = blockIndex;
+    public Block Block { get; } = block;
+}
+
+public class DatabaseService
+{
+    readonly string path;
+    readonly BlockMetadataProvider blockMetadata;
+
+    readonly Queue<SaveData> saveQueue = [];
+    readonly ConcurrentDictionary<Vector3I, int> chunkDbIndexCache = [];
+    readonly Task flushTask;
+    readonly SQLiteConnection connection;
+
+    const string initCommand = @"
+                                CREATE TABLE IF NOT EXISTS block_delta(
+                                    Id INTEGER PRIMARY KEY,
+                                    ChunkId INTEGER,
+                                    X INTEGER,
+                                    Y INTEGER,
+                                    Z INTEGER,
+                                    Block INTEGER,
+                                    UNIQUE(ChunkId, X, Y, Z),
+                                    FOREIGN KEY(ChunkId) REFERENCES chunks(Id)
+                                );
+                                
+                                CREATE TABLE IF NOT EXISTS chunks(
+                                    Id INTEGER PRIMARY KEY,
+                                    X INTEGER,
+                                    Y INTEGER,
+                                    Z INTEGER,
+                                    UNIQUE(X, Y, Z)
+                                );
+                                ";
+
+    const string chunkIdQuery = @"INSERT OR IGNORE INTO chunks(X, Y, Z) VALUES(@x, @y, @z);
+                                  SELECT Id FROM chunks WHERE X = @x AND Y = @y AND Z = @z;";
+
+    const string addBlockDeltaCommand = @"INSERT OR REPLACE INTO block_delta(ChunkId, X, Y, Z, Block)
+                                          VALUES(@chunkId, @x, @y, @z, @block)";
+
+    const string chunkDeltaQuery = @"SELECT x, y, z, block FROM block_delta
+                                     WHERE ChunkId = @chunkId";
+
+    public DatabaseService(MainGame game, string saveName, BlockMetadataProvider blockMetadata)
     {
-        readonly BlockMetadataProvider blockMetadata;
-        SQLiteCommand cmd;
-        SQLiteConnection connection;
+        this.blockMetadata = blockMetadata;
 
-        const string insertCommand = @"INSERT OR REPLACE INTO chunks(chunkX, chunkY, chunkZ, x, y, z, block)
-                                VALUES(@chunkX, @chunkY, @chunkZ, @x, @y, @z, @block)";
+        path = @"URI=file:" + Directory.GetCurrentDirectory() + $@"\Saves\{saveName}\data.db";
+        connection = new SQLiteConnection(path);
 
-        const string selectCommand = @"SELECT x, y, z, block FROM chunks
-                                WHERE [chunkX] = @x AND [chunkY] = @y AND [chunkZ] = @z";
-
-        Queue<SaveData> dataQueue;
-
-        Task saveTask;
-
-        class SaveData
+        flushTask = Task.Run(async () =>
         {
-            public Vector3I Index;
-            public int X;
-            public int Y;
-            public int Z;
-            public Block Block;
+            const int delay = 2;
+            TimeSpan delaySpan = TimeSpan.FromSeconds(delay);
 
-            public SaveData(Vector3I index, int x, int y, int z, Block block)
+            while (game.State == GameState.Running || saveQueue.Count > 0)
             {
-                Index = index;
-                X = x;
-                Y = y;
-                Z = z;
-                Block = block;
+                await FlushDeltasAsync();
+                await Task.Delay(delaySpan);
+            }
+        });
+    }
+
+    public void Close()
+    {
+        flushTask.Wait();
+        connection.Close();
+    }
+
+    public void Initialize()
+    {
+        connection.Open();
+
+        using var cmd = new SQLiteCommand(connection)
+        {
+            CommandText = initCommand
+        };
+        cmd.ExecuteNonQuery();
+    }
+
+    public void AddDelta(Vector3I chunkIndex, Vector3I blockIndex, Block block)
+    {
+        saveQueue.Enqueue(new SaveData(chunkIndex, blockIndex, block));
+    }
+
+    public void ApplyDelta(IChunk chunk)
+    {
+        int chunkId = GetChunkIdAsync(chunk.Index).Result;
+
+        using var command = new SQLiteCommand(connection)
+        {
+            CommandText = chunkDeltaQuery
+        };
+
+        command.Parameters.AddWithValue("@chunkId", chunkId);
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            int x = reader.GetInt32(0);
+            int y = reader.GetInt32(1);
+            int z = reader.GetInt32(2);
+            var block = new Block((ushort)reader.GetInt32(3));
+
+            chunk[x, y, z] = block;
+
+            if (chunk is Chunk c && !block.IsEmpty && blockMetadata.IsLightSource(block.Value))
+            {
+                c.AddLightSource(x, y, z);
             }
         }
+    }
 
-
-        public DatabaseService(MainGame game, string saveName, BlockMetadataProvider blockMetadata)
+    async Task FlushDeltasAsync()
+    {
+        using var command = new SQLiteCommand(connection)
         {
-            dataQueue = new Queue<SaveData>(10);
+            CommandText = addBlockDeltaCommand
+        };
 
-            this.blockMetadata = blockMetadata;
+        while (saveQueue.Count > 0)
+        {
+            SaveData data = saveQueue.Dequeue();
 
-            string path = @"URI=file:" + Directory.GetCurrentDirectory() + $@"\Saves\{saveName}\data.db";
-            connection = new SQLiteConnection(path);
-            connection.Open();
+            int chunkId = await GetChunkIdAsync(data.ChunkIndex);
 
-            cmd = new SQLiteCommand(connection)
-            {
-                CommandText = @"CREATE TABLE IF NOT EXISTS chunks(
-                                chunkX INTEGER,
-                                chunkY INTEGER,
-                                chunkZ INTEGER,
-                                x INTEGER,
-                                y INTEGER,
-                                z INTEGER,
-                                block INTEGER,
-                                PRIMARY KEY(chunkX, chunkY, chunkZ, x, y, z))"
-            };
-            cmd.ExecuteNonQuery();
+            command.Parameters.AddWithValue("@chunkId", chunkId);
+            command.Parameters.AddWithValue("@x", data.BlockIndex.X);
+            command.Parameters.AddWithValue("@y", data.BlockIndex.Y);
+            command.Parameters.AddWithValue("@z", data.BlockIndex.Z);
+            command.Parameters.AddWithValue("@block", (int)data.Block.Value);
 
-            saveTask = Task.Run(async () =>
-            {
-                while (game.State == GameState.Started || dataQueue.Count > 0)
-                {
-                    WriteDelta();
-                    await Task.Delay(2000);
-                }
-            });
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    async Task<int> GetChunkIdAsync(Vector3I chunkIndex)
+    {
+        if (chunkDbIndexCache.TryGetValue(chunkIndex, out int id))
+        {
+            return id;
         }
 
-        public void Close()
+        using var command = new SQLiteCommand(connection)
         {
-            saveTask.Wait();
-            connection.Close();
+            CommandText = chunkIdQuery
+        };
+
+        command.Parameters.AddWithValue("@x", chunkIndex.X);
+        command.Parameters.AddWithValue("@y", chunkIndex.Y);
+        command.Parameters.AddWithValue("@z", chunkIndex.Z);
+
+        using var reader = await command.ExecuteReaderAsync();
+
+        if (reader.Read())
+        {
+            id = reader.GetInt32(0);
         }
 
-        public void AddDelta(Vector3I index, int y, int x, int z, Block block)
-        {
-            dataQueue.Enqueue(new SaveData(index, x, y, z, block));
-        }
+        chunkDbIndexCache.TryAdd(chunkIndex, id);
 
-        public void ApplyDelta(IChunk chunk)
-        {
-            if (chunk is not Chunk fullChunk) return;
-
-            var command = new SQLiteCommand(connection)
-            {
-                CommandText = selectCommand
-            };
-
-            command.Parameters.AddWithValue("@x", fullChunk.Index.X);
-            command.Parameters.AddWithValue("@y", fullChunk.Index.Y);
-            command.Parameters.AddWithValue("@z", fullChunk.Index.Z);
-
-            var reader = command.ExecuteReader();
-
-            while (reader.Read())
-            {
-                int x = reader.GetInt32(0);
-                int y = reader.GetInt32(1);
-                int z = reader.GetInt32(2);
-                ushort block = (ushort)reader.GetInt32(3);
-
-                fullChunk[x, y, z] = new(block);
-
-                if (block != Block.EmptyValue && blockMetadata.IsLightSource(block))
-                {
-                    fullChunk.AddLightSource(x, y, z);
-                }
-            }
-        }
-
-        void WriteDelta()
-        {
-            SaveData data;
-
-            while (dataQueue.Count > 0)
-            {
-                data = dataQueue.Dequeue();
-                cmd.CommandText = insertCommand;
-
-                cmd.Parameters.AddWithValue("@chunkX", data.Index.X);
-                cmd.Parameters.AddWithValue("@chunkY", data.Index.Y);
-                cmd.Parameters.AddWithValue("@chunkZ", data.Index.Z);
-                cmd.Parameters.AddWithValue("@x", data.X);
-                cmd.Parameters.AddWithValue("@y", data.Y);
-                cmd.Parameters.AddWithValue("@z", data.Z);
-                cmd.Parameters.AddWithValue("@block", data.Block.Value);
-
-                cmd.ExecuteNonQuery();
-            }
-        }
+        return id;
     }
 }
