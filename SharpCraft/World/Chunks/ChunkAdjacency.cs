@@ -1,4 +1,4 @@
-﻿using SharpCraft.Utility;
+﻿using SharpCraft.MathUtilities;
 using System.Collections.Generic;
 
 namespace SharpCraft.World.Chunks;

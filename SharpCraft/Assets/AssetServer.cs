@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 using System.IO;
 
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 
 namespace SharpCraft.Assets
 {

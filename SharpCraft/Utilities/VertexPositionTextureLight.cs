@@ -1,8 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-
-namespace SharpCraft.Utility
+namespace SharpCraft.Utilities
 {
     public struct VertexPositionTextureLight : IVertexType
     {

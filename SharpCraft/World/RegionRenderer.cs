@@ -5,72 +5,87 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Assets;
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 using SharpCraft.World.Light;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
+using SharpCraft.MathUtilities;
 
 namespace SharpCraft.World
 {
     static class Cube
     {
-        public static VertexPositionTextureLight[][] Faces { get; set; }
+        public static VertexPositionTextureLight[][] Faces { get; }
 
         static Cube()
         {
-            float size = 0.5f;
-
+            // Front face: z = 1.
             VertexPositionTextureLight[] front = new VertexPositionTextureLight[6];
-            front[0].Position = new Vector3(-size, -size, size);
-            front[1].Position = new Vector3(-size, size, size);
-            front[2].Position = new Vector3(size, -size, size);
+            front[0].Position = new Vector3(0, 0, 1);
+            front[1].Position = new Vector3(0, 1, 1);
+            front[2].Position = new Vector3(1, 0, 1);
             front[3].Position = front[1].Position;
-            front[4].Position = new Vector3(size, size, size);
+            front[4].Position = new Vector3(1, 1, 1);
             front[5].Position = front[2].Position;
 
+            // Back face: z = 0.
             VertexPositionTextureLight[] back = new VertexPositionTextureLight[6];
-            back[0].Position = new Vector3(size, -size, -size);
-            back[1].Position = new Vector3(size, size, -size);
-            back[2].Position = new Vector3(-size, -size, -size);
+            back[0].Position = new Vector3(1, 0, 0);
+            back[1].Position = new Vector3(1, 1, 0);
+            back[2].Position = new Vector3(0, 0, 0);
             back[3].Position = back[1].Position;
-            back[4].Position = new Vector3(-size, size, -size);
+            back[4].Position = new Vector3(0, 1, 0);
             back[5].Position = back[2].Position;
 
+            // Top face: y = 1.
             VertexPositionTextureLight[] top = new VertexPositionTextureLight[6];
-            top[0].Position = new Vector3(-size, size, size);
-            top[1].Position = new Vector3(-size, size, -size);
-            top[2].Position = new Vector3(size, size, size);
+            top[0].Position = new Vector3(0, 1, 1);
+            top[1].Position = new Vector3(0, 1, 0);
+            top[2].Position = new Vector3(1, 1, 1);
             top[3].Position = top[1].Position;
-            top[4].Position = new Vector3(size, size, -size);
+            top[4].Position = new Vector3(1, 1, 0);
             top[5].Position = top[2].Position;
 
+            // Bottom face: y = 0.
             VertexPositionTextureLight[] bottom = new VertexPositionTextureLight[6];
-            bottom[0].Position = new Vector3(-size, -size, -size);
-            bottom[1].Position = new Vector3(-size, -size, size);
-            bottom[2].Position = new Vector3(size, -size, -size);
+            bottom[0].Position = new Vector3(0, 0, 0);
+            bottom[1].Position = new Vector3(0, 0, 1);
+            bottom[2].Position = new Vector3(1, 0, 0);
             bottom[3].Position = bottom[1].Position;
-            bottom[4].Position = new Vector3(size, -size, size);
+            bottom[4].Position = new Vector3(1, 0, 1);
             bottom[5].Position = bottom[2].Position;
 
+            // Right face: x = 1.
             VertexPositionTextureLight[] right = new VertexPositionTextureLight[6];
-            right[0].Position = new Vector3(size, -size, size);
-            right[1].Position = new Vector3(size, size, size);
-            right[2].Position = new Vector3(size, -size, -size);
+            right[0].Position = new Vector3(1, 0, 1);
+            right[1].Position = new Vector3(1, 1, 1);
+            right[2].Position = new Vector3(1, 0, 0);
             right[3].Position = right[1].Position;
-            right[4].Position = new Vector3(size, size, -size);
+            right[4].Position = new Vector3(1, 1, 0);
             right[5].Position = right[2].Position;
 
+            // Left face: x = 0.
             VertexPositionTextureLight[] left = new VertexPositionTextureLight[6];
-            left[0].Position = new Vector3(-size, -size, -size);
-            left[1].Position = new Vector3(-size, size, -size);
-            left[2].Position = new Vector3(-size, -size, size);
+            left[0].Position = new Vector3(0, 0, 0);
+            left[1].Position = new Vector3(0, 1, 0);
+            left[2].Position = new Vector3(0, 0, 1);
             left[3].Position = left[1].Position;
-            left[4].Position = new Vector3(-size, size, size);
+            left[4].Position = new Vector3(0, 1, 1);
             left[5].Position = left[2].Position;
+
 
             Faces = [front, back, top, bottom, right, left];
 
+            /*foreach (var face in Faces)
+            {
+                for (int i = 0; i < face.Length; i++)
+                {
+                    face[i].Position += new Vector3(halfSize);
+                }
+            }*/
+
+            // Uv texture coordinates
             for (int i = 0; i < 6; i++)
             {
                 Faces[i][0].TextureCoordinate = new Vector2(1, 1);

@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
-
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
-using SharpCraft.Utility;
+
+using SharpCraft.Utilities;
 using SharpCraft.World.Light;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
-using SharpCraft.World.ChunkSystems;
-using System.Threading.Tasks;
-using System.Collections.Concurrent;
+using SharpCraft.MathUtilities;
 
 namespace SharpCraft.World
 {
@@ -47,11 +47,7 @@ namespace SharpCraft.World
 
         public void Update(Vector3 pos)
         {
-            int x = Chunk.CalculateChunkIndex(pos.X);
-            int y = Chunk.CalculateChunkIndex(pos.Y);
-            int z = Chunk.CalculateChunkIndex(pos.Z);
-
-            Vector3I center = new(x, y, z);
+            Vector3I center = Chunk.WorldToChunkCoords(pos);
 
             inactiveChunkIndexes.UnionWith(activeChunkIndexes);
 
@@ -83,19 +79,19 @@ namespace SharpCraft.World
 
         public static HashSet<Vector3I> GetReachableChunkIndexes(Vector3 pos)
         {
-            int xIndex = Chunk.CalculateChunkIndex(pos.X);
-            int xIndexPlus6 = Chunk.CalculateChunkIndex(pos.X + 6);
-            int xIndexMinus6 = Chunk.CalculateChunkIndex(pos.X - 6);
+            int xIndex = Chunk.WorldToChunkIndex(pos.X);
+            int xIndexPlus6 = Chunk.WorldToChunkIndex(pos.X + 6);
+            int xIndexMinus6 = Chunk.WorldToChunkIndex(pos.X - 6);
             Span<int> xValues = [xIndex, xIndexPlus6, xIndexMinus6];
 
-            int yIndex = Chunk.CalculateChunkIndex(pos.Y);
-            int yIndexPlus6 = Chunk.CalculateChunkIndex(pos.Y + 6);
-            int yIndexMinus6 = Chunk.CalculateChunkIndex(pos.Y - 6);
+            int yIndex = Chunk.WorldToChunkIndex(pos.Y);
+            int yIndexPlus6 = Chunk.WorldToChunkIndex(pos.Y + 6);
+            int yIndexMinus6 = Chunk.WorldToChunkIndex(pos.Y - 6);
             Span<int> yValues = [yIndex, yIndexPlus6, yIndexMinus6];
 
-            int zIndex = Chunk.CalculateChunkIndex(pos.Z);
-            int zIndexPlus6 = Chunk.CalculateChunkIndex(pos.Z + 6);
-            int zIndexMinus6 = Chunk.CalculateChunkIndex(pos.Z - 6);
+            int zIndex = Chunk.WorldToChunkIndex(pos.Z);
+            int zIndexPlus6 = Chunk.WorldToChunkIndex(pos.Z + 6);
+            int zIndexMinus6 = Chunk.WorldToChunkIndex(pos.Z - 6);
             Span<int> zValues = [zIndex, zIndexPlus6, zIndexMinus6];
 
             HashSet<Vector3I> indexes = [];

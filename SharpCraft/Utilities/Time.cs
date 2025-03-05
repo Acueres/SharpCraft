@@ -2,7 +2,7 @@
 using System;
 
 
-namespace SharpCraft.Utility
+namespace SharpCraft.Utilities
 {
     class Time
     {

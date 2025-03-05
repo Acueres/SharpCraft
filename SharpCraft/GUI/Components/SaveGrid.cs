@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework.Input;
 using SharpCraft.Assets;
 using SharpCraft.GUI.Elements;
 using SharpCraft.Persistence;
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 
 
 namespace SharpCraft.GUI.Components

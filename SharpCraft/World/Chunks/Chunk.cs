@@ -4,7 +4,8 @@ using System.Runtime.InteropServices;
 
 using Microsoft.Win32.SafeHandles;
 using Microsoft.Xna.Framework;
-using SharpCraft.Utility;
+using SharpCraft.MathUtilities;
+using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Light;
 
@@ -30,17 +31,7 @@ namespace SharpCraft.World.Chunks
 
         readonly BlockMetadataProvider blockMetadata;
 
-        public bool RecalculateMesh { get; set; }
-
-        public static int CalculateChunkIndex(float val)
-        {
-            if (val < 0)
-            {
-                return (int)(val / Size) - 1;
-            }
-
-            return (int)(val / Size);
-        }
+        public bool RecalculateMesh { get; set; }        
 
         public Chunk(Vector3I index, BlockMetadataProvider blockMetadata)
         {
@@ -221,6 +212,36 @@ namespace SharpCraft.World.Chunks
             visibleFaces.XNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque;
 
             return visibleFaces;
+        }
+
+        public static int WorldToChunkIndex(float worldCoord)
+        {
+            if (worldCoord < 0)
+            {
+                return (int)(worldCoord / Size) - 1;
+            }
+
+            return (int)(worldCoord / Size);
+        }
+
+        public static Vector3I WorldToChunkCoords(Vector3 pos)
+        {
+            return new Vector3I(WorldToChunkIndex(pos.X), WorldToChunkIndex(pos.Y), WorldToChunkIndex(pos.Z));
+        }
+
+        public static Vector3I WorldtoBlockCoords(Vector3 pos)
+        {
+            return new Vector3I(WorldToBlockIndex(pos.X), WorldToBlockIndex(pos.Y), WorldToBlockIndex(pos.Z));
+        }
+
+        static int WorldToBlockIndex(float worldCoord)
+        {
+            if (worldCoord < 0)
+            {
+                return (int)worldCoord & Last;
+            }
+
+            return (int)worldCoord % Size;
         }
     }
 }

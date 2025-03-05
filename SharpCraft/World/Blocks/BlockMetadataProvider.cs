@@ -5,7 +5,7 @@ using System.Linq;
 
 using Newtonsoft.Json;
 using SharpCraft.DataModel;
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 
 namespace SharpCraft.World.Blocks
 {

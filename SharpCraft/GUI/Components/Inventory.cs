@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Graphics;
 
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 using SharpCraft.Assets;
 using SharpCraft.World.Blocks;
 using SharpCraft.GUI.Elements;

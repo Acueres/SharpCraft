@@ -5,6 +5,8 @@ VisualStudioVersion = 17.8.34322.80
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpCraft", "SharpCraft\SharpCraft.csproj", "{92AA56CF-8F77-481E-8101-A21042C27608}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpCraft.Tests", "TestProject1\SharpCraft.Tests.csproj", "{62BE6C63-330B-4486-BAF7-DF00F35F07DB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{92AA56CF-8F77-481E-8101-A21042C27608}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{92AA56CF-8F77-481E-8101-A21042C27608}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{92AA56CF-8F77-481E-8101-A21042C27608}.Release|Any CPU.Build.0 = Release|Any CPU
+		{62BE6C63-330B-4486-BAF7-DF00F35F07DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{62BE6C63-330B-4486-BAF7-DF00F35F07DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{62BE6C63-330B-4486-BAF7-DF00F35F07DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{62BE6C63-330B-4486-BAF7-DF00F35F07DB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

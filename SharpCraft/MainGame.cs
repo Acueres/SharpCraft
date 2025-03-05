@@ -3,12 +3,13 @@ using System.IO;
 
 using Microsoft.Xna.Framework;
 using SharpCraft.World;
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 using SharpCraft.Assets;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.GUI.Menus;
 using SharpCraft.Persistence;
+using SharpCraft.MathUtilities;
 
 namespace SharpCraft
 {
@@ -90,15 +91,11 @@ namespace SharpCraft
                             if (!Paused)
                             {
                                 player.Update(gameTime);
-                                if (player.UpdateOccured)
-                                {
-                                    world.UpdateBlocks(ExitedMenu);
-                                }
+    
+                                world.UpdateEntities(ExitedMenu);
+                                world.UpdateBlocks(ExitedMenu);
 
-                                Vector3I currentPlayerIndex = new(Chunk.CalculateChunkIndex(
-                                    player.Position.X), Chunk.CalculateChunkIndex(
-                                    player.Position.Y), Chunk.CalculateChunkIndex(
-                                    player.Position.Z));
+                                Vector3I currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
 
                                 if (player.Index != currentPlayerIndex)
                                 {
@@ -131,7 +128,7 @@ namespace SharpCraft
                             db = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
                             db.Initialize();
 
-                            player = new Player(this, GraphicsDevice, currentSave.Parameters);
+                            player = new Player(GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata, player);
                             world = new WorldSystem(gameMenu, db, blockSelector, currentSave.Parameters, blockMetadata, time, assetServer, GraphicsDevice, screenshotHandler);
 

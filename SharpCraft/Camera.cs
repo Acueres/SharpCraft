@@ -7,23 +7,15 @@ namespace SharpCraft
 {
     public class Camera
     {
-        public bool UpdateOccured
-        {
-            get
-            {
-                return cameraDelta.Length() > 0;
-            }
-        }
+        public bool UpdateOccured => cameraDelta.Length() > 0;
 
-        public Matrix View;
-        public Matrix Projection;
+        public Matrix View { get; set; }
+        public Matrix Projection { get; set; }
 
-        public Vector3 Direction;
+        public Vector3 Direction { get; set; }
         public Vector3 HorizontalDirection;
 
-        public BoundingFrustum Frustum;
-
-        MainGame game;
+        public BoundingFrustum Frustum { get; set; }
 
         Vector3 target;
 
@@ -32,16 +24,15 @@ namespace SharpCraft
 
         MouseState previousMouseState;
 
-        float rotationSpeed;
+        readonly float rotationSpeed;
 
 
-        public Camera(MainGame game, GraphicsDevice graphics, Vector3 position, Vector3 target)
+        public Camera(GraphicsDevice graphics, Vector3 position, Vector3 target)
         {
-            this.game = game;
             this.target = target;
 
             Direction = target - position;
-            Direction.Normalize();
+            Direction = Vector3.Normalize(Direction);
 
             HorizontalDirection = new Vector3(Direction.X, 0f, Direction.Z);
             HorizontalDirection.Normalize();
@@ -66,11 +57,6 @@ namespace SharpCraft
         {
             MouseState currentMouseState = Mouse.GetState();
 
-            if (game.ExitedMenu)
-            {
-                previousMouseState = currentMouseState;
-            }
-
             float delta = (float)gameTime.ElapsedGameTime.TotalMilliseconds / 20f;
             cameraDelta = delta * (new Vector2(currentMouseState.X, currentMouseState.Y) -
                 new Vector2(previousMouseState.X, previousMouseState.Y));
@@ -87,11 +73,10 @@ namespace SharpCraft
             Direction = Vector3.Transform(Direction,
                 Matrix.CreateFromAxisAngle(Vector3.Cross(Vector3.Up, Direction), (MathHelper.PiOver4 / 100) * cameraDelta.Y));
 
-            Direction.Normalize();
+            Direction = Vector3.Normalize(Direction);
 
             HorizontalDirection.X = Direction.X;
             HorizontalDirection.Z = Direction.Z;
-
             HorizontalDirection.Normalize();
 
             target = Direction + position;

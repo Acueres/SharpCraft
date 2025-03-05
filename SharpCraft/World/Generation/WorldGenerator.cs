@@ -3,12 +3,11 @@ using System.Linq;
 using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
-
-using SharpCraft.Utility;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
 using System.Collections.Concurrent;
+using SharpCraft.MathUtilities;
 
 namespace SharpCraft.World.Generation
 {
@@ -105,7 +104,7 @@ namespace SharpCraft.World.Generation
             List<Vector3I> indexes = new(elevationCache.Count);
             foreach ((Vector2I index, int value) in elevationCache)
             {
-                int y = Chunk.CalculateChunkIndex(value) + 1;
+                int y = Chunk.WorldToChunkIndex(value) + 1;
                 indexes.Add(new Vector3I(index.X, y, index.Z));
             }
 

@@ -7,7 +7,7 @@ using System.IO;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 using SharpCraft.Assets;
 using SharpCraft.GUI.Elements;
 using SharpCraft.GUI.Components;

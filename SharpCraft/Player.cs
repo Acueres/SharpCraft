@@ -1,8 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using SharpCraft.MathUtilities;
 using SharpCraft.Persistence;
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 
 
 namespace SharpCraft
@@ -14,7 +15,7 @@ namespace SharpCraft
         public bool RightClick => HasClicked && Util.RightButtonClicked(currentMouseState, previousMouseState);
 
         public Vector3I Index { get; set; }
-        public Vector3 Position { get; set; }
+        public Vector3 Position;
 
         public Camera Camera { get; set; }
         public Physics Physics { get; set; }
@@ -43,22 +44,22 @@ namespace SharpCraft
         KeyboardState currentKeyboardState;
         KeyboardState previousKeyboardState;
 
-        Vector3 boundMin;
         Vector3 boundMax;
 
 
-        public Player(MainGame game, GraphicsDevice graphics, Parameters parameters)
+        public Player(GraphicsDevice graphics, Parameters parameters)
         {
-            Camera = new Camera(game, graphics, Position, parameters.Direction);
+            Vector3 cameraPosition = new(Position.X + 0.5f, Position.Y + 1.6f, Position.Z + 0.25f);
+
+            Camera = new Camera(graphics, cameraPosition, parameters.Direction);
 
             Physics = new Physics(this);
 
             Ray = new Ray(parameters.Position, Camera.Direction);
 
-            boundMin = new Vector3(-0.25f, -1.6f, -0.25f);
-            boundMax = new Vector3(0.25f, 0.5f, 0.25f);
+            boundMax = new Vector3(0.5f, 1.8f, 0.5f);
 
-            Bound = new BoundingBox(boundMin + Position, boundMax + Position);
+            Bound = new BoundingBox(Position, boundMax + Position);
 
             Position = parameters.Position;
 
@@ -86,7 +87,7 @@ namespace SharpCraft
 
             CheckInput();
 
-            Camera.Update(Position, gameTime);
+            UpdateCamera();
 
             Physics.Update(gameTime);
 
@@ -94,9 +95,20 @@ namespace SharpCraft
 
             Ray = new Ray(Position, Camera.Direction);
 
-            Bound = new BoundingBox(boundMin + Position, boundMax + Position);
+            Bound = new BoundingBox(Position, boundMax + Position);
 
             previousKeyboardState = currentKeyboardState;
+        }
+
+        public void UpdateBound()
+        {
+            Bound = new BoundingBox(Position, boundMax + Position);
+        }
+
+        public void UpdateCamera()
+        {
+            Vector3 cameraPosition = new(Position.X + 0.5f, Position.Y + 1.6f, Position.Z + 0.25f);
+            Camera.Update(cameraPosition, gameTime);
         }
 
         public void SaveParameters(Parameters parameters)
@@ -126,10 +138,7 @@ namespace SharpCraft
 
                 if (!Flying && Walking)
                 {
-                    Position = new Vector3(Position.X, Position.Y + 0.1f, Position.Z);
-
-                    Physics.Velocity.Y = -0.12f;
-
+                    Physics.Velocity.Y = 0.17f;
                     Walking = false;
                 }
             }

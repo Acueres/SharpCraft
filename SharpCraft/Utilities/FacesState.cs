@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace SharpCraft.Utility
+namespace SharpCraft.Utilities
 {
     public enum Faces : byte
     {

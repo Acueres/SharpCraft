@@ -1,7 +1,7 @@
-﻿using SharpCraft.Utility;
+﻿using SharpCraft.MathUtilities;
+using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
-using SharpCraft.World.ChunkSystems;
 using System.Collections.Generic;
 
 namespace SharpCraft.World.Light

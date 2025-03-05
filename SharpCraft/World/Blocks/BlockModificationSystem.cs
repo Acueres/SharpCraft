@@ -1,10 +1,11 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 using SharpCraft.World.Light;
 using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
+using SharpCraft.MathUtilities;
 
 namespace SharpCraft.World.Blocks;
 
@@ -163,13 +164,13 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
                 if (x > Chunk.Last)
                 {
-                    newAdjacency = adjacency.XNeg;
+                    newAdjacency = adjacency.XPos;
                     x = 0;
                 }
 
                 else if (x < 0)
                 {
-                    newAdjacency = adjacency.XPos;
+                    newAdjacency = adjacency.XNeg;
                     x = Chunk.Last;
                 }
 
@@ -181,13 +182,13 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
                 if (y > Chunk.Last)
                 {
-                    newAdjacency = adjacency.YNeg;
+                    newAdjacency = adjacency.YPos;
                     y = 0;
                 }
 
                 else if (y < 0)
                 {
-                    newAdjacency = adjacency.YPos;
+                    newAdjacency = adjacency.YNeg;
                     y = Chunk.Last;
                 }
 
@@ -199,13 +200,13 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
                 if (z > Chunk.Last)
                 {
-                    newAdjacency = adjacency.ZNeg;
+                    newAdjacency = adjacency.ZPos;
                     z = 0;
                 }
 
                 else if (z < 0)
                 {
-                    newAdjacency = adjacency.ZPos;
+                    newAdjacency = adjacency.ZNeg;
                     z = Chunk.Last;
                 }
 

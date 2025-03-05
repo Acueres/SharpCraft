@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using SharpCraft.Utility;
+using SharpCraft.MathUtilities;
+using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Light;
 

@@ -4,10 +4,9 @@ using System.IO;
 using System.Data.SQLite;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
-
-using SharpCraft.Utility;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
+using SharpCraft.MathUtilities;
 
 namespace SharpCraft.Persistence;
 

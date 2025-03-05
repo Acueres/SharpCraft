@@ -1,113 +1,106 @@
 ﻿using System;
-using System.Collections.Generic;
-
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
-using SharpCraft.Utility;
-
 
 namespace SharpCraft
 {
-    public class Physics
+    public class Physics(Player player)
     {
         public bool Moving => Velocity.Length() > 0;
-
         public Vector3 Velocity;
 
-        Player player;
+        readonly Player player = player;
 
-        float maxSpeed;
-        float acceleration;
-
-        double elapsedTime;
-
-        List<Vector3> collisionNormals;
-
-        bool ceilingCollision;
-
-        Dictionary<Vector3, Faces> faceNormals;
-
-
-        public Physics(Player player)
+        public void ResolveCollision(BoundingBox blockBox)
         {
-            this.player = player;
+            int iterations = 0;
+            const int maxIterations = 1;
 
-            maxSpeed = 0.055f;
-            acceleration = 0.02f;
-
-            collisionNormals = new List<Vector3>(2);
-
-            faceNormals = new Dictionary<Vector3, Faces>
+            // Loop until the player's bounding box no longer intersects the block
+            // or until the iteration limit is reached
+            while (player.Bound.Intersects(blockBox) && iterations < maxIterations)
             {
-                { new Vector3(0, 0, -1), Faces.ZPos },
-                { new Vector3(0, 0, 1), Faces.ZNeg },
-                { new Vector3(-1, 0, 0), Faces.XPos },
-                { new Vector3(1, 0, 0), Faces.XNeg }
-            };
-        }
+                var playerBox = player.Bound;
 
-        public void Collision(Vector3 blockPosition, FacesState visibleSides)
-        {
-            float deltaY = player.Position.Y - blockPosition.Y - 1f;
+                // Compute penetration (overlap) amounts along each axis
+                float overlapX = Math.Min(playerBox.Max.X, blockBox.Max.X) - Math.Max(playerBox.Min.X, blockBox.Min.X);
+                float overlapY = Math.Min(playerBox.Max.Y, blockBox.Max.Y) - Math.Max(playerBox.Min.Y, blockBox.Min.Y);
+                float overlapZ = Math.Min(playerBox.Max.Z, blockBox.Max.Z) - Math.Max(playerBox.Min.Z, blockBox.Min.Z);
 
-            Vector3 blockCenterDirection = new(blockPosition.X - player.Position.X,
-                0, blockPosition.Z - player.Position.Z);
-
-            Vector3 normal = GetNormal(blockCenterDirection);
-
-            bool insideBlock = Math.Abs(blockCenterDirection.X) < 0.7f &&
-                Math.Abs(blockCenterDirection.Z) < 0.7f;
-
-            //Ceiling collision
-            if (deltaY < -1.5f && insideBlock)
-            {
-                Velocity.Y = 0;
-                ceilingCollision = true;
-                return;
-            }
-
-            //Floor collision
-            if (deltaY > 0.5f && insideBlock)
-            {
-                player.Position = new Vector3(player.Position.X, blockPosition.Y + 1.97f, player.Position.Z);
-                Velocity.Y = 0;
-
-                player.Flying = false;
-                player.Walking = true;
-                return;
-            }
-
-            //Side collision
-            if (deltaY < 0.5f)
-            {
-                if (faceNormals.TryGetValue(normal, out Faces value) && visibleSides.GetFaceValue(value))
+                // Choose the axis with the smallest overlap to resolve first
+                float minOverlap = overlapX;
+                char side = 'X';
+                if (overlapY < minOverlap)
                 {
-                    collisionNormals.Add(normal);
+                    minOverlap = overlapY;
+                    side = 'Y';
+                }
+                if (overlapZ < minOverlap)
+                {
+                    side = 'Z';
+                }
 
+                Vector3 playerCenter = (playerBox.Min + playerBox.Max) * 0.5f;
+                Vector3 blockCenter = (blockBox.Min + blockBox.Max) * 0.5f;
+
+                // Resolve collision along the axis
+                if (side == 'X')
+                {
+                    int dir = Math.Sign(playerCenter.X - blockCenter.X);
+                    player.Position.X += dir * (overlapX);
                     Velocity.X = 0;
-                    Velocity.Z = 0;
-
                     player.Sprinting = false;
                 }
+                else if (side == 'Y')
+                {
+                    int dir = Math.Sign(playerCenter.Y - blockCenter.Y);
+
+                    if (dir > 0) // Floor collision
+                    {
+                        player.Position.Y += overlapY;
+                        player.Walking = true;
+                        player.Flying = false;
+                    }
+                    else // Ceiling collision
+                    {
+                        player.Position.Y -= overlapY;
+                    }
+                    Velocity.Y = 0;
+                }
+                else // side == 'Z'
+                {
+                    int dir = Math.Sign(playerCenter.Z - blockCenter.Z);
+                    player.Position.Z += dir * overlapZ;
+                    Velocity.Z = 0;
+                    player.Sprinting = false;
+                }
+
+                // Update the player's bounding box after each correction.
+                player.UpdateBound();
+                player.UpdateCamera();
+                iterations++;
             }
         }
 
         public void Update(GameTime gameTime)
         {
-            Vector3 positionDelta = new(0f, 0f, 0f);
+            KeyboardState ks = Keyboard.GetState();
 
-            KeyboardState currentKeyboardState = Keyboard.GetState();
+            const float maxSpeed = 0.055f;
+            const float gravityAcceleration = 9.8f;
+            const float acceleration = 0.02f;
+            const float groundFriction = 0.5f;
+            const float airFriction = 0.1f;
+            const float eps = 5e-3f;
+            const float terminalVelocity = 1f;
 
-            elapsedTime = gameTime.ElapsedGameTime.TotalMilliseconds;
+            float friction = player.Flying ? airFriction : groundFriction;
+
+            double elapsedTime = gameTime.ElapsedGameTime.TotalMilliseconds;
 
             float delta = (float)elapsedTime / 20f;
-            float friction = 0.5f;
-            float gravity = 9.8f;
 
-            bool ascendingInWater = false;
-
-            //Velocity update && friction
-            if (player.Flying && Math.Abs(Velocity.Y) > 5e-3f)
+            if (player.Flying && Math.Abs(Velocity.Y) > eps)
             {
                 Velocity.Y -= Math.Sign(Velocity.Y) * delta * friction * acceleration;
             }
@@ -116,12 +109,7 @@ namespace SharpCraft
                 Velocity.Y = 0;
             }
 
-            if (player.Flying)
-            {
-                friction = 0.1f;
-            }
-
-            if (Math.Abs(Velocity.X) > 5e-3f)
+            if (Math.Abs(Velocity.X) > eps)
             {
                 Velocity.X -= Math.Sign(Velocity.X) * delta * friction * acceleration;
             }
@@ -130,7 +118,7 @@ namespace SharpCraft
                 Velocity.X = 0;
             }
 
-            if (Math.Abs(Velocity.Z) > 5e-3f)
+            if (Math.Abs(Velocity.Z) > eps)
             {
                 Velocity.Z -= Math.Sign(Velocity.Z) * delta * friction * acceleration;
             }
@@ -139,11 +127,22 @@ namespace SharpCraft
                 Velocity.Z = 0;
             }
 
+            //Apply gravity in normal mode
+            if (!player.Flying)
+            {
+                if (Velocity.Y < terminalVelocity)
+                {
+                    Velocity.Y -= (delta * gravityAcceleration) / 800f;
+                }
+
+                //positionDelta.Y -= delta * Velocity.Y;
+            }
+
 
             //Movement control
-            if (currentKeyboardState.IsKeyDown(Keys.W))
+            if (ks.IsKeyDown(Keys.W))
             {
-                if (Math.Abs(Velocity.X) < maxSpeed)
+                if (Math.Abs(Velocity.X) <  maxSpeed)
                 {
                     Velocity.X += delta * acceleration;
                 }
@@ -153,7 +152,7 @@ namespace SharpCraft
                 }
             }
 
-            if (currentKeyboardState.IsKeyDown(Keys.S))
+            if (ks.IsKeyDown(Keys.S))
             {
                 if (Math.Abs(Velocity.X) < maxSpeed)
                 {
@@ -165,7 +164,7 @@ namespace SharpCraft
                 }
             }
 
-            if (currentKeyboardState.IsKeyDown(Keys.A))
+            if (ks.IsKeyDown(Keys.A))
             {
                 if (Math.Abs(Velocity.Z) < maxSpeed)
                 {
@@ -177,7 +176,7 @@ namespace SharpCraft
                 }
             }
 
-            if (currentKeyboardState.IsKeyDown(Keys.D))
+            if (ks.IsKeyDown(Keys.D))
             {
                 if (Math.Abs(Velocity.Z) < maxSpeed)
                 {
@@ -192,92 +191,40 @@ namespace SharpCraft
 
             //Vertical movement
             //Move up in flight mode
-            if (!ceilingCollision && player.Flying
-                && currentKeyboardState.IsKeyDown(Keys.Space))
+            if (player.Flying && ks.IsKeyDown(Keys.Space))
             {
-                if (Velocity.Y < 2 * maxSpeed)
+                if (Math.Abs(Velocity.Y) < 2 * maxSpeed)
                 {
-                    Velocity.Y += 2 * delta * acceleration;
+                    Velocity.Y += delta * acceleration;
                 }
-                positionDelta.Y += Velocity.Y;
-            }
-            //Move up in water
-            else if (!ceilingCollision && player.Swimming &&
-                     currentKeyboardState.IsKeyDown(Keys.Space))
-            {
-                positionDelta.Y += 0.05f;
-                ascendingInWater = true;
+                else
+                {
+                    Velocity.Y = 2 * maxSpeed;
+                }
             }
 
             //Move down in flight mode
-            if (player.Flying && currentKeyboardState.IsKeyDown(Keys.LeftShift))
+            if (player.Flying && ks.IsKeyDown(Keys.LeftShift))
             {
-                if (Velocity.Y < 2 * maxSpeed)
+                if (Math.Abs(Velocity.Y) < 2 * maxSpeed)
                 {
-                    Velocity.Y += 2 * delta * acceleration;
+                    Velocity.Y -= delta * acceleration;
                 }
-
-                positionDelta.Y -= Velocity.Y;
+                else
+                {
+                    Velocity.Y = -2 * maxSpeed;
+                }
             }
 
-            //Apply gravity in normal mode
-            if (!player.Flying && !player.Walking && !ascendingInWater)
-            {
-                if (Velocity.Y < 1f)
-                {
-                    Velocity.Y += (delta * gravity) / 800f;
-                }
+            Vector3 positionDelta = Vector3.Zero;
 
-                positionDelta.Y -= delta * Velocity.Y;
-            }
-
+            positionDelta.Y += delta * Velocity.Y;
             positionDelta += delta * Velocity.X * player.Camera.HorizontalDirection;
-
-            if (player.Sprinting && !player.Swimming)
-            {
-                positionDelta.X *= 2;
-                positionDelta.Z *= 2;
-            }
-
             positionDelta += delta * Velocity.Z * Vector3.Cross(Vector3.Up, player.Camera.HorizontalDirection);
-
-            foreach (var normal in collisionNormals)
-            {
-                if ((Math.Sign(positionDelta.Z) == Math.Sign(normal.Z) ||
-                    Math.Sign(positionDelta.X) == Math.Sign(normal.X)))
-                {
-                    float dot = Vector3.Dot(positionDelta, normal);
-                    positionDelta -= dot * normal;
-                }
-            }
-
-            if (player.Swimming)
-            {
-                positionDelta.X *= 0.3f;
-                positionDelta.Y *= 0.8f;
-                positionDelta.Z *= 0.3f;
-            }
 
             player.Position += positionDelta;
 
-            collisionNormals.Clear();
-
-            player.Walking = false;
-            player.Swimming = false;
-
-            ceilingCollision = false;
-        }
-
-        Vector3 GetNormal(Vector3 vector)
-        {
-            if (Math.Abs(vector.X) > Math.Abs(vector.Z))
-            {
-                return new Vector3(Math.Sign(vector.X), 0, 0);
-            }
-            else
-            {
-                return new Vector3(0, 0, Math.Sign(vector.Z));
-            }
+            player.UpdateBound();
         }
     }
 }

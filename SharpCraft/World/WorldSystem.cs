@@ -3,14 +3,15 @@ using Microsoft.Xna.Framework.Graphics;
 
 using SharpCraft.Assets;
 using SharpCraft.GUI.Menus;
+using SharpCraft.MathUtilities;
 using SharpCraft.Persistence;
-using SharpCraft.Utility;
+using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
-using SharpCraft.World.ChunkSystems;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Light;
 using System.Collections.Generic;
+using System.Xml;
 
 namespace SharpCraft.World
 {
@@ -78,31 +79,79 @@ namespace SharpCraft.World
             region.UpdateMeshes();
         }
 
+        public void UpdateEntities(bool exitedMenu)
+        {
+            if (player.UpdateOccured)
+            {
+                UpdatePlayerAction(exitedMenu);
+            }
+
+            blockModSystem.Update();
+        }
+
         public void Render()
         {
             region.Render(player, time);
         }
 
-        public Region GetRegion() => region;
+        public void UpdatePlayerAction(bool exitedMenu)
+        {
+            if (exitedMenu) return;
+
+            Raycaster raycaster = new(new Vector3(player.Position.X, player.Position.Y + 1.75f, player.Position.Z),
+                player.Camera.Direction, 0.1f);
+
+            const float maxDistance = 4.5f;
+
+            Vector3 blockPosition = player.Position;
+            Vector3I chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+            Vector3I blockIndex = Chunk.WorldtoBlockCoords(blockPosition);
+            Block block = Block.Empty;
+
+            while (raycaster.Length(blockPosition) < maxDistance)
+            {
+                blockPosition = raycaster.Step();
+                chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+                blockIndex = Chunk.WorldtoBlockCoords(blockPosition);
+
+                var chunk = region.GetChunk(chunkIndex);
+                block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
+                if (!block.IsEmpty) break;
+            }
+
+            if (block.IsEmpty)
+            {
+                blockSelector.Clear();
+                return;
+            }
+
+            ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(chunkIndex);
+
+            if (player.LeftClick)
+            {
+                blockModSystem.Add(blockIndex, adjacency, BlockInteractionMode.Remove);
+            }
+            else if (player.RightClick)
+            {
+                if ((blockPosition - player.Position).Length() > 1.1f)
+                {
+                    blockModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, adjacency, BlockInteractionMode.Add);
+                }
+            }
+
+            FacesState visibleFaces = adjacency.Root.GetVisibleFaces(blockIndex, adjacency);
+            blockSelector.Update(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + adjacency.Root.Position, player.Camera.Direction);
+        }
 
         public void UpdateBlocks(bool exitedMenu)
         {
             if (exitedMenu) return;
 
-            float minDistance = 4.5f;
-
-            Vector3 blockMax = new(0.5f, 0.5f, 0.5f);
-            Vector3 blockMin = new(-0.5f, -0.5f, -0.5f);
-
-            IChunk chunk = null;
-            ChunkAdjacency adjacency = null;
-            Vector3I blockIndex = new(-1, -1, -1);
-
             HashSet<Vector3I> reachableChunkIndexes = Region.GetReachableChunkIndexes(player.Position);
 
             foreach (Vector3I chunkIndex in reachableChunkIndexes)
             {
-                chunk = region.GetChunk(chunkIndex);
+                var chunk = region.GetChunk(chunkIndex);
                 foreach (Vector3I index in chunk.GetActiveIndexes())
                 {
                     int x = index.X;
@@ -111,69 +160,11 @@ namespace SharpCraft.World
 
                     Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
-                    if ((player.Position - blockPosition).Length() > 6)
-                    {
-                        continue;
-                    }
+                    BoundingBox blockBounds = new(blockPosition, blockPosition + Vector3.One);
 
-                    BoundingBox blockBounds = new(blockPosition + blockMin, blockPosition + blockMax);
-
-                    if (player.Bound.Intersects(blockBounds))
-                    {
-                        if (chunk[x, y, z].Value == water)
-                        {
-                            if (!player.Swimming)
-                            {
-                                player.Physics.Velocity.Y /= 2;
-                            }
-
-                            player.Swimming = true;
-                        }
-                        else
-                        {
-                            FacesState visibleFaces = chunk.GetVisibleFaces(index, adjacencyGraph.GetAdjacency(chunkIndex));
-                            player.Physics.Collision(blockPosition, visibleFaces);
-                        }
-                    }
-
-                    if (player.Camera.Frustum.Contains(blockBounds) != ContainmentType.Disjoint)
-                    {
-                        float? rayBlockDistance = player.Ray.Intersects(blockBounds);
-                        if (rayBlockDistance != null && rayBlockDistance < minDistance)
-                        {
-                            minDistance = (float)rayBlockDistance;
-                            adjacency = adjacencyGraph.GetAdjacency(chunkIndex);
-                            blockIndex = index;
-                        }
-                    }
+                    player.Physics.ResolveCollision(blockBounds);
                 }
             }
-
-            if (player.LeftClick && blockIndex.X != -1)
-            {
-                blockModSystem.Add(blockIndex, adjacency, BlockInteractionMode.Remove);
-            }
-            else if (player.RightClick && blockIndex.X != -1)
-            {
-                Vector3 blockPosition = new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + chunk.Position;
-
-                if ((blockPosition - player.Position).Length() > 1.1f)
-                {
-                    blockModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, adjacency, BlockInteractionMode.Add);
-                }
-            }
-
-            if (adjacency is not null)
-            {
-                FacesState visibleFaces = chunk.GetVisibleFaces(blockIndex, adjacency);
-                blockSelector.Update(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + adjacency.Root.Position, player.Camera.Direction);
-            }
-            else
-            {
-                blockSelector.Clear();
-            }
-
-            blockModSystem.Update();
         }
     }
 }

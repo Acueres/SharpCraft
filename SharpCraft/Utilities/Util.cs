@@ -7,7 +7,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SharpCraft.World.Light;
 
-namespace SharpCraft.Utility
+namespace SharpCraft.Utilities
 {
     static class Util
     {
