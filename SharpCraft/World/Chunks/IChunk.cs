@@ -22,6 +22,7 @@ namespace SharpCraft.World.Chunks
         FacesState GetVisibleFaces(Vector3I index, ChunkAdjacency adjacency, bool calculateOpacity = true);
         bool AddIndex(Vector3I index);
         bool RemoveIndex(Vector3I index);
+        void ActivateBlock(Vector3I index);
         IEnumerable<Vector3I> GetLightSources();
         void Dispose();
         int GetHashCode();

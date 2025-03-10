@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-
+﻿using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+
 using SharpCraft.Assets;
 using SharpCraft.Utilities;
 
@@ -11,31 +10,28 @@ namespace SharpCraft.World.Blocks
 {
     class BlockSelector
     {
-        GraphicsDevice graphics;
+        readonly GraphicsDevice graphics;
         Effect effect;
 
         List<VertexPositionTextureLight> vertices = [];
 
-        Dictionary<int, char> faceMap;
+        readonly static Dictionary<Faces, AxisDirection> faceMap = new()
+        {
+            [Faces.ZPos] = AxisDirection.Z,
+            [Faces.ZNeg] = AxisDirection.Z,
+            [Faces.YPos] = AxisDirection.Y,
+            [Faces.YNeg] = AxisDirection.Y,
+            [Faces.XPos] = AxisDirection.X,
+            [Faces.XNeg] = AxisDirection.X
+        };
 
-        Texture2D texture;
-
-        DynamicVertexBuffer buffer;
+        readonly Texture2D texture;
+        readonly DynamicVertexBuffer buffer;
 
 
         public BlockSelector(GraphicsDevice graphics, AssetServer assetServer)
         {
             this.graphics = graphics;
-
-            faceMap = new Dictionary<int, char>
-            {
-                [0] = 'Z',
-                [1] = 'Z',
-                [2] = 'Y',
-                [3] = 'Y',
-                [4] = 'X',
-                [5] = 'X'
-            };
 
             texture = assetServer.GetMenuTexture("block_outline");
 
@@ -69,11 +65,11 @@ namespace SharpCraft.World.Blocks
         {
             Clear();
 
-            char maxComponent = Util.MaxVectorComponent(direction);
+            AxisDirection dominantAxis = Util.GetDominantAxis(direction);
 
             foreach (Faces face in visibleFaces.GetFaces())
             {
-                if (faceMap[(byte)face] != maxComponent) continue;
+                if (faceMap[face] != dominantAxis) continue;
 
                 for (int i = 0; i < 6; i++)
                 {

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Utilities;
@@ -75,17 +76,18 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
         db.AddDelta(adjacency.Root.Index, blockIndex, Block.Empty);
 
-        UpdateAdjacentBlocks(adjacency, blockIndex.Y, blockIndex.X, blockIndex.Z);
+        UpdateAdjacentBlocks(adjacency, blockIndex);
     }
 
     void AddBlock(Block block, Vector3I blockIndex, ChunkAdjacency adjacency, Vector3 rayDirection)
     {
         if (block.IsEmpty) return;
 
-        char side = Util.MaxVectorComponent(rayDirection);
+        AxisDirection dominantAxis = Util.GetDominantAxis(rayDirection);
+        Vector3I dominantOffset = GetDominantAxisOffset(rayDirection, dominantAxis);
 
-        (ChunkAdjacency newAdjacency, Vector3I newBlockIndex) = GetAdjacentEmptyBlockData(side, blockIndex, rayDirection, adjacency);
-        IChunk chunk = newAdjacency.Root;
+        (Vector3I newBlockIndex, ChunkAdjacency newAdjacency) = GetAdjacentIndex(dominantAxis, blockIndex, dominantOffset, adjacency);
+         IChunk chunk = newAdjacency.Root;
 
         if (!chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z].IsEmpty) return;
 
@@ -95,125 +97,127 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
         db.AddDelta(chunk.Index, newBlockIndex, block);
 
-        UpdateAdjacentBlocks(newAdjacency, newBlockIndex.Y, newBlockIndex.X, newBlockIndex.Z);
+        UpdateAdjacentBlocks(newAdjacency, newBlockIndex);
     }
 
-    static void UpdateAdjacentBlocks(ChunkAdjacency adjacency, int y, int x, int z)
+    static void UpdateAdjacentBlocks(ChunkAdjacency adjacency, Vector3I index)
     {
-        IChunk chunk = adjacency.Root;
-        chunk.RecalculateMesh = true;
+        ReadOnlySpan<Vector3I> offsets = [
+            new Vector3I(0, 0, 0),
+            new Vector3I(1, 0, 0),
+            new Vector3I(-1, 0, 0),
+            new Vector3I(0, 1, 0),
+            new Vector3I(0, -1, 0),
+            new Vector3I(0, 0, 1),
+            new Vector3I(0, 0, -1)
+        ];
 
-        if (!chunk[x, y, z].IsEmpty)
+        foreach (var offset in offsets)
         {
-            ActivateBlock(chunk, y, x, z);
+            Vector3I neighborIndex = index + offset;
+
+            IChunk targetChunk = adjacency.Root;
+
+            // Check X boundaries.
+            if (neighborIndex.X < 0)
+            {
+                targetChunk = adjacency.XNeg.Root;
+                neighborIndex = new Vector3I(Chunk.Last, neighborIndex.Y, neighborIndex.Z);
+            }
+            else if (neighborIndex.X > Chunk.Last)
+            {
+                targetChunk = adjacency.XPos.Root;
+                neighborIndex = new Vector3I(0, neighborIndex.Y, neighborIndex.Z);
+            }
+
+            // Check Y boundaries.
+            if (neighborIndex.Y < 0)
+            {
+                targetChunk = adjacency.YNeg.Root;
+                neighborIndex = new Vector3I(neighborIndex.X, Chunk.Last, neighborIndex.Z);
+            }
+            else if (neighborIndex.Y > Chunk.Last)
+            {
+                targetChunk = adjacency.YPos.Root;
+                neighborIndex = new Vector3I(neighborIndex.X, 0, neighborIndex.Z);
+            }
+
+            // Check Z boundaries.
+            if (neighborIndex.Z < 0)
+            {
+                targetChunk = adjacency.ZNeg.Root;
+                neighborIndex = new Vector3I(neighborIndex.X, neighborIndex.Y, Chunk.Last);
+            }
+            else if (neighborIndex.Z > Chunk.Last)
+            {
+                targetChunk = adjacency.ZPos.Root;
+                neighborIndex = new Vector3I(neighborIndex.X, neighborIndex.Y, 0);
+            }
+
+            targetChunk.ActivateBlock(neighborIndex);
         }
-
-        if (x < Chunk.Last)
-            ActivateBlock(chunk, y, x + 1, z);
-        else if (x == Chunk.Last)
-            ActivateBlock(adjacency.XPos.Root, y, 0, z);
-
-        if (x > 0)
-            ActivateBlock(chunk, y, x - 1, z);
-        else if (x == 0)
-            ActivateBlock(adjacency.XNeg.Root, y, Chunk.Last, z);
-
-        if (y < Chunk.Last)
-            ActivateBlock(chunk, y + 1, x, z);
-        else if (y == Chunk.Last)
-            ActivateBlock(adjacency.YPos.Root, 0, x, z);
-
-        if (y > 0)
-            ActivateBlock(chunk, y - 1, x, z);
-        else if (y == 0)
-            ActivateBlock(adjacency.YNeg.Root, Chunk.Last, x, z);
-
-        if (z < Chunk.Last)
-            ActivateBlock(chunk, y, x, z + 1);
-        else if (z == Chunk.Last)
-            ActivateBlock(adjacency.ZPos.Root, y, x, 0);
-
-        if (z > 0)
-            ActivateBlock(chunk, y, x, z - 1);
-        else if (z == 0)
-            ActivateBlock(adjacency.ZNeg.Root, y, x, Chunk.Last);
     }
 
-    static void ActivateBlock(IChunk chunk, int y, int x, int z)
+    static (Vector3I newIndex, ChunkAdjacency newAdjacency) GetAdjacentIndex(AxisDirection dominantAxis, Vector3I index, Vector3I offset, ChunkAdjacency adjacency)
     {
-        if (!chunk[x, y, z].IsEmpty)
-        {
-            chunk.AddIndex(new(x, y, z));
-            chunk.RecalculateMesh = true;
-        }
-    }
-
-    static (ChunkAdjacency Adjacency, Vector3I BlockIndex) GetAdjacentEmptyBlockData(char face, Vector3I blockIndex, Vector3 rayDirection, ChunkAdjacency adjacency)
-    {
-        int x = blockIndex.X;
-        int y = blockIndex.Y;
-        int z = blockIndex.Z;
-
         ChunkAdjacency newAdjacency = null;
+        Vector3I newIndex = index + offset;
 
-        switch (face)
+        int x = newIndex.X;
+        int y = newIndex.Y;
+        int z = newIndex.Z;
+
+        if (dominantAxis == AxisDirection.X)
         {
-            case 'X':
-                if (rayDirection.X > 0) x--;
-                else x++;
-
-                if (x > Chunk.Last)
-                {
-                    newAdjacency = adjacency.XPos;
-                    x = 0;
-                }
-
-                else if (x < 0)
-                {
-                    newAdjacency = adjacency.XNeg;
-                    x = Chunk.Last;
-                }
-
-                break;
-
-            case 'Y':
-                if (rayDirection.Y > 0) y--;
-                else y++;
-
-                if (y > Chunk.Last)
-                {
-                    newAdjacency = adjacency.YPos;
-                    y = 0;
-                }
-
-                else if (y < 0)
-                {
-                    newAdjacency = adjacency.YNeg;
-                    y = Chunk.Last;
-                }
-
-                break;
-
-            case 'Z':
-                if (rayDirection.Z > 0) z--;
-                else z++;
-
-                if (z > Chunk.Last)
-                {
-                    newAdjacency = adjacency.ZPos;
-                    z = 0;
-                }
-
-                else if (z < 0)
-                {
-                    newAdjacency = adjacency.ZNeg;
-                    z = Chunk.Last;
-                }
-
-                break;
+            if (newIndex.X > Chunk.Last)
+            {
+                newAdjacency = adjacency.XPos;
+                x = 0;
+            }
+            else if (newIndex.X < 0)
+            {
+                newAdjacency = adjacency.XNeg;
+                x = Chunk.Last;
+            }
+        }
+        else if (dominantAxis == AxisDirection.Y)
+        {
+            if (newIndex.Y > Chunk.Last)
+            {
+                newAdjacency = adjacency.YPos;
+                y = 0;
+            }
+            else if (newIndex.Y < 0)
+            {
+                newAdjacency = adjacency.YNeg;
+                y = Chunk.Last;
+            }
+        }
+        else
+        {
+            if (newIndex.Z > Chunk.Last)
+            {
+                newAdjacency = adjacency.ZPos;
+                z = 0;
+            }
+            else if (newIndex.Z < 0)
+            {
+                newAdjacency = adjacency.ZNeg;
+                z = Chunk.Last;
+            }
         }
 
-        return (newAdjacency ?? adjacency, new Vector3I(x, y, z));
+        return (new Vector3I(x, y, z), newAdjacency ?? adjacency);
+    }
+
+    static Vector3I GetDominantAxisOffset(Vector3 rayDirection, AxisDirection dominantDirection)
+    {
+        return dominantDirection switch
+        {
+            AxisDirection.X => new Vector3I(-Math.Sign(rayDirection.X), 0, 0),
+            AxisDirection.Y => new Vector3I(0, -Math.Sign(rayDirection.Y), 0),
+            _ => new Vector3I(0, 0, -Math.Sign(rayDirection.Z)),
+        };
     }
 }
 

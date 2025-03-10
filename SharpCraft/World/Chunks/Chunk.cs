@@ -107,6 +107,15 @@ namespace SharpCraft.World.Chunks
             disposed = true;
         }
 
+        public void ActivateBlock(Vector3I index)
+        {
+            if (!blocks[index.X, index.Y, index.Z].IsEmpty)
+            {
+                AddIndex(index);
+                RecalculateMesh = true;
+            }
+        }
+
         public void CalculateActiveBlocks(ChunkAdjacency adjacency)
         {
             for (int y = 0; y < Size; y++)

@@ -31,6 +31,7 @@ namespace SharpCraft.World.Chunks
         public bool AddIndex(Vector3I index) => true;
 
         public bool RemoveIndex(Vector3I index) => true;
+        public void ActivateBlock(Vector3I index) { }
 
         public IEnumerable<Vector3I> GetActiveIndexes() => [];
 

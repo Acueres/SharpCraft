@@ -1,14 +1,19 @@
 ﻿using System;
-using System.Linq;
 using System.Collections.Generic;
 
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using SharpCraft.MathUtilities;
 using SharpCraft.World.Light;
 
 namespace SharpCraft.Utilities
 {
+    public enum AxisDirection : byte
+    {
+        X, Y, Z
+    }
+
     static class Util
     {
         public static string Title(string str)
@@ -38,23 +43,23 @@ namespace SharpCraft.Utilities
             return face;
         }
 
-        public static char MaxVectorComponent(Vector3 vector)
+        public static AxisDirection GetDominantAxis(Vector3 vec)
         {
-            float max = Math.Abs(vector.X);
-            char component = 'X';
+            float absX = Math.Abs(vec.X);
+            float absY = Math.Abs(vec.Y);
+            float absZ = Math.Abs(vec.Z);
 
-            if (max < Math.Abs(vector.Y))
+            if (absX >= absY && absX >= absZ)
             {
-                max = Math.Abs(vector.Y);
-                component = 'Y';
+                return AxisDirection.X;
             }
 
-            if (max < Math.Abs(vector.Z))
+            if (absY >= absX && absY >= absZ)
             {
-                component = 'Z';
+                return AxisDirection.Y;
             }
 
-            return component;
+            return AxisDirection.Z;
         }
 
         public static Texture2D GetColoredTexture(GraphicsDevice graphics, int width, int height, Color color, float alpha = 1f)

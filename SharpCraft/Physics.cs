@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using SharpCraft.Utilities;
 
 namespace SharpCraft
 {
@@ -29,29 +30,29 @@ namespace SharpCraft
 
                 // Choose the axis with the smallest overlap to resolve first
                 float minOverlap = overlapX;
-                char side = 'X';
+                AxisDirection side = AxisDirection.X;
                 if (overlapY < minOverlap)
                 {
                     minOverlap = overlapY;
-                    side = 'Y';
+                    side = AxisDirection.Y;
                 }
                 if (overlapZ < minOverlap)
                 {
-                    side = 'Z';
+                    side = AxisDirection.Z;
                 }
 
                 Vector3 playerCenter = (playerBox.Min + playerBox.Max) * 0.5f;
                 Vector3 blockCenter = (blockBox.Min + blockBox.Max) * 0.5f;
 
                 // Resolve collision along the axis
-                if (side == 'X')
+                if (side == AxisDirection.X)
                 {
                     int dir = Math.Sign(playerCenter.X - blockCenter.X);
                     player.Position.X += dir * (overlapX);
                     Velocity.X = 0;
                     player.Sprinting = false;
                 }
-                else if (side == 'Y')
+                else if (side == AxisDirection.Y)
                 {
                     int dir = Math.Sign(playerCenter.Y - blockCenter.Y);
 
@@ -67,7 +68,7 @@ namespace SharpCraft
                     }
                     Velocity.Y = 0;
                 }
-                else // side == 'Z'
+                else // side == AxisDirection.Z
                 {
                     int dir = Math.Sign(playerCenter.Z - blockCenter.Z);
                     player.Position.Z += dir * overlapZ;
