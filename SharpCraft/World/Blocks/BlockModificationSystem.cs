@@ -91,7 +91,7 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
         chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z] = block;
 
-        lightSystem.UpdateLight(newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z, block.Value, adjacency);
+        lightSystem.UpdateLight(newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z, block.Value, newAdjacency);
 
         db.AddDelta(chunk.Index, newBlockIndex, block);
 

@@ -13,6 +13,7 @@ namespace SharpCraft
         public Matrix Projection { get; set; }
 
         public Vector3 Direction { get; set; }
+        public Vector3 Position { get; set; }
         public Vector3 HorizontalDirection;
 
         public BoundingFrustum Frustum { get; set; }
@@ -31,6 +32,7 @@ namespace SharpCraft
         {
             this.target = target;
 
+            Position = position;
             Direction = target - position;
             Direction = Vector3.Normalize(Direction);
 
@@ -53,7 +55,7 @@ namespace SharpCraft
             Frustum = new BoundingFrustum(View * Projection);
         }
 
-        public void Update(Vector3 position, GameTime gameTime)
+        public void Update(GameTime gameTime)
         {
             MouseState currentMouseState = Mouse.GetState();
 
@@ -79,7 +81,7 @@ namespace SharpCraft
             HorizontalDirection.Z = Direction.Z;
             HorizontalDirection.Normalize();
 
-            target = Direction + position;
+            target = Direction + Position;
 
             if ((new Vector2(currentMouseState.X, currentMouseState.Y) - screenCenter).Length() > 200)
             {
@@ -89,7 +91,7 @@ namespace SharpCraft
 
             previousMouseState = currentMouseState;
 
-            View = Matrix.CreateLookAt(position, target, Vector3.Up);
+            View = Matrix.CreateLookAt(Position, target, Vector3.Up);
 
             Frustum.Matrix = View * Projection;
         }

@@ -49,7 +49,7 @@ namespace SharpCraft
 
         public Player(GraphicsDevice graphics, Parameters parameters)
         {
-            Vector3 cameraPosition = new(Position.X + 0.5f, Position.Y + 1.6f, Position.Z + 0.25f);
+            Vector3 cameraPosition = new(Position.X + 0.25f, Position.Y + 1.6f, Position.Z + 0.25f);
 
             Camera = new Camera(graphics, cameraPosition, parameters.Direction);
 
@@ -107,8 +107,8 @@ namespace SharpCraft
 
         public void UpdateCamera()
         {
-            Vector3 cameraPosition = new(Position.X + 0.5f, Position.Y + 1.6f, Position.Z + 0.25f);
-            Camera.Update(cameraPosition, gameTime);
+            Camera.Position = new(Position.X + 0.25f, Position.Y + 1.6f, Position.Z + 0.25f);
+            Camera.Update(gameTime);
         }
 
         public void SaveParameters(Parameters parameters)

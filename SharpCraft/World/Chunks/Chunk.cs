@@ -229,19 +229,15 @@ namespace SharpCraft.World.Chunks
             return new Vector3I(WorldToChunkIndex(pos.X), WorldToChunkIndex(pos.Y), WorldToChunkIndex(pos.Z));
         }
 
-        public static Vector3I WorldtoBlockCoords(Vector3 pos)
+        public static Vector3I WorldToBlockCoords(Vector3 pos)
         {
             return new Vector3I(WorldToBlockIndex(pos.X), WorldToBlockIndex(pos.Y), WorldToBlockIndex(pos.Z));
         }
 
         static int WorldToBlockIndex(float worldCoord)
         {
-            if (worldCoord < 0)
-            {
-                return (int)worldCoord & Last;
-            }
-
-            return (int)worldCoord % Size;
+            int index = (int)Math.Floor(worldCoord);
+            return ((index % Size) + Size) % Size;
         }
     }
 }

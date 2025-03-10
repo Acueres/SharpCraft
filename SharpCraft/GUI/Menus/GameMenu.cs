@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+
 using SharpCraft.Utilities;
 using SharpCraft.Assets;
-using System.Reflection.Emit;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.GUI.Elements;
@@ -272,6 +269,8 @@ namespace SharpCraft.GUI.Menus
             spriteBatch.DrawString(font14, $"X: {player.Position.X: 0.00}, Y: {player.Position.Y: 0.00}, Z: {player.Position.Z: 0.00}", new Vector2(10, 70), Color.White);
             Vector3I chunkIndex = Chunk.WorldToChunkCoords(player.Position);
             spriteBatch.DrawString(font14, $"CX: {chunkIndex.X}, CY: {chunkIndex.Y}, CZ: {chunkIndex.Z}", new Vector2(10, 90), Color.White);
+            Vector3I blockIndex = Chunk.WorldToBlockCoords(player.Position);
+            spriteBatch.DrawString(font14, $"BX: {blockIndex.X}, BY: {blockIndex.Y}, BZ: {blockIndex.Z}", new Vector2(10, 110), Color.White);
         }
     }
 }

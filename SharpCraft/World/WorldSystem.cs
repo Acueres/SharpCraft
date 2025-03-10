@@ -10,6 +10,7 @@ using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Light;
+using System;
 using System.Collections.Generic;
 using System.Xml;
 
@@ -98,21 +99,21 @@ namespace SharpCraft.World
         {
             if (exitedMenu) return;
 
-            Raycaster raycaster = new(new Vector3(player.Position.X, player.Position.Y + 1.75f, player.Position.Z),
+            Raycaster raycaster = new(player.Camera.Position,
                 player.Camera.Direction, 0.1f);
 
             const float maxDistance = 4.5f;
 
-            Vector3 blockPosition = player.Position;
+            Vector3 blockPosition = player.Camera.Position;
             Vector3I chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
-            Vector3I blockIndex = Chunk.WorldtoBlockCoords(blockPosition);
+            Vector3I blockIndex = Chunk.WorldToBlockCoords(blockPosition);
             Block block = Block.Empty;
 
             while (raycaster.Length(blockPosition) < maxDistance)
             {
                 blockPosition = raycaster.Step();
                 chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
-                blockIndex = Chunk.WorldtoBlockCoords(blockPosition);
+                blockIndex = Chunk.WorldToBlockCoords(blockPosition);
 
                 var chunk = region.GetChunk(chunkIndex);
                 block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
@@ -148,7 +149,6 @@ namespace SharpCraft.World
             if (exitedMenu) return;
 
             HashSet<Vector3I> reachableChunkIndexes = Region.GetReachableChunkIndexes(player.Position);
-
             foreach (Vector3I chunkIndex in reachableChunkIndexes)
             {
                 var chunk = region.GetChunk(chunkIndex);
