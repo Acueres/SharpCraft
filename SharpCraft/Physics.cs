@@ -15,7 +15,7 @@ namespace SharpCraft
         public void ResolveCollision(BoundingBox blockBox)
         {
             int iterations = 0;
-            const int maxIterations = 1;
+            const int maxIterations = 5;
 
             // Loop until the player's bounding box no longer intersects the block
             // or until the iteration limit is reached

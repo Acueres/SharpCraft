@@ -90,22 +90,7 @@ namespace SharpCraft
                         {
                             if (!Paused)
                             {
-                                player.Update(gameTime);
-    
-                                world.UpdateEntities(ExitedMenu);
-                                world.UpdateBlocks(ExitedMenu);
-
-                                Vector3I currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
-
-                                if (player.Index != currentPlayerIndex)
-                                {
-                                    world.Update(true);
-                                    player.Index = currentPlayerIndex;
-                                }
-                                else
-                                {
-                                    world.Update(false);
-                                }
+                                world.Update(gameTime, ExitedMenu);
                             }
 
                             gameMenu.Update();
@@ -137,7 +122,7 @@ namespace SharpCraft
                             if (!File.Exists($@"Saves\{currentSave.Parameters.SaveName}\save_icon.png"))
                             {
                                 player.Update(gameTime);
-                                world.Update(true);
+                                world.Init();
                                 world.Render();
                                 screenshotHandler.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }

@@ -77,38 +77,6 @@ namespace SharpCraft.World
             renderer.Render(GetActiveChunks(), player, time);
         }
 
-        public static HashSet<Vector3I> GetReachableChunkIndexes(Vector3 pos)
-        {
-            int xIndex = Chunk.WorldToChunkIndex(pos.X);
-            int xIndexPlus6 = Chunk.WorldToChunkIndex(pos.X + 6);
-            int xIndexMinus6 = Chunk.WorldToChunkIndex(pos.X - 6);
-            Span<int> xValues = [xIndex, xIndexPlus6, xIndexMinus6];
-
-            int yIndex = Chunk.WorldToChunkIndex(pos.Y);
-            int yIndexPlus6 = Chunk.WorldToChunkIndex(pos.Y + 6);
-            int yIndexMinus6 = Chunk.WorldToChunkIndex(pos.Y - 6);
-            Span<int> yValues = [yIndex, yIndexPlus6, yIndexMinus6];
-
-            int zIndex = Chunk.WorldToChunkIndex(pos.Z);
-            int zIndexPlus6 = Chunk.WorldToChunkIndex(pos.Z + 6);
-            int zIndexMinus6 = Chunk.WorldToChunkIndex(pos.Z - 6);
-            Span<int> zValues = [zIndex, zIndexPlus6, zIndexMinus6];
-
-            HashSet<Vector3I> indexes = [];
-            foreach (int x in xValues)
-            {
-                foreach (int y in yValues)
-                {
-                    foreach(int z in zValues)
-                    {
-                        indexes.Add(new(x, y, z));
-                    }
-                }
-            }
-
-            return indexes;
-        }
-
         public IEnumerable<IChunk> GetActiveChunks()
         {
             foreach (Vector3I index in activeChunkIndexes) { yield return chunks[index]; }

@@ -248,5 +248,10 @@ namespace SharpCraft.World.Chunks
             int index = (int)Math.Floor(worldCoord);
             return ((index % Size) + Size) % Size;
         }
+
+        public static Vector3 BlockIndexToWorldPosition(Vector3 chunkPosition, Vector3I blockIndex)
+        {
+            return new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + chunkPosition;
+        }
     }
 }
