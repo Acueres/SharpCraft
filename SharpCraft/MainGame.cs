@@ -70,7 +70,7 @@ namespace SharpCraft
             blockMetadata.Load();
             assetServer.Load(GraphicsDevice);
 
-            mainMenu = new MainMenu(this, GraphicsDevice, assetServer);
+            mainMenu = new MainMenu(this, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight, GraphicsDevice, assetServer);
 
             base.Initialize();
         }

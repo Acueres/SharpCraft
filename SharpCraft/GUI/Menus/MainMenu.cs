@@ -1,18 +1,14 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿using System.Collections.Generic;
 using System.IO;
-
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+
 using SharpCraft.Utilities;
 using SharpCraft.Assets;
 using SharpCraft.GUI.Elements;
 using SharpCraft.GUI.Components;
 using SharpCraft.Persistence;
-
 
 namespace SharpCraft.GUI.Menus
 {
@@ -20,7 +16,7 @@ namespace SharpCraft.GUI.Menus
     {
         public Save CurrentSave { get; private set; }
 
-        MainGame game;
+        readonly MainGame game;
         GraphicsDevice graphics;
         SpriteBatch spriteBatch;
 
@@ -59,14 +55,14 @@ namespace SharpCraft.GUI.Menus
         KeyboardState previousKeyboardState;
         MouseState previousMouseState;
 
-        int screenWidth;
-        int screenHeight;
+        readonly int screenWidth;
+        readonly int screenHeight;
 
-        List<Save> saves;
+        readonly List<Save> saves;
         SaveGrid saveGrid;
 
 
-        public MainMenu(MainGame game, GraphicsDevice graphics, AssetServer assetServer)
+        public MainMenu(MainGame game, int screenWidth, int screenHeight, GraphicsDevice graphics, AssetServer assetServer)
         {
             this.game = game;
             game.IsMouseVisible = true;
@@ -74,8 +70,8 @@ namespace SharpCraft.GUI.Menus
             spriteBatch = new SpriteBatch(graphics);
             this.assetServer = assetServer;
 
-            screenWidth = game.Window.ClientBounds.Width;
-            screenHeight = game.Window.ClientBounds.Height;
+            this.screenWidth = screenWidth;
+            this.screenHeight = screenHeight;
 
             font14 = assetServer.GetFont(0);
             font24 = assetServer.GetFont(1);
@@ -275,11 +271,11 @@ namespace SharpCraft.GUI.Menus
 
         void InitializeGUI()
         {
-            int elementWidth = 300;
-            int elementHeight = 40;
+            const int elementWidth = 300;
+            const int elementHeight = 40;
             int offset = elementHeight + screenWidth / elementHeight;
 
-            background = new Rectangle(0, 0, screenWidth, game.Window.ClientBounds.Height);
+            background = new Rectangle(0, 0, screenWidth, screenHeight);
             backgroundTexture = assetServer.GetMenuTexture("menu_background");
 
             logoTexture = assetServer.GetMenuTexture("logo");
