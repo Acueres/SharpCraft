@@ -10,6 +10,7 @@ using SharpCraft.World.Light;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
 using SharpCraft.MathUtilities;
+using SharpCraft.Rendering.Meshers;
 
 namespace SharpCraft.World
 {
@@ -19,9 +20,9 @@ namespace SharpCraft.World
         readonly int apothem;
 
         readonly WorldGenerator worldGenerator;
-        readonly RegionRenderer renderer;
         readonly LightSystem lightSystem;
         readonly AdjacencyGraph adjacencyGraph;
+        readonly ChunkMesher chunkMesher;
 
         readonly ConcurrentDictionary<Vector3I, IChunk> chunks = [];
         readonly List<Vector3I> proximityIndexes = [];
@@ -29,15 +30,15 @@ namespace SharpCraft.World
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
         readonly HashSet<Vector3I> unfinishedChunkIndexes = [];
 
-        public Region(int apothem, AdjacencyGraph adjacencyGraph, WorldGenerator worldGenerator, RegionRenderer renderer, LightSystem lightSystem)
+        public Region(int apothem, AdjacencyGraph adjacencyGraph, WorldGenerator worldGenerator, LightSystem lightSystem, ChunkMesher chunkMesher)
         {
             this.apothem = apothem;
             this.worldGenerator = worldGenerator;
-            this.renderer = renderer;
 
             proximityIndexes = GenerateProximityIndexes();
             this.lightSystem = lightSystem;
             this.adjacencyGraph = adjacencyGraph;
+            this.chunkMesher = chunkMesher;
         }
 
         public IChunk GetChunk(Vector3I index)
@@ -66,15 +67,10 @@ namespace SharpCraft.World
 
                     if (adjacency.All())
                     {
-                        renderer.Update(adjacency);
+                        chunkMesher.Update(adjacency);
                     }
                 }
             }
-        }
-
-        public void Render(Player player, Time time)
-        {
-            renderer.Render(GetActiveChunks(), player, time);
         }
 
         public IEnumerable<IChunk> GetActiveChunks()
@@ -172,7 +168,7 @@ namespace SharpCraft.World
 
             foreach (ChunkAdjacency n in readyChunks)
             {
-                renderer.AddMesh(n);
+                chunkMesher.AddMesh(n);
             }
 
             worldGenerator.ClearCache();
@@ -185,7 +181,7 @@ namespace SharpCraft.World
                 adjacencyGraph.Dereference(index);
                 chunks[index].Dispose();
                 chunks.Remove(index, out _);
-                renderer.Remove(index);
+                chunkMesher.Remove(index);
             }
             inactiveChunkIndexes.Clear();
         }

@@ -7,6 +7,7 @@ using SharpCraft.Assets;
 using SharpCraft.GUI.Menus;
 using SharpCraft.MathUtilities;
 using SharpCraft.Persistence;
+using SharpCraft.Rendering.Meshers;
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
@@ -23,7 +24,6 @@ namespace SharpCraft.World
         readonly GameMenu gameMenu;
         readonly WorldGenerator worldGenerator;
         readonly BlockSelector blockSelector;
-        readonly Time time;
         readonly LightSystem lightSystem;
         readonly AdjacencyGraph adjacencyGraph;
 
@@ -31,25 +31,21 @@ namespace SharpCraft.World
 
         readonly ushort water;
 
-        public WorldSystem(GameMenu gameMenu, DatabaseService db,
-            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata, Time time,
-            AssetServer assetServer, GraphicsDevice graphicsDevice, ScreenshotTaker screenshotHandler)
+        public WorldSystem(GameMenu gameMenu, DatabaseService db, LightSystem lightSystem,
+            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata,
+            AdjacencyGraph adjacencyGraph, ChunkMesher chunkMesher)
         {
             this.gameMenu = gameMenu;
-            this.time = time;
 
             water = blockMetadata.GetBlockIndex("water");
 
             worldGenerator = new WorldGenerator(parameters, db, blockMetadata);
             this.blockSelector = blockSelector;
 
-            adjacencyGraph = new();
-            lightSystem = new(blockMetadata, adjacencyGraph);
-
             blockModSystem = new BlockModificationSystem(db, blockMetadata, lightSystem);
 
-            RegionRenderer regionRenderer = new(graphicsDevice, screenshotHandler, blockSelector, assetServer, blockMetadata, lightSystem);
-            region = new Region(Settings.RenderDistance, adjacencyGraph, worldGenerator, regionRenderer, lightSystem);
+            region = new Region(Settings.RenderDistance, adjacencyGraph, worldGenerator, lightSystem, chunkMesher);
+            this.adjacencyGraph = adjacencyGraph;
         }
 
         public void SetPlayer(Player player, Parameters parameters)
@@ -76,6 +72,11 @@ namespace SharpCraft.World
         {
             region.Update(player.Position);
             region.UpdateMeshes();
+        }
+
+        public IEnumerable<IChunk> GetActiveChunks()
+        {
+            return region.GetActiveChunks();
         }
 
         public void Update(GameTime gameTime, bool exitedMenu)
@@ -105,11 +106,6 @@ namespace SharpCraft.World
             }
 
             blockModSystem.Update();
-        }
-
-        public void Render()
-        {
-            region.Render(player, time);
         }
 
         void ProcessPlayerActions(bool exitedMenu)

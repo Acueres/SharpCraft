@@ -1,15 +1,17 @@
 ﻿using System;
 using System.IO;
-
 using Microsoft.Xna.Framework;
+
 using SharpCraft.World;
 using SharpCraft.Utilities;
 using SharpCraft.Assets;
 using SharpCraft.World.Blocks;
-using SharpCraft.World.Chunks;
 using SharpCraft.GUI.Menus;
 using SharpCraft.Persistence;
-using SharpCraft.MathUtilities;
+using SharpCraft.Rendering;
+using SharpCraft.Rendering.Meshers;
+using SharpCraft.World.Light;
+using SharpCraft.World.Chunks;
 
 namespace SharpCraft
 {
@@ -35,6 +37,7 @@ namespace SharpCraft
         readonly AssetServer assetServer;
         readonly BlockMetadataProvider blockMetadata;
         WorldSystem world;
+        Renderer renderer;
         GameMenu gameMenu;
         MainMenu mainMenu;
         DatabaseService db;
@@ -106,16 +109,21 @@ namespace SharpCraft
 
                             time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
 
-                            ScreenshotTaker screenshotHandler = new(GraphicsDevice, Window.ClientBounds.Width,
+                            ScreenshotTaker screenshotTaker = new(GraphicsDevice, Window.ClientBounds.Width,
                                                                                   Window.ClientBounds.Height);
                             BlockSelector blockSelector = new(GraphicsDevice, assetServer);
 
                             db = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
                             db.Initialize();
 
+                            AdjacencyGraph adjacencyGraph = new();
+                            LightSystem lightSystem = new(blockMetadata, adjacencyGraph);
+                            ChunkMesher chunkMesher = new(blockMetadata, lightSystem);
+
                             player = new Player(GraphicsDevice, currentSave.Parameters);
-                            gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotHandler, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(gameMenu, db, blockSelector, currentSave.Parameters, blockMetadata, time, assetServer, GraphicsDevice, screenshotHandler);
+                            gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters, assetServer, blockMetadata, player);
+                            world = new WorldSystem(gameMenu, db, lightSystem, blockSelector, currentSave.Parameters, blockMetadata, adjacencyGraph, chunkMesher);
+                            renderer = new Renderer(graphics.GraphicsDevice, blockSelector, assetServer, blockMetadata, screenshotTaker, chunkMesher);
 
                             world.SetPlayer(player, currentSave.Parameters);
 
@@ -123,8 +131,8 @@ namespace SharpCraft
                             {
                                 player.Update(gameTime);
                                 world.Init();
-                                world.Render();
-                                screenshotHandler.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
+                                renderer.Render(world.GetActiveChunks(), player.Camera, time);
+                                screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }
 
                             break;
@@ -168,7 +176,7 @@ namespace SharpCraft
             {
                 case GameState.Running:
                     {
-                        world.Render();
+                        renderer.Render(world.GetActiveChunks(), player.Camera, time);
                         gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
                         break;
                     }
