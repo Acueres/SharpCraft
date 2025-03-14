@@ -15,7 +15,6 @@ class RegionRenderer
 {
     readonly GraphicsDevice graphics;
     readonly ScreenshotTaker screenshotTaker;
-    readonly BlockSelector blockSelector;
 
     readonly Texture2D atlas;
     readonly Effect effect;
@@ -23,13 +22,12 @@ class RegionRenderer
     readonly ChunkMesher chunkMesher;
 
     public RegionRenderer(GraphicsDevice graphics, Effect effect, ChunkMesher chunkMesher,
-        ScreenshotTaker screenshotTaker, BlockSelector blockSelector, Texture2D atlas)
+        ScreenshotTaker screenshotTaker, Texture2D atlas)
     {
         this.graphics = graphics;
         this.effect = effect;
         this.chunkMesher = chunkMesher;
         this.screenshotTaker = screenshotTaker;
-        this.blockSelector = blockSelector;
         this.atlas = atlas;
 
         buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
@@ -106,7 +104,5 @@ class RegionRenderer
         {
             screenshotTaker.Screenshot(DateTime.Now.ToString());
         }
-
-        blockSelector.Draw();
     }
 }

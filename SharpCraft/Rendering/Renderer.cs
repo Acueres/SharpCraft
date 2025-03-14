@@ -16,14 +16,14 @@ class Renderer
     readonly Texture2D atlas;
 
     readonly RegionRenderer regionRenderer;
+    readonly UIRenderer uiRenderer;
 
-    public Renderer(GraphicsDevice graphics, BlockSelector blockSelector,
-        AssetServer assetServer, BlockMetadataProvider blockMetadata, ScreenshotTaker screenshotTaker,
-        ChunkMesher chunkMesher)
+    public Renderer(GraphicsDevice graphics, AssetServer assetServer,
+        BlockMetadataProvider blockMetadata, ScreenshotTaker screenshotTaker,
+        ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
     { 
 
         var effect = assetServer.GetEffect;
-        blockSelector.SetEffect(effect);
 
         atlas = new Texture2D(graphics, 64, blockMetadata.BlockCount * 64);
         Color[] atlasData = new Color[atlas.Width * atlas.Height];
@@ -40,11 +40,13 @@ class Renderer
         }
         atlas.SetData(atlasData);
 
-        regionRenderer = new RegionRenderer(graphics, effect, chunkMesher, screenshotTaker, blockSelector, atlas);
+        regionRenderer = new RegionRenderer(graphics, effect, chunkMesher, screenshotTaker, atlas);
+        uiRenderer = new UIRenderer(graphics, effect, blockOutlineMesher, assetServer);
     }
 
     public void Render(IEnumerable<IChunk> chunks, Camera camera, Time time)
     {
         regionRenderer.Render(chunks, camera, time.LightIntensity);
+        uiRenderer.Render();
     }
 }

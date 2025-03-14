@@ -23,7 +23,7 @@ namespace SharpCraft.World
 
         readonly GameMenu gameMenu;
         readonly WorldGenerator worldGenerator;
-        readonly BlockSelector blockSelector;
+        readonly BlockOutlineMesher blockOutlineMesher;
         readonly LightSystem lightSystem;
         readonly AdjacencyGraph adjacencyGraph;
 
@@ -32,15 +32,15 @@ namespace SharpCraft.World
         readonly ushort water;
 
         public WorldSystem(GameMenu gameMenu, DatabaseService db, LightSystem lightSystem,
-            BlockSelector blockSelector, Parameters parameters, BlockMetadataProvider blockMetadata,
-            AdjacencyGraph adjacencyGraph, ChunkMesher chunkMesher)
+            Parameters parameters, BlockMetadataProvider blockMetadata,
+            AdjacencyGraph adjacencyGraph, ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
         {
             this.gameMenu = gameMenu;
 
             water = blockMetadata.GetBlockIndex("water");
 
             worldGenerator = new WorldGenerator(parameters, db, blockMetadata);
-            this.blockSelector = blockSelector;
+            this.blockOutlineMesher = blockOutlineMesher;
 
             blockModSystem = new BlockModificationSystem(db, blockMetadata, lightSystem);
 
@@ -135,7 +135,7 @@ namespace SharpCraft.World
 
             if (block.IsEmpty)
             {
-                blockSelector.Clear();
+                blockOutlineMesher.Flush();
                 return;
             }
 
@@ -154,7 +154,7 @@ namespace SharpCraft.World
             }
 
             FacesState visibleFaces = adjacency.Root.GetVisibleFaces(blockIndex, adjacency);
-            blockSelector.Update(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + adjacency.Root.Position, player.Camera.Direction);
+            blockOutlineMesher.GenerateMesh(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + adjacency.Root.Position, player.Camera.Direction);
         }
 
         void UpdateEntitiesPhysics(bool exitedMenu)

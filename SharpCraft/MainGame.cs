@@ -111,7 +111,6 @@ namespace SharpCraft
 
                             ScreenshotTaker screenshotTaker = new(GraphicsDevice, Window.ClientBounds.Width,
                                                                                   Window.ClientBounds.Height);
-                            BlockSelector blockSelector = new(GraphicsDevice, assetServer);
 
                             db = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
                             db.Initialize();
@@ -119,11 +118,12 @@ namespace SharpCraft
                             AdjacencyGraph adjacencyGraph = new();
                             LightSystem lightSystem = new(blockMetadata, adjacencyGraph);
                             ChunkMesher chunkMesher = new(blockMetadata, lightSystem);
+                            BlockOutlineMesher blockOutlineMesher = new();
 
                             player = new Player(GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(gameMenu, db, lightSystem, blockSelector, currentSave.Parameters, blockMetadata, adjacencyGraph, chunkMesher);
-                            renderer = new Renderer(graphics.GraphicsDevice, blockSelector, assetServer, blockMetadata, screenshotTaker, chunkMesher);
+                            world = new WorldSystem(gameMenu, db, lightSystem, currentSave.Parameters, blockMetadata, adjacencyGraph, chunkMesher, blockOutlineMesher);
+                            renderer = new Renderer(graphics.GraphicsDevice, assetServer, blockMetadata, screenshotTaker, chunkMesher, blockOutlineMesher);
 
                             world.SetPlayer(player, currentSave.Parameters);
 
