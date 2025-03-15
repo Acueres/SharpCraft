@@ -153,8 +153,8 @@ namespace SharpCraft.World.Generation
 
             if (maxElevation < chunk.Position.Y)
             {
-                chunk.Dispose();
-                return new Chunk(index);
+                db.ApplyDelta(chunk);
+                return chunk;
             }
 
             chunk.Init();

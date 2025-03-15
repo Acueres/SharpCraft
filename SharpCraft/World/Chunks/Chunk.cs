@@ -36,12 +36,6 @@ public class Chunk : IDisposable
 
     public bool RecalculateMesh { get; set; }
 
-    public Chunk(Vector3I index)
-    {
-        Index = index;
-        Position = Size * new Vector3(index.X, index.Y, index.Z);
-    }
-
     public Chunk(Vector3I index, BlockMetadataProvider blockMetadata)
     {
         Index = index;
@@ -128,7 +122,7 @@ public class Chunk : IDisposable
 
     public void ActivateBlock(Vector3I index)
     {
-        if (!blocks[index.X, index.Y, index.Z].IsEmpty)
+        if (!IsEmpty && !blocks[index.X, index.Y, index.Z].IsEmpty)
         {
             AddIndex(index);
             RecalculateMesh = true;

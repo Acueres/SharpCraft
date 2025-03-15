@@ -87,9 +87,16 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         Vector3I dominantOffset = GetDominantAxisOffset(rayDirection, dominantAxis);
 
         (Vector3I newBlockIndex, ChunkAdjacency newAdjacency) = GetAdjacentIndex(dominantAxis, blockIndex, dominantOffset, adjacency);
-         Chunk chunk = newAdjacency.Root;
+        Chunk chunk = newAdjacency.Root;
 
         if (!chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z].IsEmpty) return;
+
+        if (chunk.IsEmpty)
+        {
+            chunk.Init();
+            lightSystem.InitializeLight(newAdjacency);
+            lightSystem.FloodFill();
+        }
 
         chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z] = block;
 

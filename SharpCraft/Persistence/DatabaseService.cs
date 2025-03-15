@@ -112,6 +112,13 @@ public class DatabaseService
 
         using var reader = command.ExecuteReader();
 
+        if (chunk.IsEmpty && reader.HasRows)
+        {
+            chunk.Init();
+        }
+
+        if (!reader.HasRows) return;
+
         while (reader.Read())
         {
             int x = reader.GetInt32(0);
