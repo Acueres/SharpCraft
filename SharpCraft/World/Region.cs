@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 
-using SharpCraft.Utilities;
 using SharpCraft.World.Light;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
@@ -24,7 +23,7 @@ namespace SharpCraft.World
         readonly AdjacencyGraph adjacencyGraph;
         readonly ChunkMesher chunkMesher;
 
-        readonly ConcurrentDictionary<Vector3I, IChunk> chunks = [];
+        readonly ConcurrentDictionary<Vector3I, Chunk> chunks = [];
         readonly List<Vector3I> proximityIndexes = [];
         readonly ConcurrentBag<Vector3I> activeChunkIndexes = [];
         readonly HashSet<Vector3I> inactiveChunkIndexes = [];
@@ -41,7 +40,7 @@ namespace SharpCraft.World
             this.chunkMesher = chunkMesher;
         }
 
-        public IChunk GetChunk(Vector3I index)
+        public Chunk GetChunk(Vector3I index)
         {
             return chunks[index];
         }
@@ -60,7 +59,7 @@ namespace SharpCraft.World
         {
             foreach (Vector3I index in activeChunkIndexes)
             {
-                IChunk chunk = GetChunk(index);
+                Chunk chunk = GetChunk(index);
                 if (chunk.RecalculateMesh)
                 {
                     var adjacency = adjacencyGraph.GetAdjacency(index);
@@ -73,7 +72,7 @@ namespace SharpCraft.World
             }
         }
 
-        public IEnumerable<IChunk> GetActiveChunks()
+        public IEnumerable<Chunk> GetActiveChunks()
         {
             foreach (Vector3I index in activeChunkIndexes) { yield return chunks[index]; }
         }
@@ -117,7 +116,7 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    IChunk chunk = worldGenerator.GenerateChunk(index);
+                    Chunk chunk = worldGenerator.GenerateChunk(index);
                     chunks.TryAdd(index, chunk);
                     generatedChunks.Add(index);
                 }
@@ -130,7 +129,7 @@ namespace SharpCraft.World
 
             foreach (Vector3I index in generatedChunks)
             {
-                IChunk chunk = chunks[index];
+                Chunk chunk = chunks[index];
                 adjacencyGraph.CalculateChunkAdjacency(chunk);
             }
 
@@ -144,7 +143,7 @@ namespace SharpCraft.World
                 if (adjacency.Root.IsReady)
                 {
                     adjacency.Root.CalculateActiveBlocks(adjacency);
-                    if (adjacency.Root is not SkyChunk) readyChunks.Add(adjacency);
+                    if (!adjacency.Root.IsEmpty) readyChunks.Add(adjacency);
                 }
                 else
                 {

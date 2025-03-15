@@ -63,7 +63,7 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
     void RemoveBlock(ChunkAdjacency adjacency, Vector3I blockIndex)
     {
-        IChunk chunk = adjacency.Root;
+        Chunk chunk = adjacency.Root;
 
         Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
         chunk[blockIndex.X, blockIndex.Y, blockIndex.Z] = Block.Empty;
@@ -87,7 +87,7 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         Vector3I dominantOffset = GetDominantAxisOffset(rayDirection, dominantAxis);
 
         (Vector3I newBlockIndex, ChunkAdjacency newAdjacency) = GetAdjacentIndex(dominantAxis, blockIndex, dominantOffset, adjacency);
-         IChunk chunk = newAdjacency.Root;
+         Chunk chunk = newAdjacency.Root;
 
         if (!chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z].IsEmpty) return;
 
@@ -116,7 +116,7 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         {
             Vector3I neighborIndex = index + offset;
 
-            IChunk targetChunk = adjacency.Root;
+            Chunk targetChunk = adjacency.Root;
 
             // Check X boundaries.
             if (neighborIndex.X < 0)

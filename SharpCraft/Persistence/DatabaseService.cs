@@ -99,7 +99,7 @@ public class DatabaseService
         saveQueue.Enqueue(new SaveData(chunkIndex, blockIndex, block));
     }
 
-    public void ApplyDelta(IChunk chunk)
+    public void ApplyDelta(Chunk chunk)
     {
         int chunkId = GetChunkIdAsync(chunk.Index).Result;
 
@@ -121,9 +121,9 @@ public class DatabaseService
 
             chunk[x, y, z] = block;
 
-            if (chunk is Chunk c && !block.IsEmpty && blockMetadata.IsLightSource(block.Value))
+            if (!chunk.IsEmpty && !block.IsEmpty && blockMetadata.IsLightSource(block.Value))
             {
-                c.AddLightSource(x, y, z);
+                chunk.AddLightSource(x, y, z);
             }
         }
     }

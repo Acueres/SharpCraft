@@ -44,7 +44,7 @@ class Renderer
         uiRenderer = new UIRenderer(graphics, effect, blockOutlineMesher, assetServer);
     }
 
-    public void Render(IEnumerable<IChunk> chunks, Camera camera, Time time)
+    public void Render(IEnumerable<Chunk> chunks, Camera camera, Time time)
     {
         regionRenderer.Render(chunks, camera, time.LightIntensity);
         uiRenderer.Render();

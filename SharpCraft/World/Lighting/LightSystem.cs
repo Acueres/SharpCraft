@@ -24,16 +24,16 @@ namespace SharpCraft.World.Light
         public void InitializeSkylight(ChunkAdjacency adjacency)
         {
             //Propagate light downward from a sky chunk
-            if (adjacency.YNeg.Root is Chunk yNeg)
+            if (!adjacency.YNeg.Root.IsEmpty)
             {
                 for (int x = 0; x < Chunk.Size; x++)
                 {
                     for (int z = 0; z < Chunk.Size; z++)
                     {
-                        if (!yNeg[x, Chunk.Last, z].IsEmpty) continue;
+                        if (!adjacency.YNeg.Root[x, Chunk.Last, z].IsEmpty) continue;
 
-                        yNeg.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
-                        lightQueue.Enqueue(new LightNode(yNeg, x, Chunk.Last, z));
+                        adjacency.YNeg.Root.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
+                        lightQueue.Enqueue(new LightNode(adjacency.YNeg.Root, x, Chunk.Last, z));
                     }
                 }
             }
@@ -41,7 +41,7 @@ namespace SharpCraft.World.Light
 
         public void InitializeLight(ChunkAdjacency adjacency)
         {
-            IChunk chunk = adjacency.Root;
+            Chunk chunk = adjacency.Root;
 
             //take light from upper chunk
             for (int x = 0; x < Chunk.Size; x++)
@@ -140,7 +140,7 @@ namespace SharpCraft.World.Light
 
         public void UpdateLight(int x, int y, int z, ushort texture, ChunkAdjacency adjacency, bool sourceRemoved = false)
         {
-            IChunk chunk = adjacency.Root;
+            Chunk chunk = adjacency.Root;
 
             //Propagate light to an empty cell
             if (texture == Block.EmptyValue)
@@ -187,7 +187,7 @@ namespace SharpCraft.World.Light
 
         void RemoveSource(ChunkAdjacency adjacency)
         {
-            IChunk chunk = adjacency.Root;
+            Chunk chunk = adjacency.Root;
 
             while (lightQueue.Count > 0)
             {
@@ -263,7 +263,7 @@ namespace SharpCraft.World.Light
 
         (FacesData<LightNode> nodes, FacesData<LightValue> lightValues) GetNeighborLightValues(int y, int x, int z, ChunkAdjacency adjacency)
         {
-            IChunk chunk = adjacency.Root;
+            Chunk chunk = adjacency.Root;
 
             FacesData<LightNode> nodes = new();
             FacesData<LightValue> lightValues = new();
@@ -365,7 +365,7 @@ namespace SharpCraft.World.Light
 
         void Propagate(ChunkAdjacency adjacency, int x, int y, int z)
         {
-            IChunk chunk = adjacency.Root;
+            Chunk chunk = adjacency.Root;
 
             LightValue lightValue = chunk.GetLight(x, y, z);
 
@@ -503,7 +503,7 @@ namespace SharpCraft.World.Light
         public FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int y, int x, int z, ChunkAdjacency adjacency)
         {
             FacesData<LightValue> lightValues = new();
-            IChunk chunk = adjacency.Root;
+            Chunk chunk = adjacency.Root;
 
             if (visibleFaces.ZPos)
             {

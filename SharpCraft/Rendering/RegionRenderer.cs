@@ -34,7 +34,7 @@ class RegionRenderer
                     (int)2e4, BufferUsage.WriteOnly);
     }
 
-    public void Render(IEnumerable<IChunk> chunks, Camera camera, float lightIntensity)
+    public void Render(IEnumerable<Chunk> chunks, Camera camera, float lightIntensity)
     {
         Vector3 chunkMax = new(Chunk.Size);
 
@@ -49,24 +49,24 @@ class RegionRenderer
         graphics.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
 
         //Drawing opaque blocks
-        foreach (IChunk chunk in chunks)
+        foreach (Chunk chunk in chunks)
         {
-            if (chunk is not Chunk fullChunk || !fullChunk.IsReady) continue;
+            if (chunk.IsEmpty || !chunk.IsReady) continue;
 
-            BoundingBox chunkBounds = new(fullChunk.Position, chunkMax + fullChunk.Position);
+            BoundingBox chunkBounds = new(chunk.Position, chunkMax + chunk.Position);
 
             bool isChunkVisible = false;
             if (camera.Frustum.Intersects(chunkBounds))
             {
-                visibleChunks.Add(fullChunk);
+                visibleChunks.Add(chunk);
                 isChunkVisible = true;
             }
 
-            if (isChunkVisible && fullChunk.ActiveBlocksCount > 0)
+            if (isChunkVisible && chunk.ActiveBlocksCount > 0)
             {
                 effect.Parameters["Alpha"].SetValue(1f);
 
-                var vertices = chunkMesher.GetVertices(fullChunk.Index);
+                var vertices = chunkMesher.GetVertices(chunk.Index);
 
                 if (vertices.Length == 0) continue;
 

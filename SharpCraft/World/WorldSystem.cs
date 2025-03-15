@@ -74,7 +74,7 @@ namespace SharpCraft.World
             region.UpdateMeshes();
         }
 
-        public IEnumerable<IChunk> GetActiveChunks()
+        public IEnumerable<Chunk> GetActiveChunks()
         {
             return region.GetActiveChunks();
         }
@@ -201,7 +201,7 @@ namespace SharpCraft.World
 
             foreach (var (chunkIndex, blockIndex) in collisionIndices)
             {
-                IChunk chunk = region.GetChunk(chunkIndex);
+                Chunk chunk = region.GetChunk(chunkIndex);
 
                 Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
                 if (!block.IsEmpty)

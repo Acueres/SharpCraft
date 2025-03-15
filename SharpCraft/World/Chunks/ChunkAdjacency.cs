@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace SharpCraft.World.Chunks;
 public class ChunkAdjacency
 {
-    public IChunk Root { get; set; }
+    public Chunk Root { get; set; }
     public ChunkAdjacency XNeg { get; set; }
     public ChunkAdjacency XPos { get; set; }
     public ChunkAdjacency YNeg { get; set; }

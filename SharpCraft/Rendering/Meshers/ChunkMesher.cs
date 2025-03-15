@@ -126,7 +126,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
 
     public (VertexPositionTextureLight[], VertexPositionTextureLight[]) CalculateMesh(ChunkAdjacency adjacency)
     {
-        IChunk chunk = adjacency.Root;
+        Chunk chunk = adjacency.Root;
 
         List<VertexPositionTextureLight> vertices = [];
         List<VertexPositionTextureLight> transparentVertices = [];

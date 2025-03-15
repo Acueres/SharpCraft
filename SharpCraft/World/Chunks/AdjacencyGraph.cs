@@ -17,7 +17,7 @@ public class AdjacencyGraph
         return null;
     }
 
-    public void CalculateChunkAdjacency(IChunk chunk)
+    public void CalculateChunkAdjacency(Chunk chunk)
     {
         if (adjacencyMap.ContainsKey(chunk.Index)) return;
 

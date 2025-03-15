@@ -90,7 +90,7 @@ namespace SharpCraft.World.Generation
 
         }
 
-        public IChunk GenerateChunk(Vector3I position)
+        public Chunk GenerateChunk(Vector3I position)
         {
             return type switch
             {
@@ -111,7 +111,7 @@ namespace SharpCraft.World.Generation
             return indexes;
         }
 
-        IChunk Default(Vector3I index)
+        Chunk Default(Vector3I index)
         {
             Chunk chunk = new(index, blockMetadata);
             int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
@@ -154,8 +154,10 @@ namespace SharpCraft.World.Generation
             if (maxElevation < chunk.Position.Y)
             {
                 chunk.Dispose();
-                return new SkyChunk(index);
+                return new Chunk(index);
             }
+
+            chunk.Init();
 
             for (int x = 0; x < Chunk.Size; x++)
             {
