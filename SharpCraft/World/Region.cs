@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 
+using SharpCraft.World.Blocks;
 using SharpCraft.World.Light;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
@@ -140,10 +141,10 @@ namespace SharpCraft.World
                 ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(index);
                 adjacency.Root.IsReady = adjacency.All();
 
-                if (adjacency.Root.IsReady)
+                if (adjacency.Root.IsReady && !adjacency.Root.IsEmpty)
                 {
-                    adjacency.Root.CalculateActiveBlocks(adjacency);
-                    if (!adjacency.Root.IsEmpty) readyChunks.Add(adjacency);
+                    adjacency.Root.InitLight();
+                    readyChunks.Add(adjacency);
                 }
                 else
                 {
@@ -153,21 +154,21 @@ namespace SharpCraft.World
 
             List<ChunkAdjacency> skyChunks = [.. worldGenerator.GetSkyLevel().Select(adjacencyGraph.GetAdjacency).Where(x => x is not null && x.All())];
 
-            foreach (ChunkAdjacency n in skyChunks)
+            foreach (ChunkAdjacency adjacency in skyChunks)
             {
-                lightSystem.InitializeSkylight(n);
+                lightSystem.InitializeSkylight(adjacency);
             }
 
-            foreach (ChunkAdjacency n in readyChunks)
+            foreach (ChunkAdjacency adjacency in readyChunks)
             {
-                lightSystem.InitializeLight(n);
+                lightSystem.InitializeLight(adjacency);
             }
 
             lightSystem.FloodFill();
 
-            foreach (ChunkAdjacency n in readyChunks)
+            foreach (ChunkAdjacency adjacency in readyChunks)
             {
-                chunkMesher.AddMesh(n);
+                chunkMesher.AddMesh(adjacency);
             }
 
             worldGenerator.ClearCache();

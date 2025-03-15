@@ -99,7 +99,7 @@ public class DatabaseService
         saveQueue.Enqueue(new SaveData(chunkIndex, blockIndex, block));
     }
 
-    public void ApplyDelta(Chunk chunk)
+    public Block[,,] ApplyDelta(Chunk chunk, Block[,,] blocks)
     {
         int chunkId = GetChunkIdAsync(chunk.Index).Result;
 
@@ -112,12 +112,12 @@ public class DatabaseService
 
         using var reader = command.ExecuteReader();
 
-        if (chunk.IsEmpty && reader.HasRows)
+        if (blocks is null && reader.HasRows)
         {
-            chunk.Init();
+            blocks = Chunk.GetBlockArray();
         }
 
-        if (!reader.HasRows) return;
+        if (!reader.HasRows) return blocks;
 
         while (reader.Read())
         {
@@ -126,13 +126,15 @@ public class DatabaseService
             int z = reader.GetInt32(2);
             var block = new Block((ushort)reader.GetInt32(3));
 
-            chunk[x, y, z] = block;
+            blocks[x, y, z] = block;
 
-            if (!chunk.IsEmpty && !block.IsEmpty && blockMetadata.IsLightSource(block.Value))
+            if (!block.IsEmpty && blockMetadata.IsLightSource(block.Value))
             {
                 chunk.AddLightSource(x, y, z);
             }
         }
+
+        return blocks;
     }
 
     async Task FlushDeltasAsync()

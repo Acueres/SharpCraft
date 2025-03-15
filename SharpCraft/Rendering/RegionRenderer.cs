@@ -62,7 +62,7 @@ class RegionRenderer
                 isChunkVisible = true;
             }
 
-            if (isChunkVisible && chunk.ActiveBlocksCount > 0)
+            if (isChunkVisible)
             {
                 effect.Parameters["Alpha"].SetValue(1f);
 

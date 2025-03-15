@@ -8,6 +8,7 @@ using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
 using System.Collections.Concurrent;
 using SharpCraft.MathUtilities;
+using System.Reflection;
 
 namespace SharpCraft.World.Generation
 {
@@ -21,7 +22,6 @@ namespace SharpCraft.World.Generation
     class WorldGenerator
     {
         readonly int seed;
-        readonly string type;
         readonly DatabaseService db;
         readonly BlockMetadataProvider blockMetadata;
 
@@ -44,7 +44,6 @@ namespace SharpCraft.World.Generation
         public WorldGenerator(Parameters parameters, DatabaseService databaseService, BlockMetadataProvider blockMetadata)
         {
             this.blockMetadata = blockMetadata;
-            type = parameters.WorldType;
             db = databaseService;
 
             waterLevel = 40;
@@ -90,30 +89,10 @@ namespace SharpCraft.World.Generation
 
         }
 
-        public Chunk GenerateChunk(Vector3I position)
-        {
-            return type switch
-            {
-                "Flat" => Flat(position),
-                _ => Default(position),
-            };
-        }
-
-        public List<Vector3I> GetSkyLevel()
-        {
-            List<Vector3I> indexes = new(elevationCache.Count);
-            foreach ((Vector2I index, int value) in elevationCache)
-            {
-                int y = Chunk.WorldToChunkIndex(value) + 1;
-                indexes.Add(new Vector3I(index.X, y, index.Z));
-            }
-
-            return indexes;
-        }
-
-        Chunk Default(Vector3I index)
+        public Chunk GenerateChunk(Vector3I index)
         {
             Chunk chunk = new(index, blockMetadata);
+            Block[,,] blocks = null;
             int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
             Random rnd = new(chunkSeed);
 
@@ -153,11 +132,12 @@ namespace SharpCraft.World.Generation
 
             if (maxElevation < chunk.Position.Y)
             {
-                db.ApplyDelta(chunk);
+                blocks = db.ApplyDelta(chunk, blocks);
+                chunk.SetBlockData(blocks);
                 return chunk;
             }
 
-            chunk.Init();
+            blocks = Chunk.GetBlockArray();
 
             for (int x = 0; x < Chunk.Size; x++)
             {
@@ -171,7 +151,7 @@ namespace SharpCraft.World.Generation
                     for (int y = 0; y < yMax; y++)
                     {
                         ushort texture = Fill(terrainLevel[x, z], (int)chunk.Position.Y + y, biomes[x, z], rnd);
-                        chunk[x, y, z] = new(texture);
+                        blocks[x, y, z] = new(texture);
                     }
 
                     /*if (chunk.Biomes[x, z] == BiomeType.River)
@@ -184,11 +164,24 @@ namespace SharpCraft.World.Generation
                 }
             }
 
-            db.ApplyDelta(chunk);
+            db.ApplyDelta(chunk, blocks);
 
             //GenerateTrees(chunk, elevationMap, rnd);
+            chunk.SetBlockData(blocks);
 
             return chunk;
+        }
+
+        public List<Vector3I> GetSkyLevel()
+        {
+            List<Vector3I> indexes = new(elevationCache.Count);
+            foreach ((Vector2I index, int value) in elevationCache)
+            {
+                int y = Chunk.WorldToChunkIndex(value) + 1;
+                indexes.Add(new Vector3I(index.X, y, index.Z));
+            }
+
+            return indexes;
         }
 
         (int, BiomeType) GetHeight(Vector3 position, int x, int z)
@@ -217,34 +210,6 @@ namespace SharpCraft.World.Generation
             }
 
             return (height, biome);
-        }
-
-        Chunk Flat(Vector3I position)
-        {
-            Chunk chunk = new(position, blockMetadata);
-            for (int y = 0; y < 5; y++)
-            {
-                for (int x = 0; x < Chunk.Size; x++)
-                {
-                    for (int z = 0; z < Chunk.Size; z++)
-                    {
-                        ushort texture;
-
-                        if (y == 0)
-                            texture = bedrock;
-                        else if (y == 4)
-                            texture = grass;
-                        else
-                            texture = dirt;
-
-                        chunk[x, y, z] = new(texture);
-                    }
-                }
-            }
-
-            db.ApplyDelta(chunk);
-
-            return chunk;
         }
 
         ushort Fill(int terrainHeight, int currentY, BiomeType biome, Random rnd)

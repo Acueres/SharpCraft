@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 
 using Microsoft.Win32.SafeHandles;
 using Microsoft.Xna.Framework;
+
 using SharpCraft.MathUtilities;
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
@@ -25,7 +26,6 @@ public class Chunk : IDisposable
     Block[,,] blocks;
     LightValue[,,] lightMap;
 
-    readonly HashSet<Vector3I> activeBlockIndexes = [];
     readonly HashSet<Vector3I> lightSourceIndexes = [];
 
     public void Dispose() => Dispose(true);
@@ -44,10 +44,25 @@ public class Chunk : IDisposable
         this.blockMetadata = blockMetadata;
     }
 
+    public void SetBlockData(Block[,,] blocks)
+    {
+        this.blocks = blocks;
+    }
+
     public void Init()
     {
         blocks = new Block[Size, Size, Size];
         lightMap = new LightValue[Size, Size, Size];
+    }
+
+    public void InitLight()
+    {
+        lightMap = new LightValue[Size, Size, Size];
+    }
+
+    public static Block[,,] GetBlockArray()
+    {
+        return new Block[Size, Size, Size];
     }
 
     public Block this[int x, int y, int z]
@@ -73,26 +88,28 @@ public class Chunk : IDisposable
             lightMap[x, y, z] = value;
     }
 
-    public bool AddIndex(Vector3I index)
-    {
-        return activeBlockIndexes.Add(index);
-    }
-
-    public bool RemoveIndex(Vector3I index)
-    {
-        return activeBlockIndexes.Remove(index);
-    }
-
     public void AddLightSource(int x, int y, int z)
     {
         lightSourceIndexes.Add(new Vector3I(x, y, z));
     }
 
-    public int ActiveBlocksCount => activeBlockIndexes.Count;
-
-    public IEnumerable<Vector3I> GetActiveIndexes()
+    public IEnumerable<Vector3I> GetActiveBlocksIndexes()
     {
-        foreach (Vector3I index in activeBlockIndexes) yield return index;
+        for (int y = 0; y < Size; y++)
+        {
+            for (int x = 0; x < Size; x++)
+            {
+                for (int z = 0; z < Size; z++)
+                {
+                    if (blocks[x, y, z].IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    yield return new Vector3I(x, y, z);
+                }
+            }
+        }
     }
 
     public IEnumerable<Vector3I> GetLightSources()
@@ -120,43 +137,7 @@ public class Chunk : IDisposable
         disposed = true;
     }
 
-    public void ActivateBlock(Vector3I index)
-    {
-        if (!IsEmpty && !blocks[index.X, index.Y, index.Z].IsEmpty)
-        {
-            AddIndex(index);
-            RecalculateMesh = true;
-        }
-    }
-
-    public void CalculateActiveBlocks(ChunkAdjacency adjacency)
-    {
-        if (IsEmpty) return;
-
-        for (int y = 0; y < Size; y++)
-        {
-            for (int x = 0; x < Size; x++)
-            {
-                for (int z = 0; z < Size; z++)
-                {
-                    if (blocks[x, y, z].IsEmpty)
-                    {
-                        continue;
-                    }
-
-                    FacesState visibleFaces = GetVisibleFaces(new Vector3I(x, y, z), adjacency, calculateOpacity: false);
-
-                    if (visibleFaces.Any())
-                    {
-                        AddIndex(new(x, y, z));
-                    }
-                }
-            }
-        }
-    }
-
-    public FacesState GetVisibleFaces(Vector3I index, ChunkAdjacency adjacency,
-                                bool calculateOpacity = true)
+    public FacesState GetVisibleFaces(Vector3I index, ChunkAdjacency adjacency)
     {
         FacesState visibleFaces = new();
 
@@ -168,11 +149,7 @@ public class Chunk : IDisposable
 
         Block adjacentBlock;
 
-        bool blockOpaque = true;
-        if (calculateOpacity)
-        {
-            blockOpaque = !(block.IsEmpty || blockMetadata.IsBlockTransparent(block.Value));
-        }
+        bool isBlockOpaque = !(block.IsEmpty || blockMetadata.IsBlockTransparent(block.Value));
 
         if (z == Last)
         {
@@ -182,7 +159,7 @@ public class Chunk : IDisposable
         {
             adjacentBlock = blocks[x, y, z + 1];
         }
-        visibleFaces.ZPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque;
+        visibleFaces.ZPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && isBlockOpaque;
 
         if (z == 0)
         {
@@ -192,7 +169,7 @@ public class Chunk : IDisposable
         {
             adjacentBlock = blocks[x, y, z - 1];
         }
-        visibleFaces.ZNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque;
+        visibleFaces.ZNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && isBlockOpaque;
 
         if (y == Last)
         {
@@ -202,7 +179,7 @@ public class Chunk : IDisposable
         {
             adjacentBlock = blocks[x, y + 1, z];
         }
-        visibleFaces.YPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque;
+        visibleFaces.YPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && isBlockOpaque;
 
         if (y == 0)
         {
@@ -212,7 +189,7 @@ public class Chunk : IDisposable
         {
             adjacentBlock = blocks[x, y - 1, z];
         }
-        visibleFaces.YNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque;
+        visibleFaces.YNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && isBlockOpaque;
 
 
         if (x == Last)
@@ -223,7 +200,7 @@ public class Chunk : IDisposable
         {
             adjacentBlock = blocks[x + 1, y, z];
         }
-        visibleFaces.XPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque;
+        visibleFaces.XPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && isBlockOpaque;
 
         if (x == 0)
         {
@@ -233,7 +210,7 @@ public class Chunk : IDisposable
         {
             adjacentBlock = blocks[x - 1, y, z];
         }
-        visibleFaces.XNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && blockOpaque;
+        visibleFaces.XNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock.Value) && isBlockOpaque;
 
         return visibleFaces;
     }

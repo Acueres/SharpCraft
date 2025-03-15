@@ -70,13 +70,9 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
         bool lightSource = !block.IsEmpty && blockMetadata.IsLightSource(block.Value);
 
-        chunk.RemoveIndex(blockIndex);
-
         lightSystem.UpdateLight(blockIndex.X, blockIndex.Y, blockIndex.Z, Block.EmptyValue, adjacency, sourceRemoved: lightSource);
 
         db.AddDelta(adjacency.Root.Index, blockIndex, Block.Empty);
-
-        UpdateAdjacentBlocks(adjacency, blockIndex);
     }
 
     void AddBlock(Block block, Vector3I blockIndex, ChunkAdjacency adjacency, Vector3 rayDirection)
@@ -103,66 +99,6 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         lightSystem.UpdateLight(newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z, block.Value, newAdjacency);
 
         db.AddDelta(chunk.Index, newBlockIndex, block);
-
-        UpdateAdjacentBlocks(newAdjacency, newBlockIndex);
-    }
-
-    static void UpdateAdjacentBlocks(ChunkAdjacency adjacency, Vector3I index)
-    {
-        ReadOnlySpan<Vector3I> offsets = [
-            new Vector3I(0, 0, 0),
-            new Vector3I(1, 0, 0),
-            new Vector3I(-1, 0, 0),
-            new Vector3I(0, 1, 0),
-            new Vector3I(0, -1, 0),
-            new Vector3I(0, 0, 1),
-            new Vector3I(0, 0, -1)
-        ];
-
-        foreach (var offset in offsets)
-        {
-            Vector3I neighborIndex = index + offset;
-
-            Chunk targetChunk = adjacency.Root;
-
-            // Check X boundaries.
-            if (neighborIndex.X < 0)
-            {
-                targetChunk = adjacency.XNeg.Root;
-                neighborIndex = new Vector3I(Chunk.Last, neighborIndex.Y, neighborIndex.Z);
-            }
-            else if (neighborIndex.X > Chunk.Last)
-            {
-                targetChunk = adjacency.XPos.Root;
-                neighborIndex = new Vector3I(0, neighborIndex.Y, neighborIndex.Z);
-            }
-
-            // Check Y boundaries.
-            if (neighborIndex.Y < 0)
-            {
-                targetChunk = adjacency.YNeg.Root;
-                neighborIndex = new Vector3I(neighborIndex.X, Chunk.Last, neighborIndex.Z);
-            }
-            else if (neighborIndex.Y > Chunk.Last)
-            {
-                targetChunk = adjacency.YPos.Root;
-                neighborIndex = new Vector3I(neighborIndex.X, 0, neighborIndex.Z);
-            }
-
-            // Check Z boundaries.
-            if (neighborIndex.Z < 0)
-            {
-                targetChunk = adjacency.ZNeg.Root;
-                neighborIndex = new Vector3I(neighborIndex.X, neighborIndex.Y, Chunk.Last);
-            }
-            else if (neighborIndex.Z > Chunk.Last)
-            {
-                targetChunk = adjacency.ZPos.Root;
-                neighborIndex = new Vector3I(neighborIndex.X, neighborIndex.Y, 0);
-            }
-
-            targetChunk.ActivateBlock(neighborIndex);
-        }
     }
 
     static (Vector3I newIndex, ChunkAdjacency newAdjacency) GetAdjacentIndex(AxisDirection dominantAxis, Vector3I index, Vector3I offset, ChunkAdjacency adjacency)

@@ -500,7 +500,7 @@ namespace SharpCraft.World.Light
             }
         }
 
-        public FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int y, int x, int z, ChunkAdjacency adjacency)
+        public FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int x, int y, int z, ChunkAdjacency adjacency)
         {
             FacesData<LightValue> lightValues = new();
             Chunk chunk = adjacency.Root;

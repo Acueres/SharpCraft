@@ -107,8 +107,16 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
     public void AddMesh(ChunkAdjacency adjacency)
     {
         var (vertices, transparentVertices) = CalculateMesh(adjacency);
-        verticesCache.Add(adjacency.Root.Index, vertices);
-        transparentVerticesCache.Add(adjacency.Root.Index, transparentVertices);
+
+        if (!verticesCache.TryAdd(adjacency.Root.Index, vertices))
+        {
+            verticesCache[adjacency.Root.Index] = vertices;
+        }
+
+        if (!transparentVerticesCache.TryAdd(adjacency.Root.Index, transparentVertices))
+        {
+            transparentVerticesCache[adjacency.Root.Index] = transparentVertices;
+        }
     }
 
     public void Update(ChunkAdjacency adjacency)
@@ -131,22 +139,25 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
         List<VertexPositionTextureLight> vertices = [];
         List<VertexPositionTextureLight> transparentVertices = [];
 
-        if (chunk is not Chunk fullChunk) return ([], []);
+        if (chunk.IsEmpty) return ([], []);
 
-        foreach (Vector3I index in fullChunk.GetActiveIndexes())
+        foreach (Vector3I index in chunk.GetActiveBlocksIndexes())
         {
             int x = index.X;
             int y = index.Y;
             int z = index.Z;
 
-            Vector3 blockPosition = new Vector3(x, y, z) + fullChunk.Position;
+            Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
-            FacesState visibleFaces = fullChunk.GetVisibleFaces(index, adjacency);
-            FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, y, x, z, adjacency);
+            FacesState visibleFaces = chunk.GetVisibleFaces(index, adjacency);
+
+            if (!visibleFaces.Any()) continue;
+
+            FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, x, y, z, adjacency);
 
             foreach (Faces face in visibleFaces.GetFaces())
             {
-                ushort texture = fullChunk[x, y, z].Value;
+                ushort texture = chunk[x, y, z].Value;
                 LightValue light = lightValues.GetValue(face);
 
                 if (blockMetadata.IsBlockTransparent(texture))
@@ -163,7 +174,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
             }
         }
 
-        fullChunk.RecalculateMesh = false;
+        chunk.RecalculateMesh = false;
 
         return ([.. vertices], [.. transparentVertices]);
     }
