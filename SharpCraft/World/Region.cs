@@ -65,9 +65,9 @@ namespace SharpCraft.World
                 {
                     var adjacency = adjacencyGraph.GetAdjacency(index);
 
-                    if (adjacency.All())
+                    if (adjacency.All() && !adjacency.Root.IsEmpty)
                     {
-                        chunkMesher.Update(adjacency);
+                        chunkMesher.CreateMesh(adjacency);
                     }
                 }
             }
@@ -102,6 +102,7 @@ namespace SharpCraft.World
         {
             activeChunkIndexes.Clear();
             ConcurrentBag<Vector3I> generatedChunks = [];
+            ConcurrentDictionary<Vector3I, BlockBuffer> blockBufferCache = [];
 
             Parallel.ForEach(proximityIndexes, proximityIndex =>
             {
@@ -117,8 +118,9 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    Chunk chunk = worldGenerator.GenerateChunk(index);
+                    (Chunk chunk, BlockBuffer blocks) = worldGenerator.GenerateChunk(index);
                     chunks.TryAdd(index, chunk);
+                    blockBufferCache.TryAdd(index, blocks);
                     generatedChunks.Add(index);
                 }
 
@@ -168,7 +170,14 @@ namespace SharpCraft.World
 
             foreach (ChunkAdjacency adjacency in readyChunks)
             {
-                chunkMesher.AddMesh(adjacency);
+                if (blockBufferCache.TryGetValue(adjacency.Root.Index, out var buffer))
+                {
+                    chunkMesher.CreateMesh(adjacency, buffer);
+                }
+                else
+                {
+                    chunkMesher.CreateMesh(adjacency);
+                }
             }
 
             worldGenerator.ClearCache();

@@ -89,7 +89,7 @@ namespace SharpCraft.World.Generation
 
         }
 
-        public Chunk GenerateChunk(Vector3I index)
+        public (Chunk, BlockBuffer) GenerateChunk(Vector3I index)
         {
             Chunk chunk = new(index, blockMetadata);
             Block[,,] blocks = null;
@@ -134,7 +134,7 @@ namespace SharpCraft.World.Generation
             {
                 blocks = db.ApplyDelta(chunk, blocks);
                 chunk.SetBlockData(blocks);
-                return chunk;
+                return (chunk, new(blocks, blockMetadata));
             }
 
             blocks = Chunk.GetBlockArray();
@@ -169,7 +169,7 @@ namespace SharpCraft.World.Generation
             //GenerateTrees(chunk, elevationMap, rnd);
             chunk.SetBlockData(blocks);
 
-            return chunk;
+            return (chunk, new(blocks, blockMetadata));
         }
 
         public List<Vector3I> GetSkyLevel()

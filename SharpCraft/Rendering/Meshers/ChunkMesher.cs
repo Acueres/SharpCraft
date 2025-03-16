@@ -5,8 +5,8 @@ using SharpCraft.MathUtilities;
 using SharpCraft.Utilities;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Light;
-using SharpCraft.World;
 using SharpCraft.World.Blocks;
+using SharpCraft.World.Generation;
 
 namespace SharpCraft.Rendering.Meshers;
 
@@ -104,9 +104,9 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
         return transparentVerticesCache[index];
     }
 
-    public void AddMesh(ChunkAdjacency adjacency)
+    public void CreateMesh(ChunkAdjacency adjacency, BlockBuffer buffer)
     {
-        var (vertices, transparentVertices) = CalculateMesh(adjacency);
+        var (vertices, transparentVertices) = CalculateMesh(adjacency, buffer);
 
         if (!verticesCache.TryAdd(adjacency.Root.Index, vertices))
         {
@@ -119,7 +119,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
         }
     }
 
-    public void Update(ChunkAdjacency adjacency)
+    public void CreateMesh(ChunkAdjacency adjacency)
     {
         var (vertices, transparentVertices) = CalculateMesh(adjacency);
         verticesCache[adjacency.Root.Index] = vertices;
@@ -139,8 +139,6 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
         List<VertexPositionTextureLight> vertices = [];
         List<VertexPositionTextureLight> transparentVertices = [];
 
-        if (chunk.IsEmpty) return ([], []);
-
         foreach (Vector3I index in chunk.GetActiveBlocksIndexes())
         {
             int x = index.X;
@@ -158,6 +156,51 @@ class ChunkMesher(BlockMetadataProvider blockMetadata, LightSystem lightSystem)
             foreach (Faces face in visibleFaces.GetFaces())
             {
                 ushort texture = chunk[x, y, z].Value;
+                LightValue light = lightValues.GetValue(face);
+
+                if (blockMetadata.IsBlockTransparent(texture))
+                {
+                    var blockVerticesTransparent = GetBlockVertices(face, light, blockPosition, texture);
+                    transparentVertices.AddRange(blockVerticesTransparent);
+                }
+                else
+                {
+                    var blockVertices = GetBlockVertices(face, light, blockPosition,
+                        blockMetadata.IsBlockMultiface(texture) ? blockMetadata.GetMultifaceBlockFace(texture, face) : texture);
+                    vertices.AddRange(blockVertices);
+                }
+            }
+        }
+
+        chunk.RecalculateMesh = false;
+
+        return ([.. vertices], [.. transparentVertices]);
+    }
+
+    public (VertexPositionTextureLight[], VertexPositionTextureLight[]) CalculateMesh(ChunkAdjacency adjacency, BlockBuffer buffer)
+    {
+        Chunk chunk = adjacency.Root;
+
+        List<VertexPositionTextureLight> vertices = [];
+        List<VertexPositionTextureLight> transparentVertices = [];
+
+        foreach (Vector3I index in buffer.GetActiveBlocksIndexes())
+        {
+            int x = index.X;
+            int y = index.Y;
+            int z = index.Z;
+
+            Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
+
+            FacesState visibleFaces = buffer.GetVisibleFaces(index, adjacency);
+
+            if (!visibleFaces.Any()) continue;
+
+            FacesData<LightValue> lightValues = lightSystem.GetFacesLight(visibleFaces, x, y, z, adjacency);
+
+            foreach (Faces face in visibleFaces.GetFaces())
+            {
+                ushort texture = buffer[x, y, z].Value;
                 LightValue light = lightValues.GetValue(face);
 
                 if (blockMetadata.IsBlockTransparent(texture))
