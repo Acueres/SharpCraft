@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 
-using SharpCraft.Assets;
 using SharpCraft.GUI.Menus;
 using SharpCraft.MathUtilities;
 using SharpCraft.Persistence;
@@ -12,19 +10,18 @@ using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
-using SharpCraft.World.Light;
+using SharpCraft.World.Lighting;
 
 namespace SharpCraft.World
 {
     class WorldSystem
     {
         Player player;
-        readonly BlockModificationSystem blockModSystem;
+        readonly ChunkModificationSystem chunkModSystem;
 
         readonly GameMenu gameMenu;
         readonly WorldGenerator worldGenerator;
         readonly BlockOutlineMesher blockOutlineMesher;
-        readonly LightSystem lightSystem;
         readonly AdjacencyGraph adjacencyGraph;
 
         readonly Region region;
@@ -42,7 +39,7 @@ namespace SharpCraft.World
             worldGenerator = new WorldGenerator(parameters, db, blockMetadata);
             this.blockOutlineMesher = blockOutlineMesher;
 
-            blockModSystem = new BlockModificationSystem(db, blockMetadata, lightSystem);
+            chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem);
 
             region = new Region(Settings.RenderDistance, adjacencyGraph, worldGenerator, lightSystem, chunkMesher);
             this.adjacencyGraph = adjacencyGraph;
@@ -105,7 +102,7 @@ namespace SharpCraft.World
                 ProcessPlayerActions(exitedMenu);
             }
 
-            blockModSystem.Update();
+            chunkModSystem.Update();
         }
 
         void ProcessPlayerActions(bool exitedMenu)
@@ -143,13 +140,13 @@ namespace SharpCraft.World
 
             if (player.LeftClick)
             {
-                blockModSystem.Add(blockIndex, adjacency, BlockInteractionMode.Remove);
+                chunkModSystem.Add(blockIndex, adjacency, BlockInteractionMode.Remove);
             }
             else if (player.RightClick)
             {
                 if ((blockPosition - player.Position).Length() > 1.1f)
                 {
-                    blockModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, adjacency, BlockInteractionMode.Add);
+                    chunkModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, adjacency, BlockInteractionMode.Add);
                 }
             }
 

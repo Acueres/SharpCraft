@@ -5,8 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 
-using SharpCraft.World.Blocks;
-using SharpCraft.World.Light;
+using SharpCraft.World.Lighting;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
 using SharpCraft.MathUtilities;
@@ -67,6 +66,7 @@ namespace SharpCraft.World
 
                     if (adjacency.All() && !adjacency.Root.IsEmpty)
                     {
+                        chunk.GenerateIndexCaches(adjacency);
                         chunkMesher.CreateMesh(adjacency);
                     }
                 }
@@ -102,7 +102,7 @@ namespace SharpCraft.World
         {
             activeChunkIndexes.Clear();
             ConcurrentBag<Vector3I> generatedChunks = [];
-            ConcurrentDictionary<Vector3I, BlockBuffer> blockBufferCache = [];
+            ConcurrentDictionary<Vector3I, ChunkBuffer> blockBufferCache = [];
 
             Parallel.ForEach(proximityIndexes, proximityIndex =>
             {
@@ -118,7 +118,7 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    (Chunk chunk, BlockBuffer blocks) = worldGenerator.GenerateChunk(index);
+                    (Chunk chunk, ChunkBuffer blocks) = worldGenerator.GenerateChunk(index);
                     chunks.TryAdd(index, chunk);
                     blockBufferCache.TryAdd(index, blocks);
                     generatedChunks.Add(index);
@@ -141,11 +141,23 @@ namespace SharpCraft.World
             foreach (Vector3I index in generatedChunks)
             {
                 ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(index);
+
+                if (adjacency.Root.IsEmpty) continue;
+
                 adjacency.Root.IsReady = adjacency.All();
 
-                if (adjacency.Root.IsReady && !adjacency.Root.IsEmpty)
+                if (adjacency.Root.IsReady)
                 {
                     adjacency.Root.InitLight();
+                    if (blockBufferCache.TryGetValue(adjacency.Root.Index, out var buffer))
+                    {
+                        adjacency.Root.GenerateIndexCaches(buffer, adjacency);
+                    }
+                    else
+                    {
+                        adjacency.Root.GenerateIndexCaches(adjacency);
+                    }
+
                     readyChunks.Add(adjacency);
                 }
                 else

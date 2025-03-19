@@ -24,11 +24,11 @@ namespace SharpCraft.World.Blocks
         public ushort[] GetBlockIds => [.. blockIdToName.Keys];
         public ushort GetBlockIndex(string name) => blockNameToId[name];
         public string GetBlockName(ushort index) => blockIdToName[index];
-        public bool IsBlockTransparent(ushort index) => transparentBlocks.Contains(index);
-        public bool IsBlockMultiface(ushort index) => multifaceBlocks.ContainsKey(index);
-        public ushort GetMultifaceBlockFace(ushort blockIndex, Faces face) => multifaceBlocks[blockIndex][(byte)face];
-        public byte GetLightSourceValue(ushort index) => lightValues[index];
-        public bool IsLightSource(ushort index) => lightSources.Contains(index);
+        public bool IsBlockTransparent(Block block) => transparentBlocks.Contains(block.Value);
+        public bool IsBlockMultiface(Block block) => multifaceBlocks.ContainsKey(block.Value);
+        public ushort GetMultifaceBlockFace(Block block, Faces face) => multifaceBlocks[block.Value][(byte)face];
+        public byte GetLightSourceValue(Block block) => lightValues[block.Value];
+        public bool IsLightSource(Block block) => lightSources.Contains(block.Value);
 
         public void Load()
         {

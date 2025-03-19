@@ -1,4 +1,4 @@
-﻿namespace SharpCraft.World.Light
+﻿namespace SharpCraft.World.Lighting
 {
     public readonly struct LightValue
     {

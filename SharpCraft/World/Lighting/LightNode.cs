@@ -1,8 +1,6 @@
-﻿using SharpCraft.World.Blocks;
-using SharpCraft.World.Chunks;
-using System;
+﻿using SharpCraft.World.Chunks;
 
-namespace SharpCraft.World.Light;
+namespace SharpCraft.World.Lighting;
 
 readonly struct LightNode(Chunk chunk, int x, int y, int z)
 {
@@ -10,11 +8,6 @@ readonly struct LightNode(Chunk chunk, int x, int y, int z)
     public int X { get; } = x;
     public int Y { get; } = y;
     public int Z { get; } = z;
-
-    public readonly Block GetBlock()
-    {
-        return Chunk[X, Y, Z];
-    }
 
     public readonly LightValue GetLight()
     {
@@ -24,10 +17,5 @@ readonly struct LightNode(Chunk chunk, int x, int y, int z)
     public readonly void SetLight(LightValue value)
     {
         Chunk.SetLight(X, Y, Z, value);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(Chunk.Index.X, Chunk.Index.Y, Chunk.Index.Z, X, Y, Z);
     }
 }

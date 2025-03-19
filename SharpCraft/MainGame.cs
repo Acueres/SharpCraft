@@ -10,7 +10,7 @@ using SharpCraft.GUI.Menus;
 using SharpCraft.Persistence;
 using SharpCraft.Rendering;
 using SharpCraft.Rendering.Meshers;
-using SharpCraft.World.Light;
+using SharpCraft.World.Lighting;
 using SharpCraft.World.Chunks;
 
 namespace SharpCraft
@@ -117,7 +117,7 @@ namespace SharpCraft
 
                             AdjacencyGraph adjacencyGraph = new();
                             LightSystem lightSystem = new(blockMetadata, adjacencyGraph);
-                            ChunkMesher chunkMesher = new(blockMetadata, lightSystem);
+                            ChunkMesher chunkMesher = new(blockMetadata);
                             BlockOutlineMesher blockOutlineMesher = new();
 
                             player = new Player(GraphicsDevice, currentSave.Parameters);

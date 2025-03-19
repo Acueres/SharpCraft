@@ -5,7 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using SharpCraft.MathUtilities;
-using SharpCraft.World.Light;
+using SharpCraft.World.Lighting;
 
 namespace SharpCraft.Utilities
 {

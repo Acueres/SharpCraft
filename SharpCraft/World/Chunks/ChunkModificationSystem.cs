@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Utilities;
-using SharpCraft.World.Light;
-using SharpCraft.World.Chunks;
+using SharpCraft.World.Lighting;
 using SharpCraft.Persistence;
 using SharpCraft.MathUtilities;
+using SharpCraft.World.Blocks;
 
-namespace SharpCraft.World.Blocks;
+namespace SharpCraft.World.Chunks;
 
 public enum BlockInteractionMode : byte
 {
@@ -17,7 +17,7 @@ public enum BlockInteractionMode : byte
     Replace
 }
 
-public class BlockModificationData(ChunkAdjacency adjacency, Block newBlock, Vector3I blockIndex, Vector3 rayDirection, BlockInteractionMode interactionMode)
+public class ChunkModificationData(ChunkAdjacency adjacency, Block newBlock, Vector3I blockIndex, Vector3 rayDirection, BlockInteractionMode interactionMode)
 {
     public ChunkAdjacency Adjacency { get; } = adjacency;
     public Block NewBlock { get; } = newBlock;
@@ -26,22 +26,22 @@ public class BlockModificationData(ChunkAdjacency adjacency, Block newBlock, Vec
     public BlockInteractionMode InteractionMode { get; } = interactionMode;
 }
 
-class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMetadata, LightSystem lightSystem)
+class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMetadata, LightSystem lightSystem)
 {
     readonly DatabaseService db = db;
     readonly BlockMetadataProvider blockMetadata = blockMetadata;
     readonly LightSystem lightSystem = lightSystem;
 
-    readonly Queue<BlockModificationData> queue = [];
+    readonly Queue<ChunkModificationData> queue = [];
 
     public void Add(Vector3I blockIndex, ChunkAdjacency adjacency, BlockInteractionMode interactionMode)
     {
-        queue.Enqueue(new BlockModificationData(adjacency, Block.Empty, blockIndex, Vector3.Zero, interactionMode));
+        queue.Enqueue(new ChunkModificationData(adjacency, Block.Empty, blockIndex, Vector3.Zero, interactionMode));
     }
 
     public void Add(Block newBlock, Vector3I blockIndex, Vector3 rayDirection, ChunkAdjacency adjacency, BlockInteractionMode interactionMode)
     {
-        queue.Enqueue(new BlockModificationData(adjacency, newBlock, blockIndex, rayDirection, interactionMode));
+        queue.Enqueue(new ChunkModificationData(adjacency, newBlock, blockIndex, rayDirection, interactionMode));
     }
 
     public void Update()
@@ -68,7 +68,7 @@ class BlockModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
         chunk[blockIndex.X, blockIndex.Y, blockIndex.Z] = Block.Empty;
 
-        bool lightSource = !block.IsEmpty && blockMetadata.IsLightSource(block.Value);
+        bool lightSource = !block.IsEmpty && blockMetadata.IsLightSource(block);
 
         lightSystem.UpdateLight(blockIndex.X, blockIndex.Y, blockIndex.Z, Block.EmptyValue, adjacency, sourceRemoved: lightSource);
 
