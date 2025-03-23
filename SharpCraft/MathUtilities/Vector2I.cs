@@ -21,6 +21,12 @@ public readonly struct Vector2I(int x, int z)
         return a.X != b.X || a.Z != b.Z;
     }
 
+    public override bool Equals(object obj)
+    {
+        Vector2I other = (Vector2I)obj;
+        return other == this;
+    }
+
     public override string ToString()
     {
         return $"X: {X}, Z: {Z}";
@@ -28,10 +34,11 @@ public readonly struct Vector2I(int x, int z)
 
     public override int GetHashCode()
     {
+        const int prime = 397;
         unchecked
         {
             int hashCode = X.GetHashCode();
-            hashCode = hashCode * 397 ^ Z.GetHashCode();
+            hashCode = hashCode * prime ^ Z.GetHashCode();
             return hashCode;
         }
     }

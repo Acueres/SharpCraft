@@ -132,7 +132,7 @@ class WorldGenerator
         if (maxElevation < chunk.Position.Y)
         {
             blocks = db.ApplyDelta(chunk, blocks);
-            chunk.SetBlockData(blocks);
+            chunk.Init(blocks);
             return (chunk, new(blocks));
         }
 
@@ -157,7 +157,7 @@ class WorldGenerator
 
         db.ApplyDelta(chunk, blocks);
 
-        chunk.SetBlockData(blocks);
+        chunk.Init(blocks);
 
         return (chunk, new(blocks));
     }

@@ -5,7 +5,6 @@ using Microsoft.Xna.Framework;
 
 using SharpCraft.Persistence;
 using SharpCraft.Utilities;
-using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.Rendering.Meshers;
 
@@ -31,7 +30,7 @@ class RegionRenderer
         this.atlas = atlas;
 
         buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
-                    (int)2e4, BufferUsage.WriteOnly);
+                    64000, BufferUsage.WriteOnly);
     }
 
     public void Render(IEnumerable<Chunk> chunks, Camera camera, float lightIntensity)
