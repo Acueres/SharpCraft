@@ -8,6 +8,16 @@ public readonly struct Block(ushort value)
 
     public const ushort EmptyValue = default;
 
+    public static bool operator ==(Block a, Block b)
+    {
+        return a.Value == b.Value;
+    }
+
+    public static bool operator !=(Block a, Block b)
+    {
+        return a.Value != b.Value;
+    }
+
     public override bool Equals(object obj)
     {
         return ((Block)obj).Value == Value;

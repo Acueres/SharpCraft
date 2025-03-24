@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 
 using Microsoft.Win32.SafeHandles;
@@ -15,18 +14,17 @@ namespace SharpCraft.World.Chunks;
 
 public class Chunk : IDisposable
 {
-    public const int Size = 16;
-    public const int Last = Size - 1;
+    public const byte Size = 16;
+    public const byte Last = Size - 1;
 
     public Vector3I Index { get; }
     public Vector3 Position { get; }
     public bool IsReady { get; set; }
 
-    public bool IsEmpty { get; set; }
+    public bool IsEmpty { get; internal set; }
 
-    HashSet<Block> palette;
-    List<Block> blockTypes;
-    Dictionary<Block, uint> blockToId;
+    List<Block> palette;
+    Dictionary<Block, uint> paletteIndexMap;
     BitStorage storage;
     LightValue[,,] lightMap;
 
@@ -57,24 +55,24 @@ public class Chunk : IDisposable
             return;
         }
 
-        palette = GetUniqueBlocks(buffer);
-        if (palette.Count == 1 && palette.Single().IsEmpty)
+        var uniqueBlocks = GetUniqueBlocks(buffer);
+        if (uniqueBlocks.Count == 1 && uniqueBlocks.Contains(Block.Empty))
         {
             IsEmpty = true;
             return;
         }
 
         uint blockIndex = 0;
-        blockTypes = new(palette.Count);
-        blockToId = [];
-        foreach (var block in palette)
+        palette = new(uniqueBlocks.Count);
+        paletteIndexMap = [];
+        foreach (var block in uniqueBlocks)
         {
-            blockTypes.Add(block);
-            blockToId.Add(block, blockIndex);
+            palette.Add(block);
+            paletteIndexMap.Add(block, blockIndex);
             blockIndex++;
         }
 
-        int bitsPerBlock = (int)Math.Log2(palette.Count) + 1;
+        int bitsPerBlock = GetBitsPerBlock(palette.Count);
         storage = new BitStorage(Size, bitsPerBlock);
 
         for (int y = 0; y < Size; y++)
@@ -83,8 +81,7 @@ public class Chunk : IDisposable
             {
                 for (int z = 0; z < Size; z++)
                 {
-
-                    storage[x, y, z] = blockToId[buffer[x, y, z]];
+                    storage[x, y, z] = paletteIndexMap[buffer[x, y, z]];
                 }
             }
         }
@@ -108,16 +105,20 @@ public class Chunk : IDisposable
         return uniqueBlocks;
     }
 
+    static int GetBitsPerBlock(int count)
+    {
+        if (count <= 1) return 1;
+        return (int)Math.Log2(count - 1) + 1;
+    }
+
     public void Init()
     {
-        storage = new BitStorage(Size, 1);
         if (IsEmpty)
         {
-            palette = [];
-            palette.Add(Block.Empty);
-            blockTypes = [Block.Empty];
-            blockToId = [];
-            blockToId.Add(Block.Empty, 0);
+            palette = [Block.Empty];
+            paletteIndexMap = [];
+            paletteIndexMap.Add(Block.Empty, 0);
+            IsEmpty = false;
         }
         lightMap = new LightValue[Size, Size, Size];
     }
@@ -138,29 +139,36 @@ public class Chunk : IDisposable
         {
             if (IsEmpty) return Block.Empty;
             uint id = storage[x, y, z];
-            return blockTypes[(int)id];
+            return palette[(int)id];
         }
         set
         {
-            if (palette.Add(value))
+            if (!paletteIndexMap.TryGetValue(value, out uint index))
             {
-                blockTypes.Add(value);
-                blockToId.Add(value, (uint)palette.Count - 1);
+                index = (uint)paletteIndexMap.Count;
+                palette.Add(value);
+                paletteIndexMap.Add(value, index);
 
-                if (palette.Count % 2 == 0)
+                // Check if the palette size has reached the next power of two, then resize
+                if ((palette.Count & (palette.Count - 1)) == 0)
                 {
                     ResizeStorage();
                 }
             }
 
-            storage[x, y, z] = blockToId[value];
+            storage[x, y, z] = index;
         }
     }
 
     void ResizeStorage()
     {
-        int bitsPerBlock = (int)Math.Log2(palette.Count) + 1;
+        int bitsPerBlock = GetBitsPerBlock(palette.Count);
         var resizedStorage = new BitStorage(Size, bitsPerBlock);
+        if (storage == null)
+        {
+            storage = resizedStorage;
+            return;
+        }
 
         for (int y = 0; y < Size; y++)
         {

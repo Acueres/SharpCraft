@@ -60,12 +60,15 @@ namespace SharpCraft.World
             foreach (Vector3I index in activeChunkIndexes)
             {
                 Chunk chunk = GetChunk(index);
+                if (chunk.IsEmpty) continue;
+
                 if (chunk.RecalculateMesh)
                 {
                     var adjacency = adjacencyGraph.GetAdjacency(index);
 
-                    if (adjacency.All() && !adjacency.Root.IsEmpty)
+                    if (adjacency.All())
                     {
+                        chunk.IsReady = true;
                         chunk.GenerateIndexCaches(adjacency);
                         chunkMesher.CreateMesh(adjacency);
                     }
