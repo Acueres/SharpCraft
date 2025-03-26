@@ -1,29 +1,31 @@
-﻿namespace SharpCraft.MathUtilities;
+﻿using System.Numerics;
 
-public readonly struct Vector2I(int x, int z)
+namespace SharpCraft.MathUtilities;
+
+public readonly struct Vec2<N>(N x, N z) where N: INumber<N>
 {
-    public int X { get; } = x;
-    public int Z { get; } = z;
+    public N X { get; } = x;
+    public N Z { get; } = z;
 
-    public static Vector2I operator -(Vector2I a, Vector2I b)
+    public static Vec2<N> operator -(Vec2<N> a, Vec2<N> b)
     => new(a.X - b.X, a.Z - b.Z);
 
-    public static Vector2I operator +(Vector2I a, Vector2I b)
+    public static Vec2<N> operator +(Vec2<N> a, Vec2<N> b)
     => new(a.X + b.X, a.Z + b.Z);
 
-    public static bool operator ==(Vector2I a, Vector2I b)
+    public static bool operator ==(Vec2<N> a, Vec2<N> b)
     {
         return a.X == b.X && a.Z == b.Z;
     }
 
-    public static bool operator !=(Vector2I a, Vector2I b)
+    public static bool operator !=(Vec2<N> a, Vec2<N> b)
     {
         return a.X != b.X || a.Z != b.Z;
     }
 
     public override bool Equals(object obj)
     {
-        Vector2I other = (Vector2I)obj;
+        Vec2<N> other = (Vec2<N>)obj;
         return other == this;
     }
 

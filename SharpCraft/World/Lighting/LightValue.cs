@@ -1,4 +1,6 @@
-﻿namespace SharpCraft.World.Lighting
+﻿using SharpCraft.MathUtilities;
+
+namespace SharpCraft.World.Lighting
 {
     public readonly struct LightValue
     {
@@ -64,5 +66,15 @@
 
         public static bool operator <(LightValue a, LightValue b)
         => a.SkyValue < b.SkyValue || a.BlockValue < b.BlockValue;
+
+        public override bool Equals(object obj)
+        {
+            LightValue other = (LightValue)obj;
+            return other == this;
+        }
+        public override int GetHashCode()
+        {
+            return value.GetHashCode();
+        }
     }
 }

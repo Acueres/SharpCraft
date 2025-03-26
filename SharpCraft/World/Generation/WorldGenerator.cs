@@ -24,11 +24,9 @@ class WorldGenerator
     readonly DatabaseService db;
     readonly BlockMetadataProvider blockMetadata;
 
-    readonly ConcurrentDictionary<Vector2I, int[,]> terrainLevelCache = [];
-    readonly ConcurrentDictionary<Vector2I, BiomeType[,]> biomesCache = [];
-    readonly ConcurrentDictionary<Vector2I, int> elevationCache = [];
-
-    readonly int waterLevel;
+    readonly ConcurrentDictionary<Vec2<int>, int[,]> terrainLevelCache = [];
+    readonly ConcurrentDictionary<Vec2<int>, BiomeType[,]> biomesCache = [];
+    readonly ConcurrentDictionary<Vec2<int>, int> elevationCache = [];
 
     readonly FastNoiseLite terrain;
     readonly FastNoiseLite forest;
@@ -44,8 +42,6 @@ class WorldGenerator
     {
         this.blockMetadata = blockMetadata;
         db = databaseService;
-
-        waterLevel = 40;
 
         seed = parameters.Seed;
 
@@ -96,7 +92,7 @@ class WorldGenerator
         Random rnd = new(chunkSeed);
 
         int maxElevation = int.MinValue;
-        Vector2I cacheIndex = new(index.X, index.Z);
+        Vec2<int> cacheIndex = new(index.X, index.Z);
         BiomeType[,] biomes;
         if (!terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainLevel))
         {
@@ -165,7 +161,7 @@ class WorldGenerator
     public List<Vector3I> GetSkyLevel()
     {
         List<Vector3I> indexes = new(elevationCache.Count);
-        foreach ((Vector2I index, int value) in elevationCache)
+        foreach ((Vec2<int> index, int value) in elevationCache)
         {
             int y = Chunk.WorldToChunkIndex(value) + 1;
             indexes.Add(new Vector3I(index.X, y, index.Z));
