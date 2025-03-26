@@ -1,30 +1,32 @@
-﻿namespace SharpCraft.MathUtilities;
+﻿using System.Numerics;
 
-public readonly struct Vector3I(int x, int y, int z)
+namespace SharpCraft.MathUtilities;
+
+public readonly struct Vec3<N>(N x, N y, N z) where N : INumber<N>
 {
-    public int X { get; } = x;
-    public int Y { get; } = y;
-    public int Z { get; } = z;
+    public N X { get; } = x;
+    public N Y { get; } = y;
+    public N Z { get; } = z;
 
-    public static Vector3I operator -(Vector3I a, Vector3I b)
+    public static Vec3<N> operator -(Vec3<N> a, Vec3<N> b)
     => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
 
-    public static Vector3I operator +(Vector3I a, Vector3I b)
+    public static Vec3<N> operator +(Vec3<N> a, Vec3<N> b)
     => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
 
-    public static bool operator ==(Vector3I a, Vector3I b)
+    public static bool operator ==(Vec3<N> a, Vec3<N> b)
     {
         return a.X == b.X && a.Y == b.Y && a.Z == b.Z;
     }
 
-    public static bool operator !=(Vector3I a, Vector3I b)
+    public static bool operator !=(Vec3<N> a, Vec3<N> b)
     {
         return a.X != b.X || a.Y != b.Y || a.Z != b.Z;
     }
 
     public override bool Equals(object obj)
     {
-        Vector3I other = (Vector3I)obj;
+        Vec3<N> other = (Vec3<N>)obj;
         return other == this;
     }
 

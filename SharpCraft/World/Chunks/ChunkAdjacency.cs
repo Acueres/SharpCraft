@@ -18,19 +18,19 @@ public class ChunkAdjacency
             && YNeg is not null && YPos is not null;
     }
 
-    public IEnumerable<Vector3I> GetNullChunksIndexes()
+    public IEnumerable<Vec3<int>> GetNullChunksIndexes()
     {
         if (XNeg is null)
-            yield return Root.Index - new Vector3I(1, 0, 0);
+            yield return Root.Index - new Vec3<int>(1, 0, 0);
         if (XPos is null)
-            yield return Root.Index + new Vector3I(1, 0, 0);
+            yield return Root.Index + new Vec3<int>(1, 0, 0);
         if (YNeg is null)
-            yield return Root.Index - new Vector3I(0, 1, 0);
+            yield return Root.Index - new Vec3<int>(0, 1, 0);
         if (YPos is null)
-            yield return Root.Index + new Vector3I(0, 1, 0);
+            yield return Root.Index + new Vec3<int>(0, 1, 0);
         if (ZNeg is null)
-            yield return Root.Index - new Vector3I(0, 0, 1);
+            yield return Root.Index - new Vec3<int>(0, 0, 1);
         if (ZPos is null)
-            yield return Root.Index + new Vector3I(0, 0, 1);
+            yield return Root.Index + new Vec3<int>(0, 0, 1);
     }
 }

@@ -17,11 +17,11 @@ public enum BlockInteractionMode : byte
     Replace
 }
 
-public class ChunkModificationData(ChunkAdjacency adjacency, Block newBlock, Vector3I blockIndex, Vector3 rayDirection, BlockInteractionMode interactionMode)
+public class ChunkModificationData(ChunkAdjacency adjacency, Block newBlock, Vec3<byte> blockIndex, Vector3 rayDirection, BlockInteractionMode interactionMode)
 {
     public ChunkAdjacency Adjacency { get; } = adjacency;
     public Block NewBlock { get; } = newBlock;
-    public Vector3I BlockIndex { get; } = blockIndex;
+    public Vec3<byte> BlockIndex { get; } = blockIndex;
     public Vector3 RayDirection { get; } = rayDirection;
     public BlockInteractionMode InteractionMode { get; } = interactionMode;
 }
@@ -34,12 +34,12 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
 
     readonly Queue<ChunkModificationData> queue = [];
 
-    public void Add(Vector3I blockIndex, ChunkAdjacency adjacency, BlockInteractionMode interactionMode)
+    public void Add(Vec3<byte> blockIndex, ChunkAdjacency adjacency, BlockInteractionMode interactionMode)
     {
         queue.Enqueue(new ChunkModificationData(adjacency, Block.Empty, blockIndex, Vector3.Zero, interactionMode));
     }
 
-    public void Add(Block newBlock, Vector3I blockIndex, Vector3 rayDirection, ChunkAdjacency adjacency, BlockInteractionMode interactionMode)
+    public void Add(Block newBlock, Vec3<byte> blockIndex, Vector3 rayDirection, ChunkAdjacency adjacency, BlockInteractionMode interactionMode)
     {
         queue.Enqueue(new ChunkModificationData(adjacency, newBlock, blockIndex, rayDirection, interactionMode));
     }
@@ -61,7 +61,7 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         }
     }
 
-    void RemoveBlock(ChunkAdjacency adjacency, Vector3I blockIndex)
+    void RemoveBlock(ChunkAdjacency adjacency, Vec3<byte> blockIndex)
     {
         Chunk chunk = adjacency.Root;
 
@@ -75,14 +75,14 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         db.AddDelta(adjacency.Root.Index, blockIndex, Block.Empty);
     }
 
-    void AddBlock(Block block, Vector3I blockIndex, ChunkAdjacency adjacency, Vector3 rayDirection)
+    void AddBlock(Block block, Vec3<byte> blockIndex, ChunkAdjacency adjacency, Vector3 rayDirection)
     {
         if (block.IsEmpty) return;
 
         AxisDirection dominantAxis = Util.GetDominantAxis(rayDirection);
-        Vector3I dominantOffset = GetDominantAxisOffset(rayDirection, dominantAxis);
+        Vec3<int> dominantOffset = GetDominantAxisOffset(rayDirection, dominantAxis);
 
-        (Vector3I newBlockIndex, ChunkAdjacency newAdjacency) = GetAdjacentIndex(dominantAxis, blockIndex, dominantOffset, adjacency);
+        (Vec3<byte> newBlockIndex, ChunkAdjacency newAdjacency) = GetAdjacentIndex(dominantAxis, blockIndex, dominantOffset, adjacency);
         Chunk chunk = newAdjacency.Root;
 
         if (!chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z].IsEmpty) return;
@@ -101,14 +101,14 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         db.AddDelta(chunk.Index, newBlockIndex, block);
     }
 
-    static (Vector3I newIndex, ChunkAdjacency newAdjacency) GetAdjacentIndex(AxisDirection dominantAxis, Vector3I index, Vector3I offset, ChunkAdjacency adjacency)
+    static (Vec3<byte> newIndex, ChunkAdjacency newAdjacency) GetAdjacentIndex(AxisDirection dominantAxis, Vec3<byte> index, Vec3<int> offset, ChunkAdjacency adjacency)
     {
         ChunkAdjacency newAdjacency = null;
-        Vector3I newIndex = index + offset;
+        Vec3<int> newIndex = new Vec3<int>(index.X, index.Y, index.Z) + offset;
 
-        int x = newIndex.X;
-        int y = newIndex.Y;
-        int z = newIndex.Z;
+        byte x = (byte)newIndex.X;
+		byte y = (byte)newIndex.Y;
+		byte z = (byte)newIndex.Z;
 
         if (dominantAxis == AxisDirection.X)
         {
@@ -150,16 +150,16 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
             }
         }
 
-        return (new Vector3I(x, y, z), newAdjacency ?? adjacency);
+        return (new Vec3<byte>(x, y, z), newAdjacency ?? adjacency);
     }
 
-    static Vector3I GetDominantAxisOffset(Vector3 rayDirection, AxisDirection dominantDirection)
+    static Vec3<int> GetDominantAxisOffset(Vector3 rayDirection, AxisDirection dominantDirection)
     {
         return dominantDirection switch
         {
-            AxisDirection.X => new Vector3I(-Math.Sign(rayDirection.X), 0, 0),
-            AxisDirection.Y => new Vector3I(0, -Math.Sign(rayDirection.Y), 0),
-            _ => new Vector3I(0, 0, -Math.Sign(rayDirection.Z)),
+            AxisDirection.X => new Vec3<int>(-Math.Sign(rayDirection.X), 0, 0),
+            AxisDirection.Y => new Vec3<int>(0, -Math.Sign(rayDirection.Y), 0),
+            _ => new Vec3<int>(0, 0, -Math.Sign(rayDirection.Z)),
         };
     }
 }

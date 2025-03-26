@@ -89,15 +89,15 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
     readonly BlockMetadataProvider blockMetadata = blockMetadata;
     readonly int blockCount = blockMetadata.BlockCount;
 
-    readonly Dictionary<Vector3I, VertexPositionTextureLight[]> verticesCache = [];
-    readonly Dictionary<Vector3I, VertexPositionTextureLight[]> transparentVerticesCache = [];
+    readonly Dictionary<Vec3<int>, VertexPositionTextureLight[]> verticesCache = [];
+    readonly Dictionary<Vec3<int>, VertexPositionTextureLight[]> transparentVerticesCache = [];
 
-    public VertexPositionTextureLight[] GetVertices(Vector3I index)
+    public VertexPositionTextureLight[] GetVertices(Vec3<int> index)
     {
         return verticesCache[index];
     }
 
-    public VertexPositionTextureLight[] GetTransparentVertices(Vector3I index)
+    public VertexPositionTextureLight[] GetTransparentVertices(Vec3<int> index)
     {
         return transparentVerticesCache[index];
     }
@@ -124,7 +124,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
         transparentVerticesCache[adjacency.Root.Index] = transparentVertices;
     }
 
-    public void Remove(Vector3I index)
+    public void Remove(Vec3<int> index)
     {
         verticesCache.Remove(index);
         transparentVerticesCache.Remove(index);
@@ -137,7 +137,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
         List<VertexPositionTextureLight> vertices = [];
         List<VertexPositionTextureLight> transparentVertices = [];
 
-        foreach (Vector3I index in chunk.GetVisibleBlocks())
+        foreach (Vec3<byte> index in chunk.GetVisibleBlocks())
         {
             int x = index.X;
             int y = index.Y;
@@ -182,7 +182,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
         List<VertexPositionTextureLight> vertices = [];
         List<VertexPositionTextureLight> transparentVertices = [];
 
-        foreach (Vector3I index in chunk.GetVisibleBlocks())
+        foreach (Vec3<byte> index in chunk.GetVisibleBlocks())
         {
             int x = index.X;
             int y = index.Y;

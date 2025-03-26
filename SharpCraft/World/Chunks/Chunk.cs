@@ -17,7 +17,7 @@ public class Chunk : IDisposable
     public const byte Size = 16;
     public const byte Last = Size - 1;
 
-    public Vector3I Index { get; }
+    public Vec3<int> Index { get; }
     public Vector3 Position { get; }
     public bool IsReady { get; set; }
 
@@ -28,9 +28,9 @@ public class Chunk : IDisposable
     BitStorage storage;
     LightValue[,,] lightMap;
 
-    readonly HashSet<Vector3I> surfaceIndexes = [];
-    readonly HashSet<Vector3I> transparentIndexes = [];
-    readonly HashSet<(Vector3I, Block)> lightSources = [];
+    readonly HashSet<Vec3<byte>> surfaceIndexes = [];
+    readonly HashSet<Vec3<byte>> transparentIndexes = [];
+    readonly HashSet<(Vec3<byte>, Block)> lightSources = [];
 
     public void Dispose() => Dispose(true);
     readonly SafeHandle safeHandle = new SafeFileHandle(nint.Zero, true);
@@ -40,7 +40,7 @@ public class Chunk : IDisposable
 
     public bool RecalculateMesh { get; set; }
 
-    public Chunk(Vector3I index, BlockMetadataProvider blockMetadata)
+    public Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata)
     {
         Index = index;
         Position = Size * new Vector3(index.X, index.Y, index.Z);
@@ -196,12 +196,12 @@ public class Chunk : IDisposable
             lightMap[x, y, z] = value;
     }
 
-    public void AddLightSource(int x, int y, int z, Block block)
+    public void AddLightSource(byte x, byte y, byte z, Block block)
     {
-        lightSources.Add((new Vector3I(x, y, z), block));
+        lightSources.Add((new Vec3<byte>(x, y, z), block));
     }
 
-    public IEnumerable<Vector3I> GetActiveBlocksIndexes()
+    public IEnumerable<Vec3<int>> GetActiveBlocksIndexes()
     {
         for (int y = 0; y < Size; y++)
         {
@@ -214,13 +214,13 @@ public class Chunk : IDisposable
                         continue;
                     }
 
-                    yield return new Vector3I(x, y, z);
+                    yield return new Vec3<int>(x, y, z);
                 }
             }
         }
     }
 
-    public IEnumerable<(Vector3I, Block)> GetLightSources()
+    public IEnumerable<(Vec3<byte>, Block)> GetLightSources()
     {
         foreach (var data in lightSources) yield return data;
     }
@@ -247,11 +247,11 @@ public class Chunk : IDisposable
 
     public void GenerateIndexCaches(ChunkBuffer buffer, ChunkAdjacency adjacency)
     {
-        for (int y = 0; y < Size; y++)
+        for (byte y = 0; y < Size; y++)
         {
-            for (int x = 0; x < Size; x++)
+            for (byte x = 0; x < Size; x++)
             {
-                for (int z = 0; z < Size; z++)
+                for (byte z = 0; z < Size; z++)
                 {
                     Block block = buffer[x, y, z];
                     if (block.IsEmpty)
@@ -259,7 +259,7 @@ public class Chunk : IDisposable
                         continue;
                     }
 
-                    var index = new Vector3I(x, y, z);
+                    var index = new Vec3<byte>(x, y, z);
                     var visibleFaces = GetVisibleFaces(index, adjacency);
 
                     if (!visibleFaces.Any()) continue;
@@ -280,11 +280,11 @@ public class Chunk : IDisposable
         surfaceIndexes.Clear();
         transparentIndexes.Clear();
 
-        for (int y = 0; y < Size; y++)
+        for (byte y = 0; y < Size; y++)
         {
-            for (int x = 0; x < Size; x++)
+            for (byte x = 0; x < Size; x++)
             {
-                for (int z = 0; z < Size; z++)
+                for (byte z = 0; z < Size; z++)
                 {
                     Block block = this[x, y, z];
                     if (block.IsEmpty)
@@ -292,7 +292,7 @@ public class Chunk : IDisposable
                         continue;
                     }
 
-                    var index = new Vector3I(x, y, z);
+                    var index = new Vec3<byte>(x, y, z);
                     var visibleFaces = GetVisibleFaces(index, adjacency);
 
                     if (!visibleFaces.Any()) continue;
@@ -308,22 +308,22 @@ public class Chunk : IDisposable
         }
     }
 
-    public IEnumerable<Vector3I> GetVisibleBlocks()
+    public IEnumerable<Vec3<byte>> GetVisibleBlocks()
     {
         foreach (var index in surfaceIndexes) yield return index;
     }
 
-    public bool IsBlockTransparent(Vector3I index)
+    public bool IsBlockTransparent(Vec3<byte> index)
     {
         return transparentIndexes.Contains(index) || !surfaceIndexes.Contains(index);
     }
 
-    public bool IsBlockTransparentSolid(Vector3I index)
+    public bool IsBlockTransparentSolid(Vec3<byte> index)
     {
         return transparentIndexes.Contains(index);
     }
 
-    public FacesState GetVisibleFaces(Vector3I index, ChunkAdjacency adjacency)
+    public FacesState GetVisibleFaces(Vec3<byte> index, ChunkAdjacency adjacency)
     {
         FacesState visibleFaces = new();
 
@@ -401,7 +401,7 @@ public class Chunk : IDisposable
         return visibleFaces;
     }
 
-    public FacesState GetVisibleFaces(Vector3I index, ChunkBuffer buffer, ChunkAdjacency adjacency)
+    public FacesState GetVisibleFaces(Vec3<int> index, ChunkBuffer buffer, ChunkAdjacency adjacency)
     {
         FacesState visibleFaces = new();
 
@@ -489,23 +489,23 @@ public class Chunk : IDisposable
         return (int)(worldCoord / Size);
     }
 
-    public static Vector3I WorldToChunkCoords(Vector3 pos)
+    public static Vec3<int> WorldToChunkCoords(Vector3 pos)
     {
-        return new Vector3I(WorldToChunkIndex(pos.X), WorldToChunkIndex(pos.Y), WorldToChunkIndex(pos.Z));
+        return new Vec3<int>(WorldToChunkIndex(pos.X), WorldToChunkIndex(pos.Y), WorldToChunkIndex(pos.Z));
     }
 
-    public static Vector3I WorldToBlockCoords(Vector3 pos)
+    public static Vec3<byte> WorldToBlockCoords(Vector3 pos)
     {
-        return new Vector3I(WorldToBlockIndex(pos.X), WorldToBlockIndex(pos.Y), WorldToBlockIndex(pos.Z));
+        return new Vec3<byte>(WorldToBlockIndex(pos.X), WorldToBlockIndex(pos.Y), WorldToBlockIndex(pos.Z));
     }
 
-    static int WorldToBlockIndex(float worldCoord)
+    static byte WorldToBlockIndex(float worldCoord)
     {
         int index = (int)Math.Floor(worldCoord);
-        return ((index % Size) + Size) % Size;
+        return (byte)(((index % Size) + Size) % Size);
     }
 
-    public static Vector3 BlockIndexToWorldPosition(Vector3 chunkPosition, Vector3I blockIndex)
+    public static Vector3 BlockIndexToWorldPosition(Vector3 chunkPosition, Vec3<byte> blockIndex)
     {
         return new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + chunkPosition;
     }

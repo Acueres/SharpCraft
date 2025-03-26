@@ -12,7 +12,7 @@ public class LightSystem
     readonly AdjacencyGraph adjacencyGraph;
 
     readonly Queue<LightNode> lightQueue = [];
-    readonly Dictionary<Vector3I, Queue<LightNode>> leftoverLight = [];
+    readonly Dictionary<Vec3<int>, Queue<LightNode>> leftoverLight = [];
 
     public LightSystem(BlockMetadataProvider blockMetadata, AdjacencyGraph adjacencyGraph)
     {
@@ -53,7 +53,7 @@ public class LightSystem
             }
         }
 
-        foreach ((Vector3I lightSourceIndex, Block block) in chunk.GetLightSources())
+        foreach ((Vec3<byte> lightSourceIndex, Block block) in chunk.GetLightSources())
         {
             int x = lightSourceIndex.X;
             int y = lightSourceIndex.Y;
@@ -69,10 +69,10 @@ public class LightSystem
 
     public void FloodFill()
     {
-        List<Vector3I> deleted = [];
-        Vector3I[] leftoverIndexes = [.. leftoverLight.Keys];
+        List<Vec3<int>> deleted = [];
+        Vec3<int>[] leftoverIndexes = [.. leftoverLight.Keys];
 
-        foreach (Vector3I index in leftoverIndexes)
+        foreach (Vec3<int> index in leftoverIndexes)
         {
             ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(index);
             if (adjacency != null)
@@ -92,7 +92,7 @@ public class LightSystem
             }
         }
 
-        foreach (Vector3I index in deleted)
+        foreach (Vec3<int> index in deleted)
         {
             leftoverLight.Remove(index);
         }
@@ -364,7 +364,7 @@ public class LightSystem
         }
     }
 
-    void Propagate(ChunkAdjacency adjacency, int x, int y, int z)
+    void Propagate(ChunkAdjacency adjacency, byte x, byte y, byte z)
     {
         Chunk chunk = adjacency.Root;
 
@@ -399,7 +399,7 @@ public class LightSystem
 
             adjacency.YPos.Root.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, y + 1, z) &&
+        else if (IsBlockTransparent(chunk, x, (byte)(y + 1), z) &&
             chunk.GetLight(x, y + 1, z).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x, y + 1, z, value);
@@ -417,7 +417,7 @@ public class LightSystem
 
             adjacency.YNeg.Root.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, y - 1, z) &&
+        else if (IsBlockTransparent(chunk, x, (byte)(y - 1), z) &&
             chunk.GetLight(x, y - 1, z).Compare(lightValue.SubtractBlockValue(1), out value))
         {
             chunk.SetLight(x, y - 1, z, value);
@@ -436,7 +436,7 @@ public class LightSystem
 
             adjacency.XPos.Root.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x + 1, y, z) &&
+        else if (IsBlockTransparent(chunk, (byte)(x + 1), y, z) &&
             chunk.GetLight(x + 1, y, z).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x + 1, y, z, value);
@@ -455,7 +455,7 @@ public class LightSystem
 
             adjacency.XNeg.Root.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x - 1, y, z) &&
+        else if (IsBlockTransparent(chunk, (byte)(x - 1), y, z) &&
             chunk.GetLight(x - 1, y, z).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x - 1, y, z, value);
@@ -474,7 +474,7 @@ public class LightSystem
 
             adjacency.ZPos.Root.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, y, z + 1) &&
+        else if (IsBlockTransparent(chunk, x, y, (byte)(z + 1)) &&
             chunk.GetLight(x, y, z + 1).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x, y, z + 1, value);
@@ -493,7 +493,7 @@ public class LightSystem
 
             adjacency.ZNeg.Root.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, y, z - 1) &&
+        else if (IsBlockTransparent(chunk, x, y, (byte)(z - 1)) &&
             chunk.GetLight(x, y, z - 1).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x, y, z - 1, value);
@@ -582,18 +582,18 @@ public class LightSystem
         return lightValues;
     }
 
-    static bool IsBlockTransparent(ChunkAdjacency adjacency, int x, int y, int z)
+    static bool IsBlockTransparent(ChunkAdjacency adjacency, byte x, byte y, byte z)
     {
-        return adjacency.Root.IsBlockTransparent(new Vector3I(x, y, z));
+        return adjacency.Root.IsBlockTransparent(new Vec3<byte>(x, y, z));
     }
 
-    static bool IsBlockTransparent(Chunk chunk, int x, int y, int z)
+    static bool IsBlockTransparent(Chunk chunk, byte x, byte y, byte z)
     {
-        return chunk.IsBlockTransparent(new Vector3I(x, y, z));
+        return chunk.IsBlockTransparent(new Vec3<byte>(x, y, z));
     }
 
-    static bool IsBlockTransparentSolid(Chunk chunk, int x, int y, int z)
+    static bool IsBlockTransparentSolid(Chunk chunk, byte x, byte y, byte z)
     {
-        return chunk.IsBlockTransparentSolid(new Vector3I(x, y, z));
+        return chunk.IsBlockTransparentSolid(new Vec3<byte>(x, y, z));
     }
 }

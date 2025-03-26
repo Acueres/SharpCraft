@@ -14,7 +14,7 @@ namespace SharpCraft
 
         public bool RightClick => HasClicked && Util.RightButtonClicked(currentMouseState, previousMouseState);
 
-        public Vector3I Index { get; set; }
+        public Vec3<int> Index { get; set; }
         public Vector3 Position;
 
         public Camera Camera { get; set; }

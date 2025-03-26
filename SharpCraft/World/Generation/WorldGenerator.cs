@@ -84,7 +84,7 @@ class WorldGenerator
 
     }
 
-    public (Chunk, ChunkBuffer) GenerateChunk(Vector3I index)
+    public (Chunk, ChunkBuffer) GenerateChunk(Vec3<int> index)
     {
         Chunk chunk = new(index, blockMetadata);
         Block[,,] blocks = null;
@@ -158,13 +158,13 @@ class WorldGenerator
         return (chunk, new(blocks));
     }
 
-    public List<Vector3I> GetSkyLevel()
+    public List<Vec3<int>> GetSkyLevel()
     {
-        List<Vector3I> indexes = new(elevationCache.Count);
+        List<Vec3<int>> indexes = new(elevationCache.Count);
         foreach ((Vec2<int> index, int value) in elevationCache)
         {
             int y = Chunk.WorldToChunkIndex(value) + 1;
-            indexes.Add(new Vector3I(index.X, y, index.Z));
+            indexes.Add(new Vec3<int>(index.X, y, index.Z));
         }
 
         return indexes;

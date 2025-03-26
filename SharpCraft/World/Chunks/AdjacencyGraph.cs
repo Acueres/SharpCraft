@@ -5,9 +5,9 @@ namespace SharpCraft.World.Chunks;
 
 public class AdjacencyGraph
 {
-    readonly Dictionary<Vector3I, ChunkAdjacency> adjacencyMap = [];
+    readonly Dictionary<Vec3<int>, ChunkAdjacency> adjacencyMap = [];
 
-    public ChunkAdjacency GetAdjacency(Vector3I index)
+    public ChunkAdjacency GetAdjacency(Vec3<int> index)
     {
         if (adjacencyMap.TryGetValue(index, out var res))
         {
@@ -26,12 +26,12 @@ public class AdjacencyGraph
             Root = chunk
         };
 
-        Vector3I xNeg = chunk.Index + new Vector3I(-1, 0, 0);
-        Vector3I xPos = chunk.Index + new Vector3I(1, 0, 0);
-        Vector3I yPos = chunk.Index + new Vector3I(0, 1, 0);
-        Vector3I yNeg = chunk.Index + new Vector3I(0, -1, 0);
-        Vector3I zNeg = chunk.Index + new Vector3I(0, 0, -1);
-        Vector3I zPos = chunk.Index + new Vector3I(0, 0, 1);
+        Vec3<int> xNeg = chunk.Index + new Vec3<int>(-1, 0, 0);
+        Vec3<int> xPos = chunk.Index + new Vec3<int>(1, 0, 0);
+        Vec3<int> yPos = chunk.Index + new Vec3<int>(0, 1, 0);
+        Vec3<int> yNeg = chunk.Index + new Vec3<int>(0, -1, 0);
+        Vec3<int> zNeg = chunk.Index + new Vec3<int>(0, 0, -1);
+        Vec3<int> zPos = chunk.Index + new Vec3<int>(0, 0, 1);
 
         adjacency.XNeg = adjacencyMap.TryGetValue(xNeg, out ChunkAdjacency value) ? value : null;
         if (adjacency.XNeg != null)
@@ -72,7 +72,7 @@ public class AdjacencyGraph
         adjacencyMap.Add(chunk.Index, adjacency);
     }
 
-    public void Dereference(Vector3I index)
+    public void Dereference(Vec3<int> index)
     {
         ChunkAdjacency adjacency = GetAdjacency(index);
 

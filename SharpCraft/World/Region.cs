@@ -23,11 +23,11 @@ namespace SharpCraft.World
         readonly AdjacencyGraph adjacencyGraph;
         readonly ChunkMesher chunkMesher;
 
-        readonly ConcurrentDictionary<Vector3I, Chunk> chunks = [];
-        readonly List<Vector3I> proximityIndexes = [];
-        readonly ConcurrentBag<Vector3I> activeChunkIndexes = [];
-        readonly HashSet<Vector3I> inactiveChunkIndexes = [];
-        readonly HashSet<Vector3I> unfinishedChunkIndexes = [];
+        readonly ConcurrentDictionary<Vec3<int>, Chunk> chunks = [];
+        readonly List<Vec3<int>> proximityIndexes = [];
+        readonly ConcurrentBag<Vec3<int>> activeChunkIndexes = [];
+        readonly HashSet<Vec3<int>> inactiveChunkIndexes = [];
+        readonly HashSet<Vec3<int>> unfinishedChunkIndexes = [];
 
         public Region(int apothem, AdjacencyGraph adjacencyGraph, WorldGenerator worldGenerator, LightSystem lightSystem, ChunkMesher chunkMesher)
         {
@@ -40,14 +40,14 @@ namespace SharpCraft.World
             this.chunkMesher = chunkMesher;
         }
 
-        public Chunk GetChunk(Vector3I index)
+        public Chunk GetChunk(Vec3<int> index)
         {
             return chunks[index];
         }
 
         public void Update(Vector3 pos)
         {
-            Vector3I center = Chunk.WorldToChunkCoords(pos);
+            Vec3<int> center = Chunk.WorldToChunkCoords(pos);
 
             inactiveChunkIndexes.UnionWith(activeChunkIndexes);
 
@@ -57,7 +57,7 @@ namespace SharpCraft.World
 
         public void UpdateMeshes()
         {
-            foreach (Vector3I index in activeChunkIndexes)
+            foreach (Vec3<int> index in activeChunkIndexes)
             {
                 Chunk chunk = GetChunk(index);
                 if (chunk.IsEmpty) continue;
@@ -78,19 +78,19 @@ namespace SharpCraft.World
 
         public IEnumerable<Chunk> GetActiveChunks()
         {
-            foreach (Vector3I index in activeChunkIndexes) { yield return chunks[index]; }
+            foreach (Vec3<int> index in activeChunkIndexes) { yield return chunks[index]; }
         }
 
-        List<Vector3I> GenerateProximityIndexes()
+        List<Vec3<int>> GenerateProximityIndexes()
         {
-            List<Vector3I> indexes = [];
+            List<Vec3<int>> indexes = [];
             for (int x = -apothem; x <= apothem; x++)
             {
                 for (int y = -apothem; y <= apothem; y++)
                 {
                     for (int z = -apothem; z <= apothem; z++)
                     {
-                        Vector3I index = new(x, y, z);
+                        Vec3<int> index = new(x, y, z);
                         indexes.Add(index);
                     }
                 }
@@ -101,15 +101,15 @@ namespace SharpCraft.World
             return indexes;
         }
 
-        void GenerateChunks(Vector3I center)
+        void GenerateChunks(Vec3<int> center)
         {
             activeChunkIndexes.Clear();
-            ConcurrentBag<Vector3I> generatedChunks = [];
-            ConcurrentDictionary<Vector3I, ChunkBuffer> blockBufferCache = [];
+            ConcurrentBag<Vec3<int>> generatedChunks = [];
+            ConcurrentDictionary<Vec3<int>, ChunkBuffer> blockBufferCache = [];
 
             Parallel.ForEach(proximityIndexes, proximityIndex =>
             {
-                Vector3I index = center + proximityIndex;
+                Vec3<int> index = center + proximityIndex;
 
                 if (chunks.ContainsKey(index))
                 {
@@ -133,7 +133,7 @@ namespace SharpCraft.World
                     inactiveChunkIndexes.Remove(index);
             });
 
-            foreach (Vector3I index in generatedChunks)
+            foreach (Vec3<int> index in generatedChunks)
             {
                 Chunk chunk = chunks[index];
                 adjacencyGraph.CalculateChunkAdjacency(chunk);
@@ -141,7 +141,7 @@ namespace SharpCraft.World
 
             List<ChunkAdjacency> readyChunks = [];
 
-            foreach (Vector3I index in generatedChunks)
+            foreach (Vec3<int> index in generatedChunks)
             {
                 ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(index);
 
@@ -200,7 +200,7 @@ namespace SharpCraft.World
 
         void RemoveInactiveChunks()
         {
-            foreach (Vector3I index in inactiveChunkIndexes)
+            foreach (Vec3<int> index in inactiveChunkIndexes)
             {
                 adjacencyGraph.Dereference(index);
                 chunks[index].Dispose();

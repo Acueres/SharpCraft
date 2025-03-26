@@ -50,7 +50,7 @@ namespace SharpCraft.World
             this.player = player;
             player.Flying = true;
 
-            Vector3I currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
+            Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
             player.Index = currentPlayerIndex;
 
             region.Update(player.Position);
@@ -80,7 +80,7 @@ namespace SharpCraft.World
         {
             UpdateEntities(gameTime, exitedMenu);
 
-            Vector3I currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
+            Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
 
             if (player.Index != currentPlayerIndex)
             {
@@ -115,8 +115,8 @@ namespace SharpCraft.World
             const float maxDistance = 4.5f;
 
             Vector3 blockPosition = player.Camera.Position;
-            Vector3I chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
-            Vector3I blockIndex = Chunk.WorldToBlockCoords(blockPosition);
+            Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+            Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(blockPosition);
             Block block = Block.Empty;
 
             while (raycaster.Length(blockPosition) < maxDistance)
@@ -186,11 +186,11 @@ namespace SharpCraft.World
             ];
 
             // A hashset of chunk and block indices
-            var collisionIndices = new HashSet<(Vector3I, Vector3I)>();
+            var collisionIndices = new HashSet<(Vec3<int>, Vec3<byte>)>();
             foreach (var point in collisionPoints)
             {
-                Vector3I chunkIndex = Chunk.WorldToChunkCoords(point);
-                Vector3I blockIndex = Chunk.WorldToBlockCoords(point);
+                Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(point);
+                Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(point);
                 collisionIndices.Add((chunkIndex, blockIndex));
             }
 

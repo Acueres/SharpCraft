@@ -10,10 +10,10 @@ using SharpCraft.MathUtilities;
 
 namespace SharpCraft.Persistence;
 
-internal class SaveData(Vector3I chunkIndex, Vector3I blockIndex, Block block)
+internal class SaveData(Vec3<int> chunkIndex, Vec3<byte> blockIndex, Block block)
 {
-    public Vector3I ChunkIndex { get; } = chunkIndex;
-    public Vector3I BlockIndex { get; } = blockIndex;
+    public Vec3<int> ChunkIndex { get; } = chunkIndex;
+    public Vec3<byte> BlockIndex { get; } = blockIndex;
     public Block Block { get; } = block;
 }
 
@@ -23,7 +23,7 @@ public class DatabaseService
     readonly BlockMetadataProvider blockMetadata;
 
     readonly Queue<SaveData> saveQueue = [];
-    readonly ConcurrentDictionary<Vector3I, int> chunkDbIndexCache = [];
+    readonly ConcurrentDictionary<Vec3<int>, int> chunkDbIndexCache = [];
     readonly Task flushTask;
     readonly SQLiteConnection connection;
 
@@ -94,7 +94,7 @@ public class DatabaseService
         cmd.ExecuteNonQuery();
     }
 
-    public void AddDelta(Vector3I chunkIndex, Vector3I blockIndex, Block block)
+    public void AddDelta(Vec3<int> chunkIndex, Vec3<byte> blockIndex, Block block)
     {
         saveQueue.Enqueue(new SaveData(chunkIndex, blockIndex, block));
     }
@@ -121,9 +121,9 @@ public class DatabaseService
 
         while (reader.Read())
         {
-            int x = reader.GetInt32(0);
-            int y = reader.GetInt32(1);
-            int z = reader.GetInt32(2);
+            byte x = (byte)reader.GetInt32(0);
+            byte y = (byte)reader.GetInt32(1);
+            byte z = (byte)reader.GetInt32(2);
             var block = new Block((ushort)reader.GetInt32(3));
 
             buffer[x, y, z] = block;
@@ -160,7 +160,7 @@ public class DatabaseService
         }
     }
 
-    async Task<int> GetChunkIdAsync(Vector3I chunkIndex)
+    async Task<int> GetChunkIdAsync(Vec3<int> chunkIndex)
     {
         if (chunkDbIndexCache.TryGetValue(chunkIndex, out int id))
         {
