@@ -115,14 +115,12 @@ namespace SharpCraft
                             db = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
                             db.Initialize();
 
-                            AdjacencyGraph adjacencyGraph = new();
-                            LightSystem lightSystem = new(blockMetadata, adjacencyGraph);
                             ChunkMesher chunkMesher = new(blockMetadata);
                             BlockOutlineMesher blockOutlineMesher = new();
 
                             player = new Player(GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(gameMenu, db, lightSystem, currentSave.Parameters, blockMetadata, adjacencyGraph, chunkMesher, blockOutlineMesher);
+                            world = new WorldSystem(gameMenu, db, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
                             renderer = new Renderer(graphics.GraphicsDevice, assetServer, blockMetadata, screenshotTaker, chunkMesher, blockOutlineMesher);
 
                             world.SetPlayer(player, currentSave.Parameters);

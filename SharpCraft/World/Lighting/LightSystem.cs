@@ -8,48 +8,36 @@ namespace SharpCraft.World.Lighting;
 
 public class LightSystem
 {
-    readonly BlockMetadataProvider blockMetadata;
-    readonly AdjacencyGraph adjacencyGraph;
-
     readonly Queue<LightNode> lightQueue = [];
-    readonly Dictionary<Vec3<int>, Queue<LightNode>> leftoverLight = [];
 
-    public LightSystem(BlockMetadataProvider blockMetadata, AdjacencyGraph adjacencyGraph)
-    {
-        this.blockMetadata = blockMetadata;
-        this.adjacencyGraph = adjacencyGraph;
-    }
-
-    public void InitializeSkylight(ChunkAdjacency adjacency)
+    public void InitializeSkylight(Chunk chunk)
     {
         //Propagate light downward from a sky chunk
-        if (!adjacency.YNeg.Root.IsEmpty)
+        if (!chunk.YNeg.IsEmpty)
         {
             for (int x = 0; x < Chunk.Size; x++)
             {
                 for (int z = 0; z < Chunk.Size; z++)
                 {
-                    if (!adjacency.YNeg.Root[x, Chunk.Last, z].IsEmpty) continue;
+                    if (!chunk.YNeg[x, Chunk.Last, z].IsEmpty) continue;
 
-                    adjacency.YNeg.Root.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
-                    lightQueue.Enqueue(new LightNode(adjacency.YNeg.Root, x, Chunk.Last, z));
+                    chunk.YNeg.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
+                    lightQueue.Enqueue(new LightNode(chunk.YNeg, x, Chunk.Last, z));
                 }
             }
         }
     }
 
-    public void InitializeLight(ChunkAdjacency adjacency)
+    public void InitializeLight(Chunk chunk)
     {
-        Chunk chunk = adjacency.Root;
-
         //take light from upper chunk
         for (int x = 0; x < Chunk.Size; x++)
         {
             for (int z = 0; z < Chunk.Size; z++)
             {
-                if (!adjacency.YPos.Root[x, 0, z].IsEmpty) continue;
+                if (!chunk.YPos[x, 0, z].IsEmpty) continue;
 
-                lightQueue.Enqueue(new LightNode(adjacency.YPos.Root, x, 0, z));
+                lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
             }
         }
 
@@ -60,43 +48,15 @@ public class LightSystem
             int z = lightSourceIndex.Z;
 
             LightValue light = chunk.GetLight(x, y, z);
-            LightValue sourceLight = new(light.SkyValue, blockMetadata.GetLightSourceValue(block));
+            LightValue sourceLight = new(light.SkyValue, chunk.GetLightSourceValue(lightSourceIndex.Into<int>()));
 
             chunk.SetLight(x, y, z, sourceLight);
             lightQueue.Enqueue(new LightNode(chunk, x, y, z));
         }
     }
 
-    public void FloodFill()
+    public void Execute()
     {
-        List<Vec3<int>> deleted = [];
-        Vec3<int>[] leftoverIndexes = [.. leftoverLight.Keys];
-
-        foreach (Vec3<int> index in leftoverIndexes)
-        {
-            ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(index);
-            if (adjacency != null)
-            {
-                var queue = leftoverLight[index];
-
-                while (queue.Count > 0)
-                {
-                    LightNode node = queue.Dequeue();
-
-                    node.Chunk.RecalculateMesh = true;
-
-                    ProcessLightNode(node);
-                }
-
-                deleted.Add(index);
-            }
-        }
-
-        foreach (Vec3<int> index in deleted)
-        {
-            leftoverLight.Remove(index);
-        }
-
         while (lightQueue.Count > 0)
         {
             LightNode node = lightQueue.Dequeue();
@@ -111,62 +71,41 @@ public class LightSystem
     {
         node.Chunk.RecalculateMesh = true;
 
-        ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(node.Chunk.Index);
-
-        if (adjacency == null)
+        if (node.Chunk.AllAdjacent)
         {
+            Propagate(node.Chunk, node.X, node.Y, node.Z);
             return;
-        }
-
-        if (adjacency.All())
-        {
-            Propagate(adjacency, node.X, node.Y, node.Z);
-            return;
-        }
-
-        foreach (var nullChunkIndex in adjacency.GetNullChunksIndexes())
-        {
-            if (!leftoverLight.TryGetValue(nullChunkIndex, out var queue))
-            {
-                queue = [];
-                queue.Enqueue(node);
-                leftoverLight.Add(nullChunkIndex, queue);
-            }
-
-            queue.Enqueue(node);
         }
     }
 
-    public void UpdateLight(int x, int y, int z, ushort texture, ChunkAdjacency adjacency, bool sourceRemoved = false)
+    public void UpdateLight(int x, int y, int z, ushort texture, Chunk chunk, bool sourceRemoved = false)
     {
-        Chunk chunk = adjacency.Root;
-
         //Propagate light to an empty cell
         if (texture == Block.EmptyValue)
         {
-            var (nodes, _) = GetNeighborLightValues(x, y, z, adjacency);
+            var (nodes, _) = GetNeighborLightValues(x, y, z, chunk);
 
             foreach (var node in nodes.GetValues())
             {
                 lightQueue.Enqueue(node);
             }
 
-            FloodFill(adjacency);
+            FloodFill();
 
             if (sourceRemoved)
             {
                 lightQueue.Enqueue(new LightNode(chunk, x, y, z));
-                RemoveSource(adjacency);
+                RemoveSource();
             }
         }
         //Recalculate light after block placement
         else
         {
             bool sourceAdded = false;
-            if (blockMetadata.IsLightSource(chunk[x, y, z]))
+            if (chunk.IsBlockLightSource(new Vec3<int>(x, y, z)))
             {
                 LightValue light = chunk.GetLight(x, y, z);
-                LightValue sourceLight = new(light.SkyValue, blockMetadata.GetLightSourceValue(chunk[x, y, z]));
+                LightValue sourceLight = new(light.SkyValue, chunk.GetLightSourceValue(new Vec3<int>(x, y, z)));
                 chunk.SetLight(x, y, z, sourceLight);
                 sourceAdded = true;
             }
@@ -175,30 +114,28 @@ public class LightSystem
 
             if (sourceAdded)
             {
-                FloodFill(adjacency);
+                FloodFill();
             }
             else
             {
-                FloodRemove(adjacency);
+                FloodRemove();
             }
         }
     }
 
-    void RemoveSource(ChunkAdjacency adjacency)
+    void RemoveSource()
     {
-        Chunk chunk = adjacency.Root;
-
         while (lightQueue.Count > 0)
         {
             LightNode node = lightQueue.Dequeue();
 
             LightValue light = node.GetLight();
 
-            chunk.RecalculateMesh = true;
+            node.Chunk.RecalculateMesh = true;
 
             node.SetLight(new(light.SkyValue, 0));
 
-            var (nodes, lightValues) = GetNeighborLightValues(node.X, node.Y, node.Z, adjacency);
+            var (nodes, lightValues) = GetNeighborLightValues(node.X, node.Y, node.Z, node.Chunk);
 
             for (int i = 0; i < 6; i++)
             {
@@ -211,7 +148,7 @@ public class LightSystem
         }
     }
 
-    void FloodRemove(ChunkAdjacency adjacency)
+    void FloodRemove()
     {
         List<LightNode> lightList = [];
 
@@ -232,7 +169,7 @@ public class LightSystem
                 node.SetLight(LightValue.Null);
             }
 
-            var (nodes, lightValues) = GetNeighborLightValues(node.X, node.Y, node.Z, adjacency);
+            var (nodes, lightValues) = GetNeighborLightValues(node.X, node.Y, node.Z, node.Chunk);
 
             Faces maxFace = Util.MaxFace(lightValues.GetValues());
 
@@ -259,19 +196,17 @@ public class LightSystem
             }
         }
 
-        FloodFill(adjacency);
+        FloodFill();
     }
 
-    static (FacesData<LightNode> nodes, FacesData<LightValue> lightValues) GetNeighborLightValues(int x, int y, int z, ChunkAdjacency adjacency)
+    static (FacesData<LightNode> nodes, FacesData<LightValue> lightValues) GetNeighborLightValues(int x, int y, int z, Chunk chunk)
     {
-        Chunk chunk = adjacency.Root;
-
         FacesData<LightNode> nodes = new();
         FacesData<LightValue> lightValues = new();
 
         if (y == Chunk.Last)
         {
-            nodes.YPos = new LightNode(adjacency.YPos.Root, x, 0, z);
+            nodes.YPos = new LightNode(chunk.YPos, x, 0, z);
             LightValue light = chunk.GetLight(x, 0, z);
             lightValues.YPos = light;
         }
@@ -284,7 +219,7 @@ public class LightSystem
 
         if (y == 0)
         {
-            nodes.YNeg = new LightNode(adjacency.YNeg.Root, x, Chunk.Last, z);
+            nodes.YNeg = new LightNode(chunk.YNeg, x, Chunk.Last, z);
             LightValue light = chunk.GetLight(x, Chunk.Last, z);
             lightValues.YNeg = light;
         }
@@ -298,7 +233,7 @@ public class LightSystem
 
         if (x == Chunk.Last)
         {
-            nodes.XPos = new LightNode(adjacency.XPos.Root, 0, y, z);
+            nodes.XPos = new LightNode(chunk.XPos, 0, y, z);
             LightValue light = chunk.GetLight(0, y, z);
             lightValues.XPos = light;
         }
@@ -311,7 +246,7 @@ public class LightSystem
 
         if (x == 0)
         {
-            nodes.XNeg = new LightNode(adjacency.XNeg.Root, Chunk.Last, y, z);
+            nodes.XNeg = new LightNode(chunk.XNeg, Chunk.Last, y, z);
             LightValue light = chunk.GetLight(Chunk.Last, y, z);
             lightValues.XNeg = light;
         }
@@ -325,7 +260,7 @@ public class LightSystem
 
         if (z == Chunk.Last)
         {
-            nodes.ZPos = new LightNode(adjacency.ZPos.Root, x, y, 0);
+            nodes.ZPos = new LightNode(chunk.ZPos, x, y, 0);
             LightValue light = chunk.GetLight(x, y, 0);
             lightValues.ZPos = light;
         }
@@ -338,7 +273,7 @@ public class LightSystem
 
         if (z == 0)
         {
-            nodes.ZNeg = new LightNode(adjacency.ZNeg.Root, x, y, Chunk.Last);
+            nodes.ZNeg = new LightNode(chunk.ZNeg, x, y, Chunk.Last);
             LightValue light = chunk.GetLight(x, y, Chunk.Last);
             lightValues.ZNeg = light;
         }
@@ -352,7 +287,7 @@ public class LightSystem
         return (nodes, lightValues);
     }
 
-    void FloodFill(ChunkAdjacency adjacency)
+    void FloodFill()
     {
         while (lightQueue.Count > 0)
         {
@@ -360,14 +295,12 @@ public class LightSystem
 
             node.Chunk.RecalculateMesh = true;
 
-            Propagate(adjacency, node.X, node.Y, node.Z);
+            Propagate(node.Chunk, node.X, node.Y, node.Z);
         }
     }
 
-    void Propagate(ChunkAdjacency adjacency, byte x, byte y, byte z)
+    void Propagate(Chunk chunk, byte x, byte y, byte z)
     {
-        Chunk chunk = adjacency.Root;
-
         LightValue lightValue = chunk.GetLight(x, y, z);
 
         if (lightValue == LightValue.Null)
@@ -390,16 +323,16 @@ public class LightSystem
 
         if (y == Chunk.Last)
         {
-            if (IsBlockTransparent(adjacency.YPos, x, 0, z) &&
-                adjacency.YPos.Root.GetLight(x, 0, z).Compare(nextLightValue, out value))
+            if (IsBlockTransparent(chunk.YPos, x, 0, z) &&
+                chunk.YPos.GetLight(x, 0, z).Compare(nextLightValue, out value))
             {
-                adjacency.YPos.Root.SetLight(x, 0, z, value);
-                lightQueue.Enqueue(new LightNode(adjacency.YPos.Root, x, 0, z));
+                chunk.YPos.SetLight(x, 0, z, value);
+                lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
             }
 
-            adjacency.YPos.Root.RecalculateMesh = true;
+            chunk.YPos.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, (byte)(y + 1), z) &&
+        else if (IsBlockTransparent(chunk, x, y + 1, z) &&
             chunk.GetLight(x, y + 1, z).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x, y + 1, z, value);
@@ -408,16 +341,16 @@ public class LightSystem
 
         if (y == 0)
         {
-            if (IsBlockTransparent(adjacency.YNeg, x, Chunk.Last, z) &&
-                adjacency.YNeg.Root.GetLight(x, Chunk.Last, z).Compare(lightValue.SubtractBlockValue(1), out value))
+            if (IsBlockTransparent(chunk.YNeg, x, Chunk.Last, z) &&
+                chunk.YNeg.GetLight(x, Chunk.Last, z).Compare(lightValue.SubtractBlockValue(1), out value))
             {
-                adjacency.YNeg.Root.SetLight(x, Chunk.Last, z, value);
-                lightQueue.Enqueue(new LightNode(adjacency.YNeg.Root, x, Chunk.Last, z));
+                chunk.YNeg.SetLight(x, Chunk.Last, z, value);
+                lightQueue.Enqueue(new LightNode(chunk.YNeg, x, Chunk.Last, z));
             }
 
-            adjacency.YNeg.Root.RecalculateMesh = true;
+            chunk.YNeg.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, (byte)(y - 1), z) &&
+        else if (IsBlockTransparent(chunk, x, y - 1, z) &&
             chunk.GetLight(x, y - 1, z).Compare(lightValue.SubtractBlockValue(1), out value))
         {
             chunk.SetLight(x, y - 1, z, value);
@@ -427,16 +360,16 @@ public class LightSystem
 
         if (x == Chunk.Last)
         {
-            if (IsBlockTransparent(adjacency.XPos, 0, y, z) &&
-                adjacency.XPos.Root.GetLight(0, y, z).Compare(nextLightValue, out value))
+            if (IsBlockTransparent(chunk.XPos, 0, y, z) &&
+                chunk.XPos.GetLight(0, y, z).Compare(nextLightValue, out value))
             {
-                adjacency.XPos.Root.SetLight(0, y, z, value);
-                lightQueue.Enqueue(new LightNode(adjacency.XPos.Root, 0, y, z));
+                chunk.XPos.SetLight(0, y, z, value);
+                lightQueue.Enqueue(new LightNode(chunk.XPos, 0, y, z));
             }
 
-            adjacency.XPos.Root.RecalculateMesh = true;
+            chunk.XPos.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, (byte)(x + 1), y, z) &&
+        else if (IsBlockTransparent(chunk, x + 1, y, z) &&
             chunk.GetLight(x + 1, y, z).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x + 1, y, z, value);
@@ -446,16 +379,16 @@ public class LightSystem
 
         if (x == 0)
         {
-            if (IsBlockTransparent(adjacency.XNeg, Chunk.Last, y, z) &&
-                adjacency.XNeg.Root.GetLight(Chunk.Last, y, z).Compare(nextLightValue, out value))
+            if (IsBlockTransparent(chunk.XNeg, Chunk.Last, y, z) &&
+                chunk.XNeg.GetLight(Chunk.Last, y, z).Compare(nextLightValue, out value))
             {
-                adjacency.XNeg.Root.SetLight(Chunk.Last, y, z, value);
-                lightQueue.Enqueue(new LightNode(adjacency.XNeg.Root, Chunk.Last, y, z));
+                chunk.XNeg.SetLight(Chunk.Last, y, z, value);
+                lightQueue.Enqueue(new LightNode(chunk.XNeg, Chunk.Last, y, z));
             }
 
-            adjacency.XNeg.Root.RecalculateMesh = true;
+            chunk.XNeg.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, (byte)(x - 1), y, z) &&
+        else if (IsBlockTransparent(chunk, x - 1, y, z) &&
             chunk.GetLight(x - 1, y, z).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x - 1, y, z, value);
@@ -465,16 +398,16 @@ public class LightSystem
 
         if (z == Chunk.Last)
         {
-            if (IsBlockTransparent(adjacency.ZPos, x, y, 0) &&
-                adjacency.ZPos.Root.GetLight(x, y, 0).Compare(nextLightValue, out value))
+            if (IsBlockTransparent(chunk.ZPos, x, y, 0) &&
+                chunk.ZPos.GetLight(x, y, 0).Compare(nextLightValue, out value))
             {
-                adjacency.ZPos.Root.SetLight(x, y, 0, value);
-                lightQueue.Enqueue(new LightNode(adjacency.ZPos.Root, x, y, 0));
+                chunk.ZPos.SetLight(x, y, 0, value);
+                lightQueue.Enqueue(new LightNode(chunk.ZPos, x, y, 0));
             }
 
-            adjacency.ZPos.Root.RecalculateMesh = true;
+            chunk.ZPos.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, y, (byte)(z + 1)) &&
+        else if (IsBlockTransparent(chunk, x, y, z + 1) &&
             chunk.GetLight(x, y, z + 1).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x, y, z + 1, value);
@@ -484,16 +417,16 @@ public class LightSystem
 
         if (z == 0)
         {
-            if (IsBlockTransparent(adjacency.ZNeg, x, y, Chunk.Last) &&
-                adjacency.ZNeg.Root.GetLight(x, y, Chunk.Last).Compare(nextLightValue, out value))
+            if (IsBlockTransparent(chunk.ZNeg, x, y, Chunk.Last) &&
+                chunk.ZNeg.GetLight(x, y, Chunk.Last).Compare(nextLightValue, out value))
             {
-                adjacency.ZNeg.Root.SetLight(x, y, Chunk.Last, value);
-                lightQueue.Enqueue(new LightNode(adjacency.ZNeg.Root, x, y, Chunk.Last));
+                chunk.ZNeg.SetLight(x, y, Chunk.Last, value);
+                lightQueue.Enqueue(new LightNode(chunk.ZNeg, x, y, Chunk.Last));
             }
 
-            adjacency.ZNeg.Root.RecalculateMesh = true;
+            chunk.ZNeg.RecalculateMesh = true;
         }
-        else if (IsBlockTransparent(chunk, x, y, (byte)(z - 1)) &&
+        else if (IsBlockTransparent(chunk, x, y, z - 1) &&
             chunk.GetLight(x, y, z - 1).Compare(nextLightValue, out value))
         {
             chunk.SetLight(x, y, z - 1, value);
@@ -501,16 +434,15 @@ public class LightSystem
         }
     }
 
-    public static FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int x, int y, int z, ChunkAdjacency adjacency)
+    public static FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int x, int y, int z, Chunk chunk)
     {
         FacesData<LightValue> lightValues = new();
-        Chunk chunk = adjacency.Root;
 
         if (visibleFaces.ZPos)
         {
             if (z == Chunk.Last)
             {
-                lightValues.ZPos = adjacency.ZPos.Root.GetLight(x, y, 0);
+                lightValues.ZPos = chunk.ZPos.GetLight(x, y, 0);
             }
             else
             {
@@ -522,7 +454,7 @@ public class LightSystem
         {
             if (z == 0)
             {
-                lightValues.ZNeg = adjacency.ZNeg.Root.GetLight(x, y, Chunk.Last);
+                lightValues.ZNeg = chunk.ZNeg.GetLight(x, y, Chunk.Last);
             }
             else
             {
@@ -534,7 +466,7 @@ public class LightSystem
         {
             if (y == Chunk.Last)
             {
-                lightValues.YPos = adjacency.YPos.Root.GetLight(x, 0, z);
+                lightValues.YPos = chunk.YPos.GetLight(x, 0, z);
             }
             else
             {
@@ -546,7 +478,7 @@ public class LightSystem
         {
             if (y == 0)
             {
-                lightValues.YNeg = adjacency.YNeg.Root.GetLight(x, Chunk.Last, z);
+                lightValues.YNeg = chunk.YNeg.GetLight(x, Chunk.Last, z);
             }
             else
             {
@@ -559,7 +491,7 @@ public class LightSystem
         {
             if (x == Chunk.Last)
             {
-                lightValues.XPos = adjacency.XPos.Root.GetLight(0, y, z);
+                lightValues.XPos = chunk.XPos.GetLight(0, y, z);
             }
             else
             {
@@ -571,7 +503,7 @@ public class LightSystem
         {
             if (x == 0)
             {
-                lightValues.XNeg = adjacency.XNeg.Root.GetLight(Chunk.Last, y, z);
+                lightValues.XNeg = chunk.XNeg.GetLight(Chunk.Last, y, z);
             }
             else
             {
@@ -582,18 +514,13 @@ public class LightSystem
         return lightValues;
     }
 
-    static bool IsBlockTransparent(ChunkAdjacency adjacency, byte x, byte y, byte z)
+    static bool IsBlockTransparent(Chunk chunk, int x, int y, int z)
     {
-        return adjacency.Root.IsBlockTransparent(new Vec3<byte>(x, y, z));
+        return chunk.IsBlockTransparent(new Vec3<int>(x, y, z));
     }
 
-    static bool IsBlockTransparent(Chunk chunk, byte x, byte y, byte z)
+    static bool IsBlockTransparentSolid(Chunk chunk, int x, int y, int z)
     {
-        return chunk.IsBlockTransparent(new Vec3<byte>(x, y, z));
-    }
-
-    static bool IsBlockTransparentSolid(Chunk chunk, byte x, byte y, byte z)
-    {
-        return chunk.IsBlockTransparentSolid(new Vec3<byte>(x, y, z));
+        return chunk.IsBlockTransparentSolid(new Vec3<int>(x, y, z));
     }
 }

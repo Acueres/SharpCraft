@@ -12,40 +12,41 @@ using SharpCraft.World.Lighting;
 
 namespace SharpCraft.World.Chunks;
 
-public class Chunk : IDisposable
+public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisposable
 {
     public const byte Size = 16;
     public const byte Last = Size - 1;
 
-    public Vec3<int> Index { get; }
-    public Vector3 Position { get; }
+    public Vec3<int> Index { get; } = index;
+    public Vector3 Position { get; } = Size * new Vector3(index.X, index.Y, index.Z);
     public bool IsReady { get; set; }
 
     public bool IsEmpty { get; internal set; }
+
+    //Adjacent chunk references
+    public Chunk XNeg { get; set; }
+    public Chunk XPos { get; set; }
+    public Chunk YNeg { get; set; }
+    public Chunk YPos { get; set; }
+    public Chunk ZNeg { get; set; }
+    public Chunk ZPos { get; set; }
+
+    public bool AllAdjacent => XNeg != null && XPos != null && YNeg != null && YPos != null && ZNeg != null && ZPos != null;
 
     List<Block> palette;
     Dictionary<Block, uint> paletteIndexMap;
     BitStorage storage;
     LightValue[,,] lightMap;
 
-    readonly HashSet<Vec3<byte>> surfaceIndexes = [];
-    readonly HashSet<Vec3<byte>> transparentIndexes = [];
     readonly HashSet<(Vec3<byte>, Block)> lightSources = [];
 
     public void Dispose() => Dispose(true);
     readonly SafeHandle safeHandle = new SafeFileHandle(nint.Zero, true);
     bool disposed = false;
 
-    readonly BlockMetadataProvider blockMetadata;
+    readonly BlockMetadataProvider blockMetadata = blockMetadata;
 
     public bool RecalculateMesh { get; set; }
-
-    public Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata)
-    {
-        Index = index;
-        Position = Size * new Vector3(index.X, index.Y, index.Z);
-        this.blockMetadata = blockMetadata;
-    }
 
     public void Init(Block[,,] buffer)
     {
@@ -226,41 +227,27 @@ public class Chunk : IDisposable
         disposed = true;
     }
 
-    public void GenerateIndexCaches(ChunkBuffer buffer, ChunkAdjacency adjacency)
+    public Chunk GetNeighborFromOffset(Vec3<sbyte> offset)
     {
-        for (byte y = 0; y < Size; y++)
-        {
-            for (byte x = 0; x < Size; x++)
-            {
-                for (byte z = 0; z < Size; z++)
-                {
-                    Block block = buffer[x, y, z];
-                    if (block.IsEmpty)
-                    {
-                        continue;
-                    }
+        //Assuming all other components are zero
+        if (offset.X == 1)
+            return XPos;
+        if (offset.X == -1)
+            return XNeg;
+        if (offset.Y == 1)
+            return YPos;
+        if (offset.Y == -1)
+            return YNeg;
+        if (offset.Z == 1)
+            return ZPos;
+        if (offset.Z == -1)
+            return ZNeg;
 
-                    var index = new Vec3<byte>(x, y, z);
-                    var visibleFaces = GetVisibleFaces(index, adjacency);
-
-                    if (!visibleFaces.Any()) continue;
-
-                    surfaceIndexes.Add(index);
-
-                    if (blockMetadata.IsBlockTransparent(block))
-                    {
-                        transparentIndexes.Add(index);
-                    }
-                }
-            }
-        }
+        return this;
     }
 
-    public void GenerateIndexCaches(ChunkAdjacency adjacency)
+    public IEnumerable<Vec3<byte>> GetVisibleBlocks()
     {
-        surfaceIndexes.Clear();
-        transparentIndexes.Clear();
-
         for (byte y = 0; y < Size; y++)
         {
             for (byte x = 0; x < Size; x++)
@@ -274,37 +261,41 @@ public class Chunk : IDisposable
                     }
 
                     var index = new Vec3<byte>(x, y, z);
-                    var visibleFaces = GetVisibleFaces(index, adjacency);
+                    var visibleFaces = GetVisibleFaces(index);
 
                     if (!visibleFaces.Any()) continue;
 
-                    surfaceIndexes.Add(index);
-
-                    if (blockMetadata.IsBlockTransparent(block))
-                    {
-                        transparentIndexes.Add(index);
-                    }
+                    yield return index;
                 }
             }
         }
     }
 
-    public IEnumerable<Vec3<byte>> GetVisibleBlocks()
+    public bool IsBlockTransparent(Vec3<int> index)
     {
-        foreach (var index in surfaceIndexes) yield return index;
+        Block block = this[index.X, index.Y, index.Z];
+        return block.IsEmpty || blockMetadata.IsBlockTransparent(block);
     }
 
-    public bool IsBlockTransparent(Vec3<byte> index)
+    public bool IsBlockTransparentSolid(Vec3<int> index)
     {
-        return transparentIndexes.Contains(index) || !surfaceIndexes.Contains(index);
+        Block block = this[index.X, index.Y, index.Z];
+        return blockMetadata.IsBlockTransparent(block);
     }
 
-    public bool IsBlockTransparentSolid(Vec3<byte> index)
+    public bool IsBlockLightSource(Vec3<int> index)
     {
-        return transparentIndexes.Contains(index);
+        Block block = this[index.X, index.Y, index.Z];
+        return blockMetadata.IsLightSource(block);
     }
 
-    public FacesState GetVisibleFaces(Vec3<byte> index, ChunkAdjacency adjacency)
+    public byte GetLightSourceValue(Vec3<int> index)
+    {
+        Block block = this[index.X, index.Y, index.Z];
+        return blockMetadata.GetLightSourceValue(block);
+    }
+
+    public FacesState GetVisibleFaces(Vec3<byte> index)
     {
         FacesState visibleFaces = new();
 
@@ -320,7 +311,7 @@ public class Chunk : IDisposable
 
         if (z == Last)
         {
-            adjacentBlock = adjacency.ZPos.Root[x, y, 0];
+            adjacentBlock = ZPos[x, y, 0];
         }
         else
         {
@@ -330,7 +321,7 @@ public class Chunk : IDisposable
 
         if (z == 0)
         {
-            adjacentBlock = adjacency.ZNeg.Root[x, y, Last];
+            adjacentBlock = ZNeg[x, y, Last];
         }
         else
         {
@@ -340,7 +331,7 @@ public class Chunk : IDisposable
 
         if (y == Last)
         {
-            adjacentBlock = adjacency.YPos.Root[x, 0, z];
+            adjacentBlock = YPos[x, 0, z];
         }
         else
         {
@@ -350,7 +341,7 @@ public class Chunk : IDisposable
 
         if (y == 0)
         {
-            adjacentBlock = adjacency.YNeg.Root[x, Last, z];
+            adjacentBlock = YNeg[x, Last, z];
         }
         else
         {
@@ -361,7 +352,7 @@ public class Chunk : IDisposable
 
         if (x == Last)
         {
-            adjacentBlock = adjacency.XPos.Root[0, y, z];
+            adjacentBlock = XPos[0, y, z];
         }
         else
         {
@@ -371,7 +362,7 @@ public class Chunk : IDisposable
 
         if (x == 0)
         {
-            adjacentBlock = adjacency.XNeg.Root[Last, y, z];
+            adjacentBlock = XNeg[Last, y, z];
         }
         else
         {
@@ -381,85 +372,6 @@ public class Chunk : IDisposable
 
         return visibleFaces;
     }
-
-    public FacesState GetVisibleFaces(Vec3<int> index, ChunkBuffer buffer, ChunkAdjacency adjacency)
-    {
-        FacesState visibleFaces = new();
-
-        int x = index.X;
-        int y = index.Y;
-        int z = index.Z;
-
-        Block block = buffer[x, y, z];
-
-        Block adjacentBlock;
-
-        bool isBlockOpaque = !(block.IsEmpty || blockMetadata.IsBlockTransparent(block));
-
-        if (z == Last)
-        {
-            adjacentBlock = adjacency.ZPos.Root[x, y, 0];
-        }
-        else
-        {
-            adjacentBlock = buffer[x, y, z + 1];
-        }
-        visibleFaces.ZPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock) && isBlockOpaque;
-
-        if (z == 0)
-        {
-            adjacentBlock = adjacency.ZNeg.Root[x, y, Last];
-        }
-        else
-        {
-            adjacentBlock = buffer[x, y, z - 1];
-        }
-        visibleFaces.ZNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock) && isBlockOpaque;
-
-        if (y == Last)
-        {
-            adjacentBlock = adjacency.YPos.Root[x, 0, z];
-        }
-        else
-        {
-            adjacentBlock = buffer[x, y + 1, z];
-        }
-        visibleFaces.YPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock) && isBlockOpaque;
-
-        if (y == 0)
-        {
-            adjacentBlock = adjacency.YNeg.Root[x, Last, z];
-        }
-        else
-        {
-            adjacentBlock = buffer[x, y - 1, z];
-        }
-        visibleFaces.YNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock) && isBlockOpaque;
-
-
-        if (x == Last)
-        {
-            adjacentBlock = adjacency.XPos.Root[0, y, z];
-        }
-        else
-        {
-            adjacentBlock = buffer[x + 1, y, z];
-        }
-        visibleFaces.XPos = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock) && isBlockOpaque;
-
-        if (x == 0)
-        {
-            adjacentBlock = adjacency.XNeg.Root[Last, y, z];
-        }
-        else
-        {
-            adjacentBlock = buffer[x - 1, y, z];
-        }
-        visibleFaces.XNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock) && isBlockOpaque;
-
-        return visibleFaces;
-    }
-
     public static int WorldToChunkIndex(float worldCoord)
     {
         if (worldCoord < 0)

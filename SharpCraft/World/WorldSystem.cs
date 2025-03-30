@@ -22,27 +22,23 @@ namespace SharpCraft.World
         readonly GameMenu gameMenu;
         readonly WorldGenerator worldGenerator;
         readonly BlockOutlineMesher blockOutlineMesher;
-        readonly AdjacencyGraph adjacencyGraph;
 
         readonly Region region;
 
-        readonly ushort water;
-
-        public WorldSystem(GameMenu gameMenu, DatabaseService db, LightSystem lightSystem,
+        public WorldSystem(GameMenu gameMenu, DatabaseService db,
             Parameters parameters, BlockMetadataProvider blockMetadata,
-            AdjacencyGraph adjacencyGraph, ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
+            ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
         {
             this.gameMenu = gameMenu;
-
-            water = blockMetadata.GetBlockIndex("water");
 
             worldGenerator = new WorldGenerator(parameters, db, blockMetadata);
             this.blockOutlineMesher = blockOutlineMesher;
 
+            LightSystem lightSystem = new();
+
             chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem);
 
-            region = new Region(Settings.RenderDistance, adjacencyGraph, worldGenerator, lightSystem, chunkMesher);
-            this.adjacencyGraph = adjacencyGraph;
+            region = new Region(Settings.RenderDistance, worldGenerator, lightSystem, chunkMesher);
         }
 
         public void SetPlayer(Player player, Parameters parameters)
@@ -118,6 +114,7 @@ namespace SharpCraft.World
             Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
             Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(blockPosition);
             Block block = Block.Empty;
+            Chunk chunk = null;
 
             while (raycaster.Length(blockPosition) < maxDistance)
             {
@@ -125,33 +122,31 @@ namespace SharpCraft.World
                 chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
                 blockIndex = Chunk.WorldToBlockCoords(blockPosition);
 
-                var chunk = region.GetChunk(chunkIndex);
+                chunk = region.GetChunk(chunkIndex);
                 block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
                 if (!block.IsEmpty) break;
             }
 
-            if (block.IsEmpty)
+            if (chunk == null || block.IsEmpty)
             {
                 blockOutlineMesher.Flush();
                 return;
             }
 
-            ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(chunkIndex);
-
             if (player.LeftClick)
             {
-                chunkModSystem.Add(blockIndex, adjacency, BlockInteractionMode.Remove);
+                chunkModSystem.Add(blockIndex, chunk, BlockInteractionMode.Remove);
             }
             else if (player.RightClick)
             {
                 if ((blockPosition - player.Position).Length() > 1.1f)
                 {
-                    chunkModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, adjacency, BlockInteractionMode.Add);
+                    chunkModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, chunk, BlockInteractionMode.Add);
                 }
             }
 
-            FacesState visibleFaces = adjacency.Root.GetVisibleFaces(blockIndex, adjacency);
-            blockOutlineMesher.GenerateMesh(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + adjacency.Root.Position, player.Camera.Direction);
+            FacesState visibleFaces = chunk.GetVisibleFaces(blockIndex);
+            blockOutlineMesher.GenerateMesh(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + chunk.Position, player.Camera.Direction);
         }
 
         void UpdateEntitiesPhysics(bool exitedMenu)

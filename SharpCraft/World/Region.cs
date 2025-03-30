@@ -20,7 +20,6 @@ namespace SharpCraft.World
 
         readonly WorldGenerator worldGenerator;
         readonly LightSystem lightSystem;
-        readonly AdjacencyGraph adjacencyGraph;
         readonly ChunkMesher chunkMesher;
 
         readonly ConcurrentDictionary<Vec3<int>, Chunk> chunks = [];
@@ -28,15 +27,15 @@ namespace SharpCraft.World
         readonly ConcurrentBag<Vec3<int>> activeChunkIndexes = [];
         readonly HashSet<Vec3<int>> inactiveChunkIndexes = [];
         readonly HashSet<Vec3<int>> unfinishedChunkIndexes = [];
+        readonly object chunkLock = new();
 
-        public Region(int apothem, AdjacencyGraph adjacencyGraph, WorldGenerator worldGenerator, LightSystem lightSystem, ChunkMesher chunkMesher)
+        public Region(int apothem, WorldGenerator worldGenerator, LightSystem lightSystem, ChunkMesher chunkMesher)
         {
             this.apothem = apothem;
             this.worldGenerator = worldGenerator;
 
             proximityIndexes = GenerateProximityIndexes();
             this.lightSystem = lightSystem;
-            this.adjacencyGraph = adjacencyGraph;
             this.chunkMesher = chunkMesher;
         }
 
@@ -62,16 +61,10 @@ namespace SharpCraft.World
                 Chunk chunk = GetChunk(index);
                 if (chunk.IsEmpty) continue;
 
-                if (chunk.RecalculateMesh)
+                if (chunk.RecalculateMesh && chunk.AllAdjacent)
                 {
-                    var adjacency = adjacencyGraph.GetAdjacency(index);
-
-                    if (adjacency.All())
-                    {
-                        chunk.IsReady = true;
-                        chunk.GenerateIndexCaches(adjacency);
-                        chunkMesher.CreateMesh(adjacency);
-                    }
+                    chunk.IsReady = true;
+                    chunkMesher.AddMesh(chunk);
                 }
             }
         }
@@ -105,7 +98,6 @@ namespace SharpCraft.World
         {
             activeChunkIndexes.Clear();
             ConcurrentBag<Vec3<int>> generatedChunks = [];
-            ConcurrentDictionary<Vec3<int>, ChunkBuffer> blockBufferCache = [];
 
             Parallel.ForEach(proximityIndexes, proximityIndex =>
             {
@@ -121,10 +113,50 @@ namespace SharpCraft.World
                 }
                 else
                 {
-                    (Chunk chunk, ChunkBuffer blocks) = worldGenerator.GenerateChunk(index);
+                    Chunk chunk = worldGenerator.GenerateChunk(index);
                     chunks.TryAdd(index, chunk);
-                    blockBufferCache.TryAdd(index, blocks);
+
                     generatedChunks.Add(index);
+
+                    lock (chunkLock)
+                    {
+                        // XNeg neighbor
+                        if (chunks.TryGetValue(index + new Vec3<int>(-1, 0, 0), out var xNegChunk))
+                        {
+                            chunk.XNeg = xNegChunk;
+                            xNegChunk.XPos = chunk;
+                        }
+                        // XPos neighbor
+                        if (chunks.TryGetValue(index + new Vec3<int>(1, 0, 0), out var xPosChunk))
+                        {
+                            chunk.XPos = xPosChunk;
+                            xPosChunk.XNeg = chunk;
+                        }
+                        // YNeg
+                        if (chunks.TryGetValue(index + new Vec3<int>(0, -1, 0), out var yNegChunk))
+                        {
+                            chunk.YNeg = yNegChunk;
+                            yNegChunk.YPos = chunk;
+                        }
+                        // YPos
+                        if (chunks.TryGetValue(index + new Vec3<int>(0, 1, 0), out var yPosChunk))
+                        {
+                            chunk.YPos = yPosChunk;
+                            yPosChunk.YNeg = chunk;
+                        }
+                        // ZNeg
+                        if (chunks.TryGetValue(index + new Vec3<int>(0, 0, -1), out var zNegChunk))
+                        {
+                            chunk.ZNeg = zNegChunk;
+                            zNegChunk.ZPos = chunk;
+                        }
+                        // ZPos
+                        if (chunks.TryGetValue(index + new Vec3<int>(0, 0, 1), out var zPosChunk))
+                        {
+                            chunk.ZPos = zPosChunk;
+                            zPosChunk.ZNeg = chunk;
+                        }
+                    }
                 }
 
                 activeChunkIndexes.Add(index);
@@ -133,35 +165,20 @@ namespace SharpCraft.World
                     inactiveChunkIndexes.Remove(index);
             });
 
+            List<Chunk> readyChunks = [];
+
             foreach (Vec3<int> index in generatedChunks)
             {
                 Chunk chunk = chunks[index];
-                adjacencyGraph.CalculateChunkAdjacency(chunk);
-            }
 
-            List<ChunkAdjacency> readyChunks = [];
+                if (chunk.IsEmpty) continue;
 
-            foreach (Vec3<int> index in generatedChunks)
-            {
-                ChunkAdjacency adjacency = adjacencyGraph.GetAdjacency(index);
+                chunk.IsReady = chunk.AllAdjacent;
 
-                if (adjacency.Root.IsEmpty) continue;
-
-                adjacency.Root.IsReady = adjacency.All();
-
-                if (adjacency.Root.IsReady)
+                if (chunk.IsReady)
                 {
-                    adjacency.Root.InitLight();
-                    if (blockBufferCache.TryGetValue(adjacency.Root.Index, out var buffer))
-                    {
-                        adjacency.Root.GenerateIndexCaches(buffer, adjacency);
-                    }
-                    else
-                    {
-                        adjacency.Root.GenerateIndexCaches(adjacency);
-                    }
-
-                    readyChunks.Add(adjacency);
+                    chunk.InitLight();
+                    readyChunks.Add(chunk);
                 }
                 else
                 {
@@ -169,30 +186,23 @@ namespace SharpCraft.World
                 }
             }
 
-            List<ChunkAdjacency> skyChunks = [.. worldGenerator.GetSkyLevel().Select(adjacencyGraph.GetAdjacency).Where(x => x is not null && x.All())];
+            List<Chunk> skyChunks = [.. worldGenerator.GetSkyLevel().Select(index => chunks[index]).Where(c => c is not null && c.IsReady && c.AllAdjacent)];
 
-            foreach (ChunkAdjacency adjacency in skyChunks)
+            foreach (Chunk chunk in skyChunks)
             {
-                lightSystem.InitializeSkylight(adjacency);
+                lightSystem.InitializeSkylight(chunk);
             }
 
-            foreach (ChunkAdjacency adjacency in readyChunks)
+            foreach (Chunk chunk in readyChunks)
             {
-                lightSystem.InitializeLight(adjacency);
+                lightSystem.InitializeLight(chunk);
             }
 
-            lightSystem.FloodFill();
+            lightSystem.Execute();
 
-            foreach (ChunkAdjacency adjacency in readyChunks)
+            foreach (Chunk chunk in readyChunks)
             {
-                if (blockBufferCache.TryGetValue(adjacency.Root.Index, out var buffer))
-                {
-                    chunkMesher.CreateMesh(adjacency, buffer);
-                }
-                else
-                {
-                    chunkMesher.CreateMesh(adjacency);
-                }
+                chunkMesher.AddMesh(chunk);
             }
 
             worldGenerator.ClearCache();
@@ -200,13 +210,47 @@ namespace SharpCraft.World
 
         void RemoveInactiveChunks()
         {
-            foreach (Vec3<int> index in inactiveChunkIndexes)
+            Parallel.ForEach(inactiveChunkIndexes, index =>
             {
-                adjacencyGraph.Dereference(index);
-                chunks[index].Dispose();
-                chunks.Remove(index, out _);
-                chunkMesher.Remove(index);
-            }
+                lock (chunkLock)
+                {
+                    chunks.Remove(index, out var chunk);
+                    chunkMesher.Remove(index);
+
+                    if (chunk.XNeg != null)
+                    {
+                        chunk.XNeg.XPos = null;
+                        chunk.XNeg = null;
+                    }
+                    if (chunk.XPos != null)
+                    {
+                        chunk.XPos.XNeg = null;
+                        chunk.XPos = null;
+                    }
+                    if (chunk.YNeg != null)
+                    {
+                        chunk.YNeg.YPos = null;
+                        chunk.YNeg = null;
+                    }
+                    if (chunk.YPos != null)
+                    {
+                        chunk.YPos.YNeg = null;
+                        chunk.YPos = null;
+                    }
+                    if (chunk.ZNeg != null)
+                    {
+                        chunk.ZNeg.ZPos = null;
+                        chunk.ZNeg = null;
+                    }
+                    if (chunk.ZPos != null)
+                    {
+                        chunk.ZPos.ZNeg = null;
+                        chunk.ZPos = null;
+                    }
+
+                    chunk.Dispose();
+                }
+            });
             inactiveChunkIndexes.Clear();
         }
     }

@@ -8,6 +8,8 @@ public readonly struct Vec3<N>(N x, N y, N z) where N : INumber<N>
     public N Y { get; } = y;
     public N Z { get; } = z;
 
+    public static Vec3<N> Zero => new(default, default, default);
+
     public static Vec3<N> operator -(Vec3<N> a, Vec3<N> b)
     => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
 

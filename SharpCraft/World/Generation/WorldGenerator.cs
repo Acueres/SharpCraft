@@ -81,13 +81,12 @@ class WorldGenerator
         terrainLevelCache.Clear();
         biomesCache.Clear();
         elevationCache.Clear();
-
     }
 
-    public (Chunk, ChunkBuffer) GenerateChunk(Vec3<int> index)
+    public Chunk GenerateChunk(Vec3<int> index)
     {
         Chunk chunk = new(index, blockMetadata);
-        Block[,,] blocks = null;
+        Block[,,] buffer = null;
         int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
         Random rnd = new(chunkSeed);
 
@@ -120,19 +119,19 @@ class WorldGenerator
         else
         {
             maxElevation = (from int h in terrainLevel select h).Max();
-            biomes = biomesCache[cacheIndex];
+            biomesCache.TryGetValue(cacheIndex, out biomes);
         }
 
         elevationCache.TryAdd(cacheIndex, maxElevation);
 
         if (maxElevation < chunk.Position.Y)
         {
-            blocks = db.ApplyDelta(chunk, blocks);
-            chunk.Init(blocks);
-            return (chunk, new(blocks));
+            buffer = db.ApplyDelta(chunk, buffer);
+            chunk.Init(buffer);
+            return chunk;
         }
 
-        blocks = Chunk.GetBlockArray();
+        buffer = Chunk.GetBlockArray();
 
         for (int x = 0; x < Chunk.Size; x++)
         {
@@ -146,16 +145,16 @@ class WorldGenerator
                 for (int y = 0; y < yMax; y++)
                 {
                     ushort texture = Fill(terrainLevel[x, z], (int)chunk.Position.Y + y, biomes[x, z], rnd);
-                    blocks[x, y, z] = new(texture);
+                    buffer[x, y, z] = new(texture);
                 }
             }
         }
 
-        db.ApplyDelta(chunk, blocks);
+        db.ApplyDelta(chunk, buffer);
 
-        chunk.Init(blocks);
+        chunk.Init(buffer);
 
-        return (chunk, new(blocks));
+        return chunk;
     }
 
     public List<Vec3<int>> GetSkyLevel()
