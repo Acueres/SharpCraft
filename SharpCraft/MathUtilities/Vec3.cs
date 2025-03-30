@@ -24,6 +24,11 @@ public readonly struct Vec3<N>(N x, N y, N z) where N : INumber<N>
         return a.X != b.X || a.Y != b.Y || a.Z != b.Z;
     }
 
+    public Vec3<O> Into<O>() where O : INumber<O>
+    {
+        return new Vec3<O>(O.CreateChecked(X), O.CreateChecked(Y), O.CreateChecked(Z));
+    }
+
     public override bool Equals(object obj)
     {
         Vec3<N> other = (Vec3<N>)obj;

@@ -104,7 +104,7 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
     static (Vec3<byte> newIndex, ChunkAdjacency newAdjacency) GetAdjacentIndex(AxisDirection dominantAxis, Vec3<byte> index, Vec3<int> offset, ChunkAdjacency adjacency)
     {
         ChunkAdjacency newAdjacency = null;
-        Vec3<int> newIndex = new Vec3<int>(index.X, index.Y, index.Z) + offset;
+        Vec3<int> newIndex = index.Into<int>() + offset;
 
         byte x = (byte)newIndex.X;
 		byte y = (byte)newIndex.Y;

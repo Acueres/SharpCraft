@@ -201,25 +201,6 @@ public class Chunk : IDisposable
         lightSources.Add((new Vec3<byte>(x, y, z), block));
     }
 
-    public IEnumerable<Vec3<int>> GetActiveBlocksIndexes()
-    {
-        for (int y = 0; y < Size; y++)
-        {
-            for (int x = 0; x < Size; x++)
-            {
-                for (int z = 0; z < Size; z++)
-                {
-                    if (this[x, y, z].IsEmpty)
-                    {
-                        continue;
-                    }
-
-                    yield return new Vec3<int>(x, y, z);
-                }
-            }
-        }
-    }
-
     public IEnumerable<(Vec3<byte>, Block)> GetLightSources()
     {
         foreach (var data in lightSources) yield return data;

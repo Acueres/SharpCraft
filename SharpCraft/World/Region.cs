@@ -24,7 +24,7 @@ namespace SharpCraft.World
         readonly ChunkMesher chunkMesher;
 
         readonly ConcurrentDictionary<Vec3<int>, Chunk> chunks = [];
-        readonly List<Vec3<int>> proximityIndexes = [];
+        readonly List<Vec3<sbyte>> proximityIndexes = [];
         readonly ConcurrentBag<Vec3<int>> activeChunkIndexes = [];
         readonly HashSet<Vec3<int>> inactiveChunkIndexes = [];
         readonly HashSet<Vec3<int>> unfinishedChunkIndexes = [];
@@ -81,16 +81,16 @@ namespace SharpCraft.World
             foreach (Vec3<int> index in activeChunkIndexes) { yield return chunks[index]; }
         }
 
-        List<Vec3<int>> GenerateProximityIndexes()
+        List<Vec3<sbyte>> GenerateProximityIndexes()
         {
-            List<Vec3<int>> indexes = [];
+            List<Vec3<sbyte>> indexes = [];
             for (int x = -apothem; x <= apothem; x++)
             {
                 for (int y = -apothem; y <= apothem; y++)
                 {
                     for (int z = -apothem; z <= apothem; z++)
                     {
-                        Vec3<int> index = new(x, y, z);
+                        Vec3<sbyte> index = new((sbyte)x, (sbyte)y, (sbyte)z);
                         indexes.Add(index);
                     }
                 }
@@ -109,7 +109,7 @@ namespace SharpCraft.World
 
             Parallel.ForEach(proximityIndexes, proximityIndex =>
             {
-                Vec3<int> index = center + proximityIndex;
+                Vec3<int> index = center + proximityIndex.Into<int>();
 
                 if (chunks.ContainsKey(index))
                 {
