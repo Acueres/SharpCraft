@@ -64,7 +64,7 @@ namespace SharpCraft.World
                 if (chunk.RecalculateMesh && chunk.AllAdjacent)
                 {
                     chunk.IsReady = true;
-                    chunkMesher.AddMesh(chunk);
+                    chunkMesher.UpdateMesh(chunk);
                 }
             }
         }
@@ -188,22 +188,22 @@ namespace SharpCraft.World
 
             List<Chunk> skyChunks = [.. worldGenerator.GetSkyLevel().Select(index => chunks[index]).Where(c => c is not null && c.IsReady && c.AllAdjacent)];
 
-            foreach (Chunk chunk in skyChunks)
+            Parallel.ForEach(skyChunks, chunk =>
             {
                 lightSystem.InitializeSkylight(chunk);
-            }
+            });
 
-            foreach (Chunk chunk in readyChunks)
+            Parallel.ForEach(readyChunks, chunk =>
             {
                 lightSystem.InitializeLight(chunk);
-            }
+            });
 
             lightSystem.Execute();
 
-            foreach (Chunk chunk in readyChunks)
+            Parallel.ForEach(readyChunks, chunk =>
             {
                 chunkMesher.AddMesh(chunk);
-            }
+            });
 
             worldGenerator.ClearCache();
         }

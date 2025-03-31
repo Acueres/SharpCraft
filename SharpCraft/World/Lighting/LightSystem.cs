@@ -2,13 +2,15 @@
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
+
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace SharpCraft.World.Lighting;
 
 public class LightSystem
 {
-    readonly Queue<LightNode> lightQueue = [];
+    readonly ConcurrentQueue<LightNode> lightQueue = [];
 
     public void InitializeSkylight(Chunk chunk)
     {
@@ -57,9 +59,9 @@ public class LightSystem
 
     public void Execute()
     {
-        while (lightQueue.Count > 0)
+        while (!lightQueue.IsEmpty)
         {
-            LightNode node = lightQueue.Dequeue();
+            lightQueue.TryDequeue(out LightNode node);
 
             node.Chunk.RecalculateMesh = true;
 
@@ -125,9 +127,9 @@ public class LightSystem
 
     void RemoveSource()
     {
-        while (lightQueue.Count > 0)
+        while (!lightQueue.IsEmpty)
         {
-            LightNode node = lightQueue.Dequeue();
+            lightQueue.TryDequeue(out LightNode node);
 
             LightValue light = node.GetLight();
 
@@ -152,9 +154,9 @@ public class LightSystem
     {
         List<LightNode> lightList = [];
 
-        while (lightQueue.Count > 0)
+        while (!lightQueue.IsEmpty)
         {
-            LightNode node = lightQueue.Dequeue();
+            lightQueue.TryDequeue(out LightNode node);
 
             node.Chunk.RecalculateMesh = true;
 
@@ -289,9 +291,9 @@ public class LightSystem
 
     void FloodFill()
     {
-        while (lightQueue.Count > 0)
+        while (!lightQueue.IsEmpty)
         {
-            LightNode node = lightQueue.Dequeue();
+            lightQueue.TryDequeue(out LightNode node);
 
             node.Chunk.RecalculateMesh = true;
 
