@@ -12,153 +12,146 @@ using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Lighting;
 
-namespace SharpCraft.World
+namespace SharpCraft.World;
+class WorldSystem : IDisposable
 {
-    class WorldSystem
+    Player player;
+    readonly Region region;
+    readonly ChunkModificationSystem chunkModSystem;
+
+    readonly GameMenu gameMenu;
+    readonly ChunkGenerator chunkGenerator;
+    readonly BlockOutlineMesher blockOutlineMesher;
+
+    readonly WorldGenerator worldGenerator;
+
+    public WorldSystem(Region region, GameMenu gameMenu, DatabaseService db,
+        Parameters parameters, BlockMetadataProvider blockMetadata,
+        ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
     {
-        Player player;
-        readonly ChunkModificationSystem chunkModSystem;
+        this.region = region;
+        this.gameMenu = gameMenu;
 
-        readonly GameMenu gameMenu;
-        readonly WorldGenerator worldGenerator;
-        readonly BlockOutlineMesher blockOutlineMesher;
+        chunkGenerator = new ChunkGenerator(parameters, db, blockMetadata);
+        this.blockOutlineMesher = blockOutlineMesher;
 
-        readonly Region region;
+        LightSystem lightSystem = new();
 
-        public WorldSystem(GameMenu gameMenu, DatabaseService db,
-            Parameters parameters, BlockMetadataProvider blockMetadata,
-            ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
+        chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem);
+
+        worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
+    }
+
+    public void SetPlayer(Player player, Parameters parameters)
+    {
+        this.player = player;
+        player.Flying = true;
+
+        Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
+        player.Index = currentPlayerIndex;
+
+        worldGenerator.BulkGenerate(player.Position);
+
+        if (parameters.Position == Vector3.Zero)
         {
-            this.gameMenu = gameMenu;
-
-            worldGenerator = new WorldGenerator(parameters, db, blockMetadata);
-            this.blockOutlineMesher = blockOutlineMesher;
-
-            LightSystem lightSystem = new();
-
-            chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem);
-
-            region = new Region(Settings.RenderDistance, worldGenerator, lightSystem, chunkMesher);
+            player.Position = new Vector3(0, 100, 0);
         }
-
-        public void SetPlayer(Player player, Parameters parameters)
+        else
         {
-            this.player = player;
-            player.Flying = true;
+            player.Position = parameters.Position;
+        }
+    }
 
-            Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
+    public void Init()
+    {
+        worldGenerator.BulkGenerate(player.Position);
+    }
+
+    public void Update(GameTime gameTime, bool exitedMenu)
+    {
+        UpdateEntities(gameTime, exitedMenu);
+
+        Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
+
+        if (player.Index != currentPlayerIndex)
+        {
+            worldGenerator.Update(player.Position);
             player.Index = currentPlayerIndex;
+        }
+    }
 
-            region.Update(player.Position);
+    public void UpdateEntities(GameTime gameTime, bool exitedMenu)
+    {
+        player.Update(gameTime);
 
-            if (parameters.Position == Vector3.Zero)
+        UpdateEntitiesPhysics(exitedMenu);
+
+        if (player.UpdateOccured)
+        {
+            ProcessPlayerActions(exitedMenu);
+        }
+
+        chunkModSystem.Update();
+    }
+
+    void ProcessPlayerActions(bool exitedMenu)
+    {
+        if (exitedMenu) return;
+
+        Raycaster raycaster = new(player.Camera.Position,
+            player.Camera.Direction, 0.1f);
+
+        const float maxDistance = 4.5f;
+
+        Vector3 blockPosition = player.Camera.Position;
+        Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+        Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(blockPosition);
+        Block block = Block.Empty;
+        Chunk chunk = null;
+
+        while (raycaster.Length(blockPosition) < maxDistance)
+        {
+            blockPosition = raycaster.Step();
+            chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+            blockIndex = Chunk.WorldToBlockCoords(blockPosition);
+
+            chunk = region[chunkIndex];
+            block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
+            if (!block.IsEmpty) break;
+        }
+
+        if (chunk == null || block.IsEmpty)
+        {
+            blockOutlineMesher.Flush();
+            return;
+        }
+
+        if (player.LeftClick)
+        {
+            chunkModSystem.Add(blockIndex, chunk, BlockInteractionMode.Remove);
+        }
+        else if (player.RightClick)
+        {
+            if ((blockPosition - player.Position).Length() > 1.1f)
             {
-                player.Position = new Vector3(0, 100, 0);
-            }
-            else
-            {
-                player.Position = parameters.Position;
+                chunkModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, chunk, BlockInteractionMode.Add);
             }
         }
 
-        public void Init()
-        {
-            region.Update(player.Position);
-            region.UpdateMeshes();
-        }
+        FacesState visibleFaces = chunk.GetVisibleFaces(blockIndex);
+        blockOutlineMesher.GenerateMesh(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + chunk.Position, player.Camera.Direction);
+    }
 
-        public IEnumerable<Chunk> GetActiveChunks()
-        {
-            return region.GetActiveChunks();
-        }
+    void UpdateEntitiesPhysics(bool exitedMenu)
+    {
+        if (exitedMenu) return;
 
-        public void Update(GameTime gameTime, bool exitedMenu)
-        {
-            UpdateEntities(gameTime, exitedMenu);
+        var playerBox = player.Bound;
+        Vector3 playerCenter = (playerBox.Min + playerBox.Max) * 0.5f;
 
-            Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
-
-            if (player.Index != currentPlayerIndex)
-            {
-                region.Update(player.Position);
-                player.Index = currentPlayerIndex;
-            }
-
-            region.UpdateMeshes();
-        }
-
-        public void UpdateEntities(GameTime gameTime, bool exitedMenu)
-        {
-            player.Update(gameTime);
-
-            UpdateEntitiesPhysics(exitedMenu);
-
-            if (player.UpdateOccured)
-            {
-                ProcessPlayerActions(exitedMenu);
-            }
-
-            chunkModSystem.Update();
-        }
-
-        void ProcessPlayerActions(bool exitedMenu)
-        {
-            if (exitedMenu) return;
-
-            Raycaster raycaster = new(player.Camera.Position,
-                player.Camera.Direction, 0.1f);
-
-            const float maxDistance = 4.5f;
-
-            Vector3 blockPosition = player.Camera.Position;
-            Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
-            Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(blockPosition);
-            Block block = Block.Empty;
-            Chunk chunk = null;
-
-            while (raycaster.Length(blockPosition) < maxDistance)
-            {
-                blockPosition = raycaster.Step();
-                chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
-                blockIndex = Chunk.WorldToBlockCoords(blockPosition);
-
-                chunk = region.GetChunk(chunkIndex);
-                block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
-                if (!block.IsEmpty) break;
-            }
-
-            if (chunk == null || block.IsEmpty)
-            {
-                blockOutlineMesher.Flush();
-                return;
-            }
-
-            if (player.LeftClick)
-            {
-                chunkModSystem.Add(blockIndex, chunk, BlockInteractionMode.Remove);
-            }
-            else if (player.RightClick)
-            {
-                if ((blockPosition - player.Position).Length() > 1.1f)
-                {
-                    chunkModSystem.Add(new Block(gameMenu.SelectedItem), blockIndex, player.Camera.Direction, chunk, BlockInteractionMode.Add);
-                }
-            }
-
-            FacesState visibleFaces = chunk.GetVisibleFaces(blockIndex);
-            blockOutlineMesher.GenerateMesh(visibleFaces, new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + chunk.Position, player.Camera.Direction);
-        }
-
-        void UpdateEntitiesPhysics(bool exitedMenu)
-        {
-            if (exitedMenu) return;
-
-            var playerBox = player.Bound;
-            Vector3 playerCenter = (playerBox.Min + playerBox.Max) * 0.5f;
-
-            ReadOnlySpan<Vector3> collisionPoints = [
-                    // The eight corners
-                    new Vector3(playerBox.Min.X, playerBox.Min.Y, playerBox.Min.Z),
+        ReadOnlySpan<Vector3> collisionPoints = [
+                // The eight corners
+                new Vector3(playerBox.Min.X, playerBox.Min.Y, playerBox.Min.Z),
                     new Vector3(playerBox.Min.X, playerBox.Min.Y, playerBox.Max.Z),
                     new Vector3(playerBox.Min.X, playerBox.Max.Y, playerBox.Min.Z),
                     new Vector3(playerBox.Min.X, playerBox.Max.Y, playerBox.Max.Z),
@@ -178,36 +171,54 @@ namespace SharpCraft.World
                     // Centers of the front and back faces
                     new Vector3(playerCenter.X, playerCenter.Y, playerBox.Min.Z),
                     new Vector3(playerCenter.X, playerCenter.Y, playerBox.Max.Z)
-            ];
+        ];
 
-            // A hashset of chunk and block indices
-            var collisionIndices = new HashSet<(Vec3<int>, Vec3<byte>)>();
-            foreach (var point in collisionPoints)
+        // A hashset of chunk and block indices
+        var collisionIndices = new HashSet<(Vec3<int>, Vec3<byte>)>();
+        foreach (var point in collisionPoints)
+        {
+            Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(point);
+            Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(point);
+            collisionIndices.Add((chunkIndex, blockIndex));
+        }
+
+        List<BoundingBox> collidableBlockBounds = [];
+
+        foreach (var (chunkIndex, blockIndex) in collisionIndices)
+        {
+            Chunk chunk = region[chunkIndex];
+
+            Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
+            if (!block.IsEmpty)
             {
-                Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(point);
-                Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(point);
-                collisionIndices.Add((chunkIndex, blockIndex));
+                Vector3 blockWorldPos = Chunk.BlockIndexToWorldPosition(chunk.Position, blockIndex);
+                BoundingBox blockBounds = new(blockWorldPos, blockWorldPos + Vector3.One);
+                collidableBlockBounds.Add(blockBounds);
             }
+        }
 
-            List<BoundingBox> collidableBlockBounds = [];
+        foreach (var bound in collidableBlockBounds)
+        {
+            player.Physics.ResolveCollision(bound);
+        }
+    }
 
-            foreach (var (chunkIndex, blockIndex) in collisionIndices)
-            {
-                Chunk chunk = region.GetChunk(chunkIndex);
+    bool disposed;
 
-                Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
-                if (!block.IsEmpty)
-                {
-                    Vector3 blockWorldPos = Chunk.BlockIndexToWorldPosition(chunk.Position, blockIndex);
-                    BoundingBox blockBounds = new(blockWorldPos, blockWorldPos + Vector3.One);
-                    collidableBlockBounds.Add(blockBounds);
-                }
-            }
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 
-            foreach (var bound in collidableBlockBounds)
-            {
-                player.Physics.ResolveCollision(bound);
-            }
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposed) return;
+        disposed = true;
+
+        if (disposing)
+        {
+            worldGenerator.Dispose();
         }
     }
 }

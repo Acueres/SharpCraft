@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.MathUtilities;
@@ -20,12 +18,6 @@ record TerrainData(int[,] TerrainLevel, BiomeType[,] BiomesData, int MaxElevatio
 
 class TerrainGenerator
 {
-    readonly int seed;
-
-    readonly ConcurrentDictionary<Vec2<int>, int[,]> terrainLevelCache = [];
-    readonly ConcurrentDictionary<Vec2<int>, BiomeType[,]> biomesCache = [];
-    readonly ConcurrentDictionary<Vec2<int>, int> elevationCache = [];
-
     readonly FastNoiseLite terrain;
     readonly FastNoiseLite forest;
     readonly FastNoiseLite mountain;
@@ -37,8 +29,6 @@ class TerrainGenerator
 
     public TerrainGenerator(int seed, BlockMetadataProvider blockMetadata)
     {
-        this.seed = seed;
-
         bedrock = blockMetadata.GetBlockIndex("bedrock");
         grass = blockMetadata.GetBlockIndex("grass_side");
         stone = blockMetadata.GetBlockIndex("stone");
@@ -70,32 +60,8 @@ class TerrainGenerator
         river.SetFrequency(0.001f);
     }
 
-    public void ClearCache()
-    {
-        terrainLevelCache.Clear();
-        biomesCache.Clear();
-        elevationCache.Clear();
-    }
-
-    public List<Vec3<int>> GetSkyLevel()
-    {
-        List<Vec3<int>> indexes = new(elevationCache.Count);
-        foreach ((Vec2<int> index, int value) in elevationCache)
-        {
-            int y = Chunk.WorldToChunkIndex(value) + 1;
-            indexes.Add(new Vec3<int>(index.X, y, index.Z));
-        }
-
-        return indexes;
-    }
-
     public TerrainData GenerateTerrainData(Vector3 position, Vec2<int> cacheIndex)
     {
-        if (terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainValue))
-        {
-            return new TerrainData(terrainValue, biomesCache[cacheIndex], elevationCache[cacheIndex]);
-        }
-
         int maxElevation = int.MinValue;
 
         var terrainLevel = new int[Chunk.Size, Chunk.Size];
@@ -115,10 +81,6 @@ class TerrainGenerator
                 }
             }
         }
-
-        terrainLevelCache.TryAdd(cacheIndex, terrainLevel);
-        biomesCache.TryAdd(cacheIndex, biomes);
-        elevationCache.TryAdd(cacheIndex, maxElevation);
 
         return new TerrainData(terrainLevel, biomes, maxElevation);
     }

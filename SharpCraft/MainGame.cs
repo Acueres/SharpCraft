@@ -10,7 +10,6 @@ using SharpCraft.GUI.Menus;
 using SharpCraft.Persistence;
 using SharpCraft.Rendering;
 using SharpCraft.Rendering.Meshers;
-using SharpCraft.World.Lighting;
 using SharpCraft.World.Chunks;
 
 namespace SharpCraft
@@ -115,13 +114,15 @@ namespace SharpCraft
                             db = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
                             db.Initialize();
 
+                            Region region = new(Settings.RenderDistance);
+
                             ChunkMesher chunkMesher = new(blockMetadata);
                             BlockOutlineMesher blockOutlineMesher = new();
 
                             player = new Player(GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(gameMenu, db, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
-                            renderer = new Renderer(graphics.GraphicsDevice, assetServer, blockMetadata, screenshotTaker, chunkMesher, blockOutlineMesher);
+                            world = new WorldSystem(region, gameMenu, db, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
+                            renderer = new Renderer(region, graphics.GraphicsDevice, assetServer, blockMetadata, screenshotTaker, chunkMesher, blockOutlineMesher);
 
                             world.SetPlayer(player, currentSave.Parameters);
 
@@ -129,7 +130,7 @@ namespace SharpCraft
                             {
                                 player.Update(gameTime);
                                 world.Init();
-                                renderer.Render(world.GetActiveChunks(), player.Camera, time);
+                                renderer.Render(player.Camera, time);
                                 screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }
 
@@ -144,12 +145,12 @@ namespace SharpCraft
                             time.SaveParameters(currentSave.Parameters);
                             currentSave.Parameters.Save();
 
+                            world.Dispose();
+
                             player = null;
                             world = null;
                             db = null;
                             gameMenu = null;
-
-                            GC.Collect();
 
                             State = GameState.MainMenu;
                             IsMouseVisible = true;
@@ -174,7 +175,7 @@ namespace SharpCraft
             {
                 case GameState.Running:
                     {
-                        renderer.Render(world.GetActiveChunks(), player.Camera, time);
+                        renderer.Render(player.Camera, time);
                         gameMenu.Draw((int)Math.Round(1 / gameTime.ElapsedGameTime.TotalSeconds));
                         break;
                     }

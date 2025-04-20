@@ -12,6 +12,17 @@ using SharpCraft.World.Lighting;
 
 namespace SharpCraft.World.Chunks;
 
+public enum ChunkState
+{
+    Allocated,     // Chunk created
+    Generated,     // Blocks complete
+    Linked,        // Linking complete
+    LightSeeded,   // Skylight & block light sources queued
+    Lit,           // BFS finished
+    Ready,         // Uploaded to GPU / visible
+    Unloaded       // Removed from region & caches
+}
+
 public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisposable
 {
     public const byte Size = 16;
@@ -19,9 +30,10 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
     public Vec3<int> Index { get; } = index;
     public Vector3 Position { get; } = Size * new Vector3(index.X, index.Y, index.Z);
-    public bool IsReady { get; set; }
 
-    public bool IsEmpty { get; internal set; }
+    public ChunkState State { get; set; }
+    public bool IsEmpty => palette is null;
+    public bool IsReady => State == ChunkState.Ready;
 
     //Adjacent chunk references
     public Chunk XNeg { get; set; }
@@ -31,7 +43,7 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
     public Chunk ZNeg { get; set; }
     public Chunk ZPos { get; set; }
 
-    public bool AllAdjacent => XNeg != null && XPos != null && YNeg != null && YPos != null && ZNeg != null && ZPos != null;
+    public bool AllNeighborsExist => XNeg != null && XPos != null && YNeg != null && YPos != null && ZNeg != null && ZPos != null;
 
     List<Block> palette;
     Dictionary<Block, uint> paletteIndexMap;
@@ -46,20 +58,16 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
     readonly BlockMetadataProvider blockMetadata = blockMetadata;
 
-    public bool RecalculateMesh { get; set; }
-
-    public void Init(Block[,,] buffer)
+    public void BuildPalette(Block[,,] buffer)
     {
-        if (buffer == null)
+        if (buffer is null)
         {
-            IsEmpty = true;
             return;
         }
 
         var uniqueBlocks = GetUniqueBlocks(buffer);
         if (uniqueBlocks.Count == 1 && uniqueBlocks.Contains(Block.Empty))
         {
-            IsEmpty = true;
             return;
         }
 
@@ -119,7 +127,7 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
             palette = [Block.Empty];
             paletteIndexMap = [];
             paletteIndexMap.Add(Block.Empty, 0);
-            IsEmpty = false;
+            State = ChunkState.Generated;
         }
         lightMap = new LightValue[Size, Size, Size];
     }
@@ -159,6 +167,64 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
             storage[x, y, z] = index;
         }
+    }
+
+    public IEnumerable<Chunk> GetNeighbours()
+    {
+        if (XNeg != null) yield return XNeg;
+        if (XPos != null) yield return XPos;
+        if (YNeg != null) yield return YNeg;
+        if (YPos != null) yield return YPos;
+        if (ZNeg != null) yield return ZNeg;
+        if (ZPos != null) yield return ZPos;
+    }
+
+    public int? GetMaximumTerrainElevation()
+    {
+        if (IsEmpty)
+        {
+            return null;
+        }
+
+        int? maxElevation = null;
+
+        for (int x = 0; x < Size; x++)
+        {
+            for (int z = 0; z < Size; z++)
+            {
+                // Scan vertically downwards for the current (X, Z) column
+                for (int y = Last; y >= 0; y--)
+                {
+                    Block currentBlock = this[x, y, z];
+
+                    if (!currentBlock.IsEmpty)
+                    {
+                        // Found the highest non-empty block in this column.
+                        if (!maxElevation.HasValue || y > maxElevation.Value)
+                        {
+                            maxElevation = y;
+                        }
+
+                        break;
+                    }
+                }
+
+                /* If we have found a block at the absolute maximum height possible for the chunk,
+                 no other column can possibly have a higher block, so we can stop searching entirely.*/
+                if (maxElevation.HasValue && maxElevation.Value == Last)
+                {
+                    maxElevation = maxElevation.Value + Index.Y * Size;
+                    return maxElevation;
+                }
+            }
+        }
+
+        if (maxElevation.HasValue)
+        {
+            maxElevation = maxElevation.Value + Index.Y * Size;
+        }
+
+        return maxElevation;
     }
 
     void ResizeStorage()
@@ -205,11 +271,6 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
     public IEnumerable<(Vec3<byte>, Block)> GetLightSources()
     {
         foreach (var data in lightSources) yield return data;
-    }
-
-    public override int GetHashCode()
-    {
-        return Index.GetHashCode();
     }
 
     void Dispose(bool disposing)
@@ -372,6 +433,7 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
         return visibleFaces;
     }
+
     public static int WorldToChunkIndex(float worldCoord)
     {
         if (worldCoord < 0)
@@ -401,5 +463,16 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
     public static Vector3 BlockIndexToWorldPosition(Vector3 chunkPosition, Vec3<byte> blockIndex)
     {
         return new Vector3(blockIndex.X, blockIndex.Y, blockIndex.Z) + chunkPosition;
+    }
+
+    public override bool Equals(object obj)
+    {
+        if (obj is not Chunk other) return false;
+        return this == other;
+    }
+
+    public override int GetHashCode()
+    {
+        return Index.GetHashCode();
     }
 }

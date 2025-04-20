@@ -12,6 +12,7 @@ namespace SharpCraft.Rendering;
 
 class RegionRenderer
 {
+    readonly Region region;
     readonly GraphicsDevice graphics;
     readonly ScreenshotTaker screenshotTaker;
 
@@ -20,9 +21,10 @@ class RegionRenderer
     readonly DynamicVertexBuffer buffer;
     readonly ChunkMesher chunkMesher;
 
-    public RegionRenderer(GraphicsDevice graphics, Effect effect, ChunkMesher chunkMesher,
+    public RegionRenderer(Region region, GraphicsDevice graphics, Effect effect, ChunkMesher chunkMesher,
         ScreenshotTaker screenshotTaker, Texture2D atlas)
     {
+        this.region = region;
         this.graphics = graphics;
         this.effect = effect;
         this.chunkMesher = chunkMesher;
@@ -30,10 +32,10 @@ class RegionRenderer
         this.atlas = atlas;
 
         buffer = new DynamicVertexBuffer(graphics, typeof(VertexPositionTextureLight),
-                    64000, BufferUsage.WriteOnly);
+                    (int)2e4, BufferUsage.WriteOnly);
     }
 
-    public void Render(IEnumerable<Chunk> chunks, Camera camera, float lightIntensity)
+    public void Render(Camera camera, float lightIntensity)
     {
         Vector3 chunkMax = new(Chunk.Size);
 
@@ -48,7 +50,7 @@ class RegionRenderer
         graphics.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));
 
         //Drawing opaque blocks
-        foreach (Chunk chunk in chunks)
+        foreach (Chunk chunk in region.GetActiveChunks())
         {
             if (chunk.IsEmpty || !chunk.IsReady) continue;
 

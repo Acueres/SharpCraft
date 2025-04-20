@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Assets;
@@ -18,7 +17,7 @@ class Renderer
     readonly RegionRenderer regionRenderer;
     readonly UIRenderer uiRenderer;
 
-    public Renderer(GraphicsDevice graphics, AssetServer assetServer,
+    public Renderer(Region region, GraphicsDevice graphics, AssetServer assetServer,
         BlockMetadataProvider blockMetadata, ScreenshotTaker screenshotTaker,
         ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
     { 
@@ -40,13 +39,13 @@ class Renderer
         }
         atlas.SetData(atlasData);
 
-        regionRenderer = new RegionRenderer(graphics, effect, chunkMesher, screenshotTaker, atlas);
+        regionRenderer = new RegionRenderer(region, graphics, effect, chunkMesher, screenshotTaker, atlas);
         uiRenderer = new UIRenderer(graphics, effect, blockOutlineMesher, assetServer);
     }
 
-    public void Render(IEnumerable<Chunk> chunks, Camera camera, Time time)
+    public void Render(Camera camera, Time time)
     {
-        regionRenderer.Render(chunks, camera, time.LightIntensity);
+        regionRenderer.Render(camera, time.LightIntensity);
         uiRenderer.Render();
     }
 }

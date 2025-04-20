@@ -15,35 +15,45 @@ public class LightSystem
     public void InitializeSkylight(Chunk chunk)
     {
         //Propagate light downward from a sky chunk
-        if (!chunk.YNeg.IsEmpty)
-        {
-            for (int x = 0; x < Chunk.Size; x++)
-            {
-                for (int z = 0; z < Chunk.Size; z++)
-                {
-                    if (!chunk.YNeg[x, Chunk.Last, z].IsEmpty) continue;
+        Chunk emitterChunk;
 
-                    chunk.YNeg.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
-                    lightQueue.Enqueue(new LightNode(chunk.YNeg, x, Chunk.Last, z));
-                }
+        if (chunk.IsEmpty)
+        {
+            emitterChunk = chunk.YNeg;
+        }
+        else
+        {
+            emitterChunk = chunk;
+        }
+
+        for (int x = 0; x < Chunk.Size; x++)
+        {
+            for (int z = 0; z < Chunk.Size; z++)
+            {
+                if (!emitterChunk[x, Chunk.Last, z].IsEmpty) continue;
+
+                emitterChunk.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
+                lightQueue.Enqueue(new LightNode(emitterChunk, x, Chunk.Last, z));
             }
         }
     }
 
     public void InitializeLight(Chunk chunk)
     {
-        //take light from upper chunk
-        for (int x = 0; x < Chunk.Size; x++)
+        if (chunk.YPos is not null)
         {
-            for (int z = 0; z < Chunk.Size; z++)
+            for (int x = 0; x < Chunk.Size; x++)
             {
-                if (!chunk.YPos[x, 0, z].IsEmpty) continue;
+                for (int z = 0; z < Chunk.Size; z++)
+                {
+                    if (!chunk.YPos[x, 0, z].IsEmpty) continue;
 
-                lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
+                    lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
+                }
             }
         }
 
-        foreach ((Vec3<byte> lightSourceIndex, Block block) in chunk.GetLightSources())
+        foreach ((Vec3<byte> lightSourceIndex, _) in chunk.GetLightSources())
         {
             int x = lightSourceIndex.X;
             int y = lightSourceIndex.Y;
@@ -57,27 +67,20 @@ public class LightSystem
         }
     }
 
-    public void Execute()
+    public HashSet<Chunk> Run()
     {
+        HashSet<Chunk> visitedChunks = [];
         while (!lightQueue.IsEmpty)
         {
             lightQueue.TryDequeue(out LightNode node);
 
-            node.Chunk.RecalculateMesh = true;
+            if (!node.Chunk.AllNeighborsExist) continue;
 
-            ProcessLightNode(node);
-        }
-    }
-
-    void ProcessLightNode(LightNode node)
-    {
-        node.Chunk.RecalculateMesh = true;
-
-        if (node.Chunk.AllAdjacent)
-        {
+            visitedChunks.Add(node.Chunk);
             Propagate(node.Chunk, node.X, node.Y, node.Z);
-            return;
         }
+
+        return visitedChunks;
     }
 
     public void UpdateLight(int x, int y, int z, ushort texture, Chunk chunk, bool sourceRemoved = false)
@@ -133,8 +136,6 @@ public class LightSystem
 
             LightValue light = node.GetLight();
 
-            node.Chunk.RecalculateMesh = true;
-
             node.SetLight(new(light.SkyValue, 0));
 
             var (nodes, lightValues) = GetNeighborLightValues(node.X, node.Y, node.Z, node.Chunk);
@@ -157,8 +158,6 @@ public class LightSystem
         while (!lightQueue.IsEmpty)
         {
             lightQueue.TryDequeue(out LightNode node);
-
-            node.Chunk.RecalculateMesh = true;
 
             LightValue light = node.GetLight();
 
@@ -295,8 +294,6 @@ public class LightSystem
         {
             lightQueue.TryDequeue(out LightNode node);
 
-            node.Chunk.RecalculateMesh = true;
-
             Propagate(node.Chunk, node.X, node.Y, node.Z);
         }
     }
@@ -331,8 +328,6 @@ public class LightSystem
                 chunk.YPos.SetLight(x, 0, z, value);
                 lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
             }
-
-            chunk.YPos.RecalculateMesh = true;
         }
         else if (IsBlockTransparent(chunk, x, y + 1, z) &&
             chunk.GetLight(x, y + 1, z).Compare(nextLightValue, out value))
@@ -349,8 +344,6 @@ public class LightSystem
                 chunk.YNeg.SetLight(x, Chunk.Last, z, value);
                 lightQueue.Enqueue(new LightNode(chunk.YNeg, x, Chunk.Last, z));
             }
-
-            chunk.YNeg.RecalculateMesh = true;
         }
         else if (IsBlockTransparent(chunk, x, y - 1, z) &&
             chunk.GetLight(x, y - 1, z).Compare(lightValue.SubtractBlockValue(1), out value))
@@ -368,8 +361,6 @@ public class LightSystem
                 chunk.XPos.SetLight(0, y, z, value);
                 lightQueue.Enqueue(new LightNode(chunk.XPos, 0, y, z));
             }
-
-            chunk.XPos.RecalculateMesh = true;
         }
         else if (IsBlockTransparent(chunk, x + 1, y, z) &&
             chunk.GetLight(x + 1, y, z).Compare(nextLightValue, out value))
@@ -387,8 +378,6 @@ public class LightSystem
                 chunk.XNeg.SetLight(Chunk.Last, y, z, value);
                 lightQueue.Enqueue(new LightNode(chunk.XNeg, Chunk.Last, y, z));
             }
-
-            chunk.XNeg.RecalculateMesh = true;
         }
         else if (IsBlockTransparent(chunk, x - 1, y, z) &&
             chunk.GetLight(x - 1, y, z).Compare(nextLightValue, out value))
@@ -406,8 +395,6 @@ public class LightSystem
                 chunk.ZPos.SetLight(x, y, 0, value);
                 lightQueue.Enqueue(new LightNode(chunk.ZPos, x, y, 0));
             }
-
-            chunk.ZPos.RecalculateMesh = true;
         }
         else if (IsBlockTransparent(chunk, x, y, z + 1) &&
             chunk.GetLight(x, y, z + 1).Compare(nextLightValue, out value))
@@ -425,8 +412,6 @@ public class LightSystem
                 chunk.ZNeg.SetLight(x, y, Chunk.Last, value);
                 lightQueue.Enqueue(new LightNode(chunk.ZNeg, x, y, Chunk.Last));
             }
-
-            chunk.ZNeg.RecalculateMesh = true;
         }
         else if (IsBlockTransparent(chunk, x, y, z - 1) &&
             chunk.GetLight(x, y, z - 1).Compare(nextLightValue, out value))

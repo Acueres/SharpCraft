@@ -1,84 +1,293 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks.Dataflow;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
+using Microsoft.Xna.Framework;
 
-using SharpCraft.World.Blocks;
+using SharpCraft.World.Lighting;
 using SharpCraft.World.Chunks;
-using SharpCraft.Persistence;
 using SharpCraft.MathUtilities;
+using SharpCraft.Rendering.Meshers;
 
 namespace SharpCraft.World.Generation;
 
-class WorldGenerator
+class WorldGenerator : IDisposable
 {
-    readonly int seed;
-    readonly DatabaseService db;
-    readonly BlockMetadataProvider blockMetadata;
+    readonly Region region;
+    readonly ChunkGenerator chunkGenerator;
+    readonly LightSystem lightSystem;
+    readonly ChunkMesher chunkMesher;
+    readonly CancellationTokenSource cts = new();
 
-    readonly TerrainGenerator terrainGenerator;
+    // Generated chunks still awaiting 6 neighbors
+    readonly ConcurrentDictionary<Vec3<int>, Chunk> pendingLinking = [];
 
-    public WorldGenerator(Parameters parameters, DatabaseService databaseService, BlockMetadataProvider blockMetadata)
+    // 1. Accepts indices to generate chunks from
+    readonly TransformBlock<Vec3<int>, Chunk> generateBlock;
+    // 2. Link neighbours, resolve chunks pending for linking
+    readonly ActionBlock<Chunk> linkingBlock;
+    // 3. Seed skylight / blocklight
+    readonly TransformBlock<Chunk, Chunk> lightSeedBlock;
+    // 4. Single-threaded light queue BFS
+    readonly ActionBlock<Chunk> floodFillBlock;
+    // 5. Meshing
+    readonly ActionBlock<Chunk> meshBlock;
+
+    public WorldGenerator(
+        Region region,
+        ChunkGenerator chunkGenerator,
+        LightSystem lightSystem,
+        ChunkMesher chunkMesher,
+        int maxWorkers)
     {
-        this.blockMetadata = blockMetadata;
-        db = databaseService;
+        this.region = region;
+        this.chunkGenerator = chunkGenerator;
+        this.lightSystem = lightSystem;
+        this.chunkMesher = chunkMesher;
 
-        seed = parameters.Seed;
+        // 1. Generation
+        generateBlock = new TransformBlock<Vec3<int>, Chunk>(
+        idx =>
+            {
+                var chunk = chunkGenerator.GenerateChunk(idx);
+                region[idx] = chunk;
+                if (chunk.IsEmpty)
+                {
+                    chunk.State = ChunkState.Ready;
+                }
+                else
+                {
+                    chunk.State = ChunkState.Generated;
+                }
+                return chunk;
+            },
+            new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = maxWorkers,
+                CancellationToken = cts.Token
+            });
 
-        terrainGenerator = new(seed, blockMetadata);
+        // 2. Neighbors linking
+        linkingBlock = new ActionBlock<Chunk>(
+            chunk =>
+            {
+                region.LinkChunk(chunk);
+
+                if (chunk.AllNeighborsExist)
+                {
+                    pendingLinking.TryRemove(chunk.Index, out _);
+                    chunk.State = ChunkState.Linked;
+                    lightSeedBlock.Post(chunk);
+                }
+                else
+                {
+                    pendingLinking[chunk.Index] = chunk;
+                }
+
+                foreach (var n in chunk.GetNeighbours())
+                {
+                    if (n.AllNeighborsExist && n.State == ChunkState.Generated) linkingBlock.Post(n);
+                }
+            },
+            new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = maxWorkers,
+                CancellationToken = cts.Token
+            });
+
+        // 3. Seed light
+        lightSeedBlock = new TransformBlock<Chunk, Chunk>(
+            chunk =>
+            {
+                chunk.InitLight();
+
+                if (chunkGenerator.IsSunlight(chunk))
+                    lightSystem.InitializeSkylight(chunk);
+
+                if (!chunk.IsReady)
+                {
+
+                    lightSystem.InitializeLight(chunk);
+
+                    chunk.State = ChunkState.LightSeeded;
+                }
+
+                return chunk;
+            },
+            new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = maxWorkers,
+                CancellationToken = cts.Token
+            });
+
+        // 4. Flood fill
+        // One global single‑threaded queue
+        floodFillBlock = new ActionBlock<Chunk>(
+            chunk =>
+            {
+                var visitedChunks = lightSystem.Run();
+                visitedChunks.Remove(chunk); // avoid sending origin chunk twice into the meshing stage
+                foreach (var visitedChunk in visitedChunks)
+                {
+                    // remesh chunks whose light values have been modified in this run
+                    if (visitedChunk.IsReady && !visitedChunk.IsEmpty)
+                    {
+                        meshBlock.Post(visitedChunk);
+                    }
+                }
+
+                chunk.State = ChunkState.Lit;
+                meshBlock.Post(chunk);
+            },
+            new ExecutionDataflowBlockOptions
+            {
+                // run on a single thread to ensure BFS queue safety
+                MaxDegreeOfParallelism = 1,
+                CancellationToken = cts.Token
+            });
+
+        // 5. Meshing
+        meshBlock = new ActionBlock<Chunk>(
+            chunk =>
+            {
+                if (!chunk.AllNeighborsExist)
+                {
+                    chunk.State = ChunkState.Generated;
+                    pendingLinking[chunk.Index] = chunk;
+                }
+                else
+                {
+                    chunkMesher.AddMesh(chunk);
+                    chunk.State = ChunkState.Ready;
+                }
+            },
+            new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = maxWorkers,
+                CancellationToken = cts.Token
+            });
+
+        // Wire the pipeline
+        generateBlock.LinkTo(linkingBlock, new DataflowLinkOptions { PropagateCompletion = true });
+        lightSeedBlock.LinkTo(floodFillBlock, new DataflowLinkOptions { PropagateCompletion = true });
     }
 
-    public Chunk GenerateChunk(Vec3<int> index)
+    public void Update(Vector3 pos)
     {
-        Chunk chunk = new(index, blockMetadata);
-        Block[,,] buffer = null;
-        int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
-        Vec2<int> cacheIndex = new(index.X, index.Z);
-        Random rnd = new(chunkSeed);
+        Vec3<int> center = Chunk.WorldToChunkCoords(pos);
 
-        var terrainData = terrainGenerator.GenerateTerrainData(chunk.Position, cacheIndex);
-        int maxElevation = terrainData.MaxElevation;
-        var terrainLevel = terrainData.TerrainLevel;
-        var biomes = terrainData.BiomesData;
+        var indexesForGeneration = region.CollectIndexesForGeneration(center);
 
-        if (maxElevation < chunk.Index.Y * Chunk.Size)
+        foreach (var index in indexesForGeneration)
         {
-            buffer = db.ApplyDelta(chunk, buffer);
-            chunk.Init(buffer);
-            return chunk;
+            generateBlock.Post(index);
         }
 
-        buffer = Chunk.GetBlockArray();
-
-        for (int x = 0; x < Chunk.Size; x++)
+        var indexesForRemoval = region.CollectIndexesForRemoval(center);
+        foreach (var index in indexesForRemoval)
         {
-            for (int z = 0; z < Chunk.Size; z++)
+            var chunk = region[index];
+            if (!chunk.IsReady) continue;
+            pendingLinking.TryRemove(index, out _);
+            chunkMesher.Remove(index);
+            region.RemoveChunk(index);
+        }
+    }
+
+    // Used to generate chunks in bulk off-screen
+    public void BulkGenerate(Vector3 pos)
+    {
+        Vec3<int> center = Chunk.WorldToChunkCoords(pos);
+
+        ConcurrentBag<Chunk> generatedChunks = [];
+        var indexesForGeneration = region.CollectIndexesForGeneration(center);
+
+        Parallel.ForEach(indexesForGeneration, index =>
+        {
+            Chunk chunk = chunkGenerator.GenerateChunk(index);
+            region[index] = chunk;
+
+            generatedChunks.Add(chunk);
+            if (chunk.IsEmpty)
             {
-                if (chunk.Position.Y > terrainLevel[x, z]) continue;
+                chunk.State = ChunkState.Ready;
+            }
+            else
+            {
+                chunk.State = ChunkState.Generated;
+            }
+        });
 
-                float diff = terrainLevel[x, z] - chunk.Position.Y;
-                int yMax = Math.Clamp((int)diff, 0, Chunk.Size);
+        foreach (var chunk in generatedChunks)
+        {
+            region.LinkChunk(chunk);
+        }
 
-                for (int y = 0; y < yMax; y++)
-                {
-                    ushort texture = terrainGenerator.Fill(terrainLevel[x, z], (int)chunk.Position.Y + y, biomes[x, z], rnd);
-                    buffer[x, y, z] = new(texture);
-                }
+        List<Chunk> readyChunks = [];
+        List<Chunk> sunlightChunks = [];
+        foreach (var chunk in generatedChunks)
+        {
+            if (chunkGenerator.IsSunlight(chunk))
+            {
+                sunlightChunks.Add(chunk);
+            }
+
+            if (chunk.IsReady) continue;
+
+            if (!chunk.AllNeighborsExist)
+            {
+                pendingLinking.TryAdd(chunk.Index, chunk);
+                continue;
+            }
+            else
+            {
+                chunk.InitLight();
+                readyChunks.Add(chunk);
             }
         }
 
-        db.ApplyDelta(chunk, buffer);
+        Parallel.ForEach(sunlightChunks, chunk =>
+        {
+            lightSystem.InitializeSkylight(chunk);
+        });
 
-        chunk.Init(buffer);
+        Parallel.ForEach(readyChunks, chunk =>
+        {
+            lightSystem.InitializeLight(chunk);
+        });
 
-        return chunk;
+        lightSystem.Run();
+
+        Parallel.ForEach(readyChunks, chunk =>
+        {
+            chunkMesher.AddMesh(chunk);
+            chunk.State = ChunkState.Ready;
+        });
     }
 
-    public List<Vec3<int>> GetSkyLevel()
+    // Disposal
+    bool disposed;
+
+    public void Dispose()
     {
-        return terrainGenerator.GetSkyLevel();
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 
-    public void ClearCache()
+    protected virtual void Dispose(bool disposing)
     {
-        terrainGenerator.ClearCache();
+        if (disposed) return;
+        disposed = true;
+
+        if (disposing)
+        {
+            generateBlock.Complete();
+            meshBlock.Complete();
+
+            cts.Cancel();
+            cts.Dispose();
+        }
     }
 }

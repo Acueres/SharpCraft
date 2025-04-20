@@ -90,7 +90,7 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         {
             chunk.Init();
             lightSystem.InitializeLight(chunk);
-            lightSystem.Execute();
+            lightSystem.Run();
         }
 
         chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z] = block;

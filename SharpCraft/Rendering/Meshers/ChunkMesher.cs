@@ -105,7 +105,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
 
     public void AddMesh(Chunk chunk)
     {
-        var (vertices, transparentVertices) = CalculateMesh(chunk);
+        var (vertices, transparentVertices) = BuildMesh(chunk);
 
         if (!verticesCache.TryAdd(chunk.Index, vertices))
         {
@@ -118,20 +118,13 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
         }
     }
 
-    public void UpdateMesh(Chunk chunk)
-    {
-        var (vertices, transparentVertices) = CalculateMesh(chunk);
-        verticesCache[chunk.Index] = vertices;
-        transparentVerticesCache[chunk.Index] = transparentVertices;
-    }
-
     public void Remove(Vec3<int> index)
     {
         verticesCache.TryRemove(index, out _);
         transparentVerticesCache.TryRemove(index, out _);
     }
 
-    public (VertexPositionTextureLight[], VertexPositionTextureLight[]) CalculateMesh(Chunk chunk)
+    public (VertexPositionTextureLight[], VertexPositionTextureLight[]) BuildMesh(Chunk chunk)
     {
         List<VertexPositionTextureLight> vertices = [];
         List<VertexPositionTextureLight> transparentVertices = [];
@@ -168,8 +161,6 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
                 }
             }
         }
-
-        chunk.RecalculateMesh = false;
 
         return ([.. vertices], [.. transparentVertices]);
     }
