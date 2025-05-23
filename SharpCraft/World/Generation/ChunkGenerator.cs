@@ -39,9 +39,11 @@ class ChunkGenerator
         Random rnd = new(chunkSeed);
 
         TerrainData terrainData;
-        if (terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainValue))
+        if (terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainValue)
+            && biomesCache.TryGetValue(cacheIndex, out var biomesValue)
+            && elevationCache.TryGetValue(cacheIndex, out var elevationValue))
         {
-            terrainData = new TerrainData(terrainValue, biomesCache[cacheIndex], elevationCache[cacheIndex]);
+            terrainData = new TerrainData(terrainValue, biomesValue, elevationValue);
         }
         else
         {
@@ -90,13 +92,6 @@ class ChunkGenerator
         return chunk;
     }
 
-    public bool IsSky(Chunk chunk)
-    {
-        int maxElevation = elevationCache[new Vec2<int>(chunk.Index.X, chunk.Index.Z)];
-        int y = Chunk.WorldToChunkIndex(maxElevation) + 1;
-        return chunk.Index.Y > y;
-    }
-
     public bool IsSunlight(Chunk chunk)
     {
         int maxElevation = elevationCache[new Vec2<int>(chunk.Index.X, chunk.Index.Z)];
@@ -104,11 +99,12 @@ class ChunkGenerator
         return chunk.Index.Y == y;
     }
 
-    public void ClearCache()
+    public void RemoveCache(Vec3<int> index)
     {
-        terrainLevelCache.Clear();
-        biomesCache.Clear();
-        elevationCache.Clear();
+        Vec2<int> index2D = new(index.X, index.Z);
+        terrainLevelCache.TryRemove(index2D, out _);
+        biomesCache.TryRemove(index2D, out _);
+        elevationCache.TryRemove(index2D, out _);
     }
 
     void AdjustMaximumElevation(Chunk chunk, Vec2<int> cacheIndex)

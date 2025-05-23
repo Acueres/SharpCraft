@@ -124,12 +124,11 @@ namespace SharpCraft
                             world = new WorldSystem(region, gameMenu, db, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
                             renderer = new Renderer(region, graphics.GraphicsDevice, assetServer, blockMetadata, screenshotTaker, chunkMesher, blockOutlineMesher);
 
-                            world.SetPlayer(player, currentSave.Parameters);
+                            world.Init(player, currentSave.Parameters);
 
                             if (!File.Exists($@"Saves\{currentSave.Parameters.SaveName}\save_icon.png"))
                             {
                                 player.Update(gameTime);
-                                world.Init();
                                 renderer.Render(player.Camera, time);
                                 screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
                             }

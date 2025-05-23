@@ -42,15 +42,15 @@ class WorldSystem : IDisposable
         worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
     }
 
-    public void SetPlayer(Player player, Parameters parameters)
+    public void Init(Player player, Parameters parameters)
     {
         this.player = player;
         player.Flying = true;
 
+        worldGenerator.BulkGenerate(player.Position);
+
         Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
         player.Index = currentPlayerIndex;
-
-        worldGenerator.BulkGenerate(player.Position);
 
         if (parameters.Position == Vector3.Zero)
         {
@@ -60,11 +60,6 @@ class WorldSystem : IDisposable
         {
             player.Position = parameters.Position;
         }
-    }
-
-    public void Init()
-    {
-        worldGenerator.BulkGenerate(player.Position);
     }
 
     public void Update(GameTime gameTime, bool exitedMenu)

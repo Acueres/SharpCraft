@@ -14,7 +14,7 @@ class Region
 
     readonly ConcurrentDictionary<Vec3<int>, Chunk> chunks = [];
     readonly ConcurrentBag<Vec3<sbyte>> proximityIndexes = [];
-    readonly object linkLock = new();
+    readonly object linkingLock = new();
 
     public Region(int apothem)
     {
@@ -25,7 +25,13 @@ class Region
 
     public Chunk this[Vec3<int> index]
     {
-        get => chunks[index];
+        get
+        {
+            if (chunks.TryGetValue(index, out var chunk))
+                return chunk;
+
+            return null;
+        }
         set => chunks.TryAdd(index, value);
     }
 
@@ -37,13 +43,23 @@ class Region
         }
     }
 
+    public bool ContainsIndex(int x, int z)
+    {
+        foreach (var index in chunks.Keys)
+        {
+            if (index.X == x && index.Z == z) return true;
+        }
+
+        return false;
+    }
+
     public List<Vec3<int>> CollectIndexesForGeneration(Vec3<int> center)
     {
         List<Vec3<int>> ungenerated = [];
         foreach (var proximityIndex in proximityIndexes)
         {
             Vec3<int> index = center + proximityIndex.Into<int>();
-            if (!chunks.ContainsKey(index))
+            if (!chunks.TryGetValue(index, out var chunk) || chunk.State == ChunkState.Unloaded)
             {
                 ungenerated.Add(index);
             }
@@ -54,52 +70,50 @@ class Region
 
     public List<Vec3<int>> CollectIndexesForRemoval(Vec3<int> center)
     {
-        int activeRadius = apothem - 1;
-
         IEnumerable<Vec3<int>> activeChunks =
             from i in proximityIndexes
-            where Math.Abs(i.X) <= activeRadius &&
-                  Math.Abs(i.Y) <= activeRadius &&
-                  Math.Abs(i.Z) <= activeRadius
             select i.Into<int>() + center;
 
-            var toRemove = chunks.Keys.Except(activeChunks).ToList();
-            return toRemove;
+        var toRemove = chunks.Keys.Except(activeChunks).ToList();
+        return toRemove;
     }
 
     public void RemoveChunk(Vec3<int> index)
     {
-        chunks.Remove(index, out var chunk);
+        if (!chunks.Remove(index, out var chunk)) return;
 
-        if (chunk.XNeg != null)
+        lock (linkingLock)
         {
-            chunk.XNeg.XPos = null;
-            chunk.XNeg = null;
-        }
-        if (chunk.XPos != null)
-        {
-            chunk.XPos.XNeg = null;
-            chunk.XPos = null;
-        }
-        if (chunk.YNeg != null)
-        {
-            chunk.YNeg.YPos = null;
-            chunk.YNeg = null;
-        }
-        if (chunk.YPos != null)
-        {
-            chunk.YPos.YNeg = null;
-            chunk.YPos = null;
-        }
-        if (chunk.ZNeg != null)
-        {
-            chunk.ZNeg.ZPos = null;
-            chunk.ZNeg = null;
-        }
-        if (chunk.ZPos != null)
-        {
-            chunk.ZPos.ZNeg = null;
-            chunk.ZPos = null;
+            if (chunk.XNeg != null)
+            {
+                chunk.XNeg.XPos = null;
+                chunk.XNeg = null;
+            }
+            if (chunk.XPos != null)
+            {
+                chunk.XPos.XNeg = null;
+                chunk.XPos = null;
+            }
+            if (chunk.YNeg != null)
+            {
+                chunk.YNeg.YPos = null;
+                chunk.YNeg = null;
+            }
+            if (chunk.YPos != null)
+            {
+                chunk.YPos.YNeg = null;
+                chunk.YPos = null;
+            }
+            if (chunk.ZNeg != null)
+            {
+                chunk.ZNeg.ZPos = null;
+                chunk.ZNeg = null;
+            }
+            if (chunk.ZPos != null)
+            {
+                chunk.ZPos.ZNeg = null;
+                chunk.ZPos = null;
+            }
         }
 
         chunk.Dispose();
@@ -107,7 +121,7 @@ class Region
 
     public void LinkChunk(Chunk chunk)
     {
-        lock (linkLock)
+        lock (linkingLock)
         {
             // XNeg neighbor
             if (chunks.TryGetValue(chunk.Index + new Vec3<int>(-1, 0, 0), out var xNegChunk))

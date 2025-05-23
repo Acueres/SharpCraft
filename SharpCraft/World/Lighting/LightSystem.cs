@@ -26,6 +26,8 @@ public class LightSystem
             emitterChunk = chunk;
         }
 
+        emitterChunk.InitLight();
+
         for (int x = 0; x < Chunk.Size; x++)
         {
             for (int z = 0; z < Chunk.Size; z++)
@@ -40,6 +42,7 @@ public class LightSystem
 
     public void InitializeLight(Chunk chunk)
     {
+        chunk.InitLight();
         if (chunk.YPos is not null)
         {
             for (int x = 0; x < Chunk.Size; x++)

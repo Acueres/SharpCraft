@@ -14,13 +14,13 @@ namespace SharpCraft.World.Chunks;
 
 public enum ChunkState
 {
-    Allocated,     // Chunk created
+    Initialized,    // Chunk created
     Generated,     // Blocks complete
     Linked,        // Linking complete
     LightSeeded,   // Skylight & block light sources queued
     Lit,           // BFS finished
     Ready,         // Uploaded to GPU / visible
-    Unloaded       // Removed from region & caches
+    Unloaded       // Scheduled for removal
 }
 
 public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisposable

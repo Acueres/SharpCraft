@@ -19,6 +19,7 @@ class WorldGenerator : IDisposable
     readonly ChunkGenerator chunkGenerator;
     readonly LightSystem lightSystem;
     readonly ChunkMesher chunkMesher;
+
     readonly CancellationTokenSource cts = new();
 
     // Generated chunks still awaiting 6 neighbors
@@ -34,6 +35,8 @@ class WorldGenerator : IDisposable
     readonly ActionBlock<Chunk> floodFillBlock;
     // 5. Meshing
     readonly ActionBlock<Chunk> meshBlock;
+    // Chunk deletion
+    readonly ActionBlock<Chunk> deletionBlock;
 
     public WorldGenerator(
         Region region,
@@ -51,17 +54,18 @@ class WorldGenerator : IDisposable
         generateBlock = new TransformBlock<Vec3<int>, Chunk>(
         idx =>
             {
-                var chunk = chunkGenerator.GenerateChunk(idx);
-                region[idx] = chunk;
-                if (chunk.IsEmpty)
+                try
                 {
-                    chunk.State = ChunkState.Ready;
-                }
-                else
-                {
+                    var chunk = chunkGenerator.GenerateChunk(idx);
+                    region[idx] = chunk;
                     chunk.State = ChunkState.Generated;
+                    return chunk;
                 }
-                return chunk;
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    throw;
+                }
             },
             new ExecutionDataflowBlockOptions
             {
@@ -73,22 +77,30 @@ class WorldGenerator : IDisposable
         linkingBlock = new ActionBlock<Chunk>(
             chunk =>
             {
-                region.LinkChunk(chunk);
+                try
+                {
+                    region.LinkChunk(chunk);
 
-                if (chunk.AllNeighborsExist)
-                {
-                    pendingLinking.TryRemove(chunk.Index, out _);
-                    chunk.State = ChunkState.Linked;
-                    lightSeedBlock.Post(chunk);
-                }
-                else
-                {
-                    pendingLinking[chunk.Index] = chunk;
-                }
+                    if (chunk.AllNeighborsExist)
+                    {
+                        pendingLinking.TryRemove(chunk.Index, out _);
+                        chunk.State = ChunkState.Linked;
+                        lightSeedBlock.Post(chunk);
+                    }
+                    else
+                    {
+                        pendingLinking[chunk.Index] = chunk;
+                    }
 
-                foreach (var n in chunk.GetNeighbours())
+                    foreach (var n in chunk.GetNeighbours())
+                    {
+                        if (n.AllNeighborsExist && n.State == ChunkState.Generated) linkingBlock.Post(n);
+                    }
+                }
+                catch (Exception ex)
                 {
-                    if (n.AllNeighborsExist && n.State == ChunkState.Generated) linkingBlock.Post(n);
+                    Console.WriteLine(ex);
+                    throw;
                 }
             },
             new ExecutionDataflowBlockOptions
@@ -101,20 +113,25 @@ class WorldGenerator : IDisposable
         lightSeedBlock = new TransformBlock<Chunk, Chunk>(
             chunk =>
             {
-                chunk.InitLight();
-
-                if (chunkGenerator.IsSunlight(chunk))
-                    lightSystem.InitializeSkylight(chunk);
-
-                if (!chunk.IsReady)
+                try
                 {
+                    if (chunkGenerator.IsSunlight(chunk))
+                    {
+                        lightSystem.InitializeSkylight(chunk);
+                    }
+                    else if (!chunk.IsEmpty)
+                    {
+                        lightSystem.InitializeLight(chunk);
+                        chunk.State = ChunkState.LightSeeded;
+                    }
 
-                    lightSystem.InitializeLight(chunk);
-
-                    chunk.State = ChunkState.LightSeeded;
+                    return chunk;
                 }
-
-                return chunk;
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    throw;
+                }
             },
             new ExecutionDataflowBlockOptions
             {
@@ -127,19 +144,27 @@ class WorldGenerator : IDisposable
         floodFillBlock = new ActionBlock<Chunk>(
             chunk =>
             {
-                var visitedChunks = lightSystem.Run();
-                visitedChunks.Remove(chunk); // avoid sending origin chunk twice into the meshing stage
-                foreach (var visitedChunk in visitedChunks)
+                try
                 {
-                    // remesh chunks whose light values have been modified in this run
-                    if (visitedChunk.IsReady && !visitedChunk.IsEmpty)
+                    var visitedChunks = lightSystem.Run();
+                    visitedChunks.Remove(chunk); // avoid sending origin chunk twice into the meshing stage
+                    foreach (var visitedChunk in visitedChunks)
                     {
-                        meshBlock.Post(visitedChunk);
+                        // remesh chunks whose light values have been modified in this run
+                        if (!visitedChunk.IsEmpty)
+                        {
+                            meshBlock.Post(visitedChunk);
+                        }
                     }
-                }
 
-                chunk.State = ChunkState.Lit;
-                meshBlock.Post(chunk);
+                    chunk.State = ChunkState.Lit;
+                    meshBlock.Post(chunk);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    throw;
+                }
             },
             new ExecutionDataflowBlockOptions
             {
@@ -152,16 +177,11 @@ class WorldGenerator : IDisposable
         meshBlock = new ActionBlock<Chunk>(
             chunk =>
             {
-                if (!chunk.AllNeighborsExist)
-                {
-                    chunk.State = ChunkState.Generated;
-                    pendingLinking[chunk.Index] = chunk;
-                }
-                else
+                if (!chunk.IsEmpty)
                 {
                     chunkMesher.AddMesh(chunk);
-                    chunk.State = ChunkState.Ready;
                 }
+                chunk.State = ChunkState.Ready;
             },
             new ExecutionDataflowBlockOptions
             {
@@ -172,6 +192,19 @@ class WorldGenerator : IDisposable
         // Wire the pipeline
         generateBlock.LinkTo(linkingBlock, new DataflowLinkOptions { PropagateCompletion = true });
         lightSeedBlock.LinkTo(floodFillBlock, new DataflowLinkOptions { PropagateCompletion = true });
+
+        // Set up the chunk deleting system
+        deletionBlock = new ActionBlock<Chunk>(
+        chunk =>
+        {
+            chunkMesher.Remove(chunk.Index);
+            region.RemoveChunk(chunk.Index);
+
+            if (!region.ContainsIndex(chunk.Index.X, chunk.Index.Z))
+            {
+                chunkGenerator.RemoveCache(chunk.Index);
+            }
+        });
     }
 
     public void Update(Vector3 pos)
@@ -179,7 +212,6 @@ class WorldGenerator : IDisposable
         Vec3<int> center = Chunk.WorldToChunkCoords(pos);
 
         var indexesForGeneration = region.CollectIndexesForGeneration(center);
-
         foreach (var index in indexesForGeneration)
         {
             generateBlock.Post(index);
@@ -188,11 +220,13 @@ class WorldGenerator : IDisposable
         var indexesForRemoval = region.CollectIndexesForRemoval(center);
         foreach (var index in indexesForRemoval)
         {
-            var chunk = region[index];
-            if (!chunk.IsReady) continue;
             pendingLinking.TryRemove(index, out _);
-            chunkMesher.Remove(index);
-            region.RemoveChunk(index);
+            var chunk = region[index];
+            if (chunk != null && chunk.IsReady)
+            {
+                chunk.State = ChunkState.Unloaded;
+                deletionBlock.Post(chunk);
+            }
         }
     }
 
@@ -243,7 +277,6 @@ class WorldGenerator : IDisposable
             }
             else
             {
-                chunk.InitLight();
                 readyChunks.Add(chunk);
             }
         }
@@ -285,6 +318,7 @@ class WorldGenerator : IDisposable
         {
             generateBlock.Complete();
             meshBlock.Complete();
+            deletionBlock.Complete();
 
             cts.Cancel();
             cts.Dispose();
