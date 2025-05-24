@@ -28,11 +28,13 @@ class WorldGenerator : IDisposable
     // 1. Accepts indices to generate chunks from
     readonly TransformBlock<Vec3<int>, Chunk> generateBlock;
     // 2. Link neighbours, resolve chunks pending for linking
-    readonly ActionBlock<Chunk> linkingBlock;
+    readonly TransformManyBlock<Chunk, Chunk> linkingBlock;
+    // Handle re-posting to the linking phase
+    readonly BufferBlock<Chunk> linkingInputBuffer;
     // 3. Seed skylight / blocklight
     readonly TransformBlock<Chunk, Chunk> lightSeedBlock;
     // 4. Single-threaded light queue BFS
-    readonly ActionBlock<Chunk> floodFillBlock;
+    readonly TransformManyBlock<Chunk, Chunk> floodFillBlock;
     // 5. Meshing
     readonly ActionBlock<Chunk> meshBlock;
     // Chunk deletion
@@ -74,18 +76,22 @@ class WorldGenerator : IDisposable
             });
 
         // 2. Neighbors linking
-        linkingBlock = new ActionBlock<Chunk>(
+        linkingInputBuffer = new BufferBlock<Chunk>(
+            new DataflowBlockOptions { CancellationToken = cts.Token });
+
+        linkingBlock = new TransformManyBlock<Chunk, Chunk>(
             chunk =>
             {
                 try
                 {
+                    List<Chunk> ready = new(1);
                     region.LinkChunk(chunk);
 
                     if (chunk.AllNeighborsExist)
                     {
                         pendingLinking.TryRemove(chunk.Index, out _);
                         chunk.State = ChunkState.Linked;
-                        lightSeedBlock.Post(chunk);
+                        ready.Add(chunk);
                     }
                     else
                     {
@@ -94,8 +100,13 @@ class WorldGenerator : IDisposable
 
                     foreach (var n in chunk.GetNeighbours())
                     {
-                        if (n.AllNeighborsExist && n.State == ChunkState.Generated) linkingBlock.Post(n);
+                        if (n.AllNeighborsExist && n.State == ChunkState.Generated)
+                        {
+                            linkingInputBuffer.Post(n);
+                        }
                     }
+
+                    return ready;
                 }
                 catch (Exception ex)
                 {
@@ -141,24 +152,28 @@ class WorldGenerator : IDisposable
 
         // 4. Flood fill
         // One global single‑threaded queue
-        floodFillBlock = new ActionBlock<Chunk>(
+        floodFillBlock = new TransformManyBlock<Chunk, Chunk>(
             chunk =>
             {
                 try
                 {
+                    List<Chunk> ready = [];
+
                     var visitedChunks = lightSystem.Run();
-                    visitedChunks.Remove(chunk); // avoid sending origin chunk twice into the meshing stage
+                    chunk.State = ChunkState.Lit;
+
                     foreach (var visitedChunk in visitedChunks)
                     {
-                        // remesh chunks whose light values have been modified in this run
+                        // Schedule for meshing all chunks that were processed by the BFS
                         if (!visitedChunk.IsEmpty)
                         {
-                            meshBlock.Post(visitedChunk);
+                            ready.Add(visitedChunk);
                         }
                     }
 
                     chunk.State = ChunkState.Lit;
-                    meshBlock.Post(chunk);
+
+                    return ready;
                 }
                 catch (Exception ex)
                 {
@@ -190,8 +205,13 @@ class WorldGenerator : IDisposable
             });
 
         // Wire the pipeline
-        generateBlock.LinkTo(linkingBlock, new DataflowLinkOptions { PropagateCompletion = true });
-        lightSeedBlock.LinkTo(floodFillBlock, new DataflowLinkOptions { PropagateCompletion = true });
+        var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
+
+        generateBlock.LinkTo(linkingInputBuffer, linkOptions);
+        linkingInputBuffer.LinkTo(linkingBlock, linkOptions);
+        linkingBlock.LinkTo(lightSeedBlock, linkOptions);
+        lightSeedBlock.LinkTo(floodFillBlock, linkOptions);
+        floodFillBlock.LinkTo(meshBlock, linkOptions);
 
         // Set up the chunk deleting system
         deletionBlock = new ActionBlock<Chunk>(
