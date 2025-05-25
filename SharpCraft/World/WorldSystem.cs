@@ -99,7 +99,7 @@ class WorldSystem : IDisposable
         const float maxDistance = 4.5f;
 
         Vector3 blockPosition = player.Camera.Position;
-        Vec3<int> chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+        Vec3<int> chunkIndex;// = Chunk.WorldToChunkCoords(blockPosition);
         Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(blockPosition);
         Block block = Block.Empty;
         Chunk chunk = null;

@@ -103,7 +103,7 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
         return transparentVerticesCache[index];
     }
 
-    public void AddMesh(Chunk chunk)
+    public void Build(Chunk chunk)
     {
         var (vertices, transparentVertices) = BuildMesh(chunk);
 

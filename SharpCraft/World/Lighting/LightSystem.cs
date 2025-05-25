@@ -2,7 +2,7 @@
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
-
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 
@@ -43,6 +43,7 @@ public class LightSystem
     public void InitializeLight(Chunk chunk)
     {
         chunk.InitLight();
+
         if (chunk.YPos is not null)
         {
             for (int x = 0; x < Chunk.Size; x++)
@@ -77,9 +78,10 @@ public class LightSystem
         {
             lightQueue.TryDequeue(out LightNode node);
 
-            if (!node.Chunk.AllNeighborsExist) continue;
-
             visitedChunks.Add(node.Chunk);
+
+            if (node.IsEmpty) continue;
+
             Propagate(node.Chunk, node.X, node.Y, node.Z);
         }
 
@@ -301,7 +303,7 @@ public class LightSystem
         }
     }
 
-    void Propagate(Chunk chunk, byte x, byte y, byte z)
+    void Propagate(Chunk chunk, sbyte x, sbyte y, sbyte z)
     {
         LightValue lightValue = chunk.GetLight(x, y, z);
 
@@ -325,11 +327,18 @@ public class LightSystem
 
         if (y == Chunk.Last)
         {
-            if (IsBlockTransparent(chunk.YPos, x, 0, z) &&
-                chunk.YPos.GetLight(x, 0, z).Compare(nextLightValue, out value))
+            if (chunk.YPos != null)
             {
-                chunk.YPos.SetLight(x, 0, z, value);
-                lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
+                if (IsBlockTransparent(chunk.YPos, x, 0, z) &&
+                chunk.YPos.GetLight(x, 0, z).Compare(nextLightValue, out value))
+                {
+                    chunk.YPos.SetLight(x, 0, z, value);
+                    lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
+                }
+                else
+                {
+                    lightQueue.Enqueue(new LightNode(chunk.YPos));
+                }
             }
         }
         else if (IsBlockTransparent(chunk, x, y + 1, z) &&
@@ -341,11 +350,18 @@ public class LightSystem
 
         if (y == 0)
         {
-            if (IsBlockTransparent(chunk.YNeg, x, Chunk.Last, z) &&
-                chunk.YNeg.GetLight(x, Chunk.Last, z).Compare(lightValue.SubtractBlockValue(1), out value))
+            if (chunk.YNeg != null)
             {
-                chunk.YNeg.SetLight(x, Chunk.Last, z, value);
-                lightQueue.Enqueue(new LightNode(chunk.YNeg, x, Chunk.Last, z));
+                if (IsBlockTransparent(chunk.YNeg, x, Chunk.Last, z) &&
+                    chunk.YNeg.GetLight(x, Chunk.Last, z).Compare(lightValue.SubtractBlockValue(1), out value))
+                {
+                    chunk.YNeg.SetLight(x, Chunk.Last, z, value);
+                    lightQueue.Enqueue(new LightNode(chunk.YNeg, x, Chunk.Last, z));
+                }
+                else
+                {
+                    lightQueue.Enqueue(new LightNode(chunk.YNeg));
+                }
             }
         }
         else if (IsBlockTransparent(chunk, x, y - 1, z) &&
@@ -358,11 +374,18 @@ public class LightSystem
 
         if (x == Chunk.Last)
         {
-            if (IsBlockTransparent(chunk.XPos, 0, y, z) &&
-                chunk.XPos.GetLight(0, y, z).Compare(nextLightValue, out value))
+            if (chunk.XPos != null)
             {
-                chunk.XPos.SetLight(0, y, z, value);
-                lightQueue.Enqueue(new LightNode(chunk.XPos, 0, y, z));
+                if (IsBlockTransparent(chunk.XPos, 0, y, z) &&
+                    chunk.XPos.GetLight(0, y, z).Compare(nextLightValue, out value))
+                {
+                    chunk.XPos.SetLight(0, y, z, value);
+                    lightQueue.Enqueue(new LightNode(chunk.XPos, 0, y, z));
+                }
+                else
+                {
+                    lightQueue.Enqueue(new LightNode(chunk.XPos));
+                }
             }
         }
         else if (IsBlockTransparent(chunk, x + 1, y, z) &&
@@ -375,11 +398,18 @@ public class LightSystem
 
         if (x == 0)
         {
-            if (IsBlockTransparent(chunk.XNeg, Chunk.Last, y, z) &&
-                chunk.XNeg.GetLight(Chunk.Last, y, z).Compare(nextLightValue, out value))
+            if (chunk.XNeg != null)
             {
-                chunk.XNeg.SetLight(Chunk.Last, y, z, value);
-                lightQueue.Enqueue(new LightNode(chunk.XNeg, Chunk.Last, y, z));
+                if (IsBlockTransparent(chunk.XNeg, Chunk.Last, y, z) &&
+                    chunk.XNeg.GetLight(Chunk.Last, y, z).Compare(nextLightValue, out value))
+                {
+                    chunk.XNeg.SetLight(Chunk.Last, y, z, value);
+                    lightQueue.Enqueue(new LightNode(chunk.XNeg, Chunk.Last, y, z));
+                }
+                else
+                {
+                    lightQueue.Enqueue(new LightNode(chunk.XNeg));
+                }
             }
         }
         else if (IsBlockTransparent(chunk, x - 1, y, z) &&
@@ -392,11 +422,18 @@ public class LightSystem
 
         if (z == Chunk.Last)
         {
-            if (IsBlockTransparent(chunk.ZPos, x, y, 0) &&
-                chunk.ZPos.GetLight(x, y, 0).Compare(nextLightValue, out value))
+            if (chunk.ZPos != null)
             {
-                chunk.ZPos.SetLight(x, y, 0, value);
-                lightQueue.Enqueue(new LightNode(chunk.ZPos, x, y, 0));
+                if (IsBlockTransparent(chunk.ZPos, x, y, 0) &&
+                    chunk.ZPos.GetLight(x, y, 0).Compare(nextLightValue, out value))
+                {
+                    chunk.ZPos.SetLight(x, y, 0, value);
+                    lightQueue.Enqueue(new LightNode(chunk.ZPos, x, y, 0));
+                }
+                else
+                {
+                    lightQueue.Enqueue(new LightNode(chunk.ZPos));
+                }
             }
         }
         else if (IsBlockTransparent(chunk, x, y, z + 1) &&
@@ -409,11 +446,18 @@ public class LightSystem
 
         if (z == 0)
         {
-            if (IsBlockTransparent(chunk.ZNeg, x, y, Chunk.Last) &&
-                chunk.ZNeg.GetLight(x, y, Chunk.Last).Compare(nextLightValue, out value))
+            if (chunk.ZNeg != null)
             {
-                chunk.ZNeg.SetLight(x, y, Chunk.Last, value);
-                lightQueue.Enqueue(new LightNode(chunk.ZNeg, x, y, Chunk.Last));
+                if (IsBlockTransparent(chunk.ZNeg, x, y, Chunk.Last) &&
+                    chunk.ZNeg.GetLight(x, y, Chunk.Last).Compare(nextLightValue, out value))
+                {
+                    chunk.ZNeg.SetLight(x, y, Chunk.Last, value);
+                    lightQueue.Enqueue(new LightNode(chunk.ZNeg, x, y, Chunk.Last));
+                }
+                else
+                {
+                    lightQueue.Enqueue(new LightNode(chunk.ZNeg));
+                }
             }
         }
         else if (IsBlockTransparent(chunk, x, y, z - 1) &&

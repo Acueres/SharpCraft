@@ -22,21 +22,25 @@ class WorldGenerator : IDisposable
 
     readonly CancellationTokenSource cts = new();
 
-    // Generated chunks still awaiting 6 neighbors
-    readonly ConcurrentDictionary<Vec3<int>, Chunk> pendingLinking = [];
-
     // 1. Accepts indices to generate chunks from
     readonly TransformBlock<Vec3<int>, Chunk> generateBlock;
+
     // 2. Link neighbours, resolve chunks pending for linking
     readonly TransformManyBlock<Chunk, Chunk> linkingBlock;
     // Handle re-posting to the linking phase
     readonly BufferBlock<Chunk> linkingInputBuffer;
+
     // 3. Seed skylight / blocklight
     readonly TransformBlock<Chunk, Chunk> lightSeedBlock;
+
     // 4. Single-threaded light queue BFS
     readonly TransformManyBlock<Chunk, Chunk> floodFillBlock;
+
     // 5. Meshing
     readonly ActionBlock<Chunk> meshBlock;
+    // Handle re-posting to the meshing phase
+    readonly BufferBlock<Chunk> meshingInputBuffer;
+
     // Chunk deletion
     readonly ActionBlock<Chunk> deletionBlock;
 
@@ -77,7 +81,11 @@ class WorldGenerator : IDisposable
 
         // 2. Neighbors linking
         linkingInputBuffer = new BufferBlock<Chunk>(
-            new DataflowBlockOptions { CancellationToken = cts.Token });
+            new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = maxWorkers,
+                CancellationToken = cts.Token
+            });
 
         linkingBlock = new TransformManyBlock<Chunk, Chunk>(
             chunk =>
@@ -89,18 +97,13 @@ class WorldGenerator : IDisposable
 
                     if (chunk.AllNeighborsExist)
                     {
-                        pendingLinking.TryRemove(chunk.Index, out _);
                         chunk.State = ChunkState.Linked;
                         ready.Add(chunk);
-                    }
-                    else
-                    {
-                        pendingLinking[chunk.Index] = chunk;
                     }
 
                     foreach (var n in chunk.GetNeighbours())
                     {
-                        if (n.AllNeighborsExist && n.State == ChunkState.Generated)
+                        if (n.State == ChunkState.Generated && n.AllNeighborsExist)
                         {
                             linkingInputBuffer.Post(n);
                         }
@@ -160,18 +163,25 @@ class WorldGenerator : IDisposable
                     List<Chunk> ready = [];
 
                     var visitedChunks = lightSystem.Run();
+                    visitedChunks.Remove(chunk);
+
                     chunk.State = ChunkState.Lit;
+                    ready.Add(chunk);
 
                     foreach (var visitedChunk in visitedChunks)
                     {
-                        // Schedule for meshing all chunks that were processed by the BFS
-                        if (!visitedChunk.IsEmpty)
+                        // For each 'visitedChunk' (whose lighting was just re-calculated):
+                        // If it's a meshable candidate (not empty, all neighbors exist), queue it for the mesher if either:
+                        //  1. It is ready (was previously meshed): its state is updated to 'Lit' to trigger a mesh rebuild reflecting the new lighting.
+                        //  2. Its current state is 'Lit' (already pending meshing or re-lit): it's added to the queue.
+                        // This ensures chunks with lighting changes are (re)processed by the meshing stage.
+                        if (!visitedChunk.IsEmpty && visitedChunk.AllNeighborsExist
+                        && (chunk.IsReady || chunk.State == ChunkState.Lit))
                         {
+                            visitedChunk.State = ChunkState.Lit;
                             ready.Add(visitedChunk);
                         }
                     }
-
-                    chunk.State = ChunkState.Lit;
 
                     return ready;
                 }
@@ -183,20 +193,32 @@ class WorldGenerator : IDisposable
             },
             new ExecutionDataflowBlockOptions
             {
-                // run on a single thread to ensure BFS queue safety
+                // Run on a single thread to ensure BFS queue safety
                 MaxDegreeOfParallelism = 1,
                 CancellationToken = cts.Token
             });
 
         // 5. Meshing
+        meshingInputBuffer = new BufferBlock<Chunk>(
+            new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = maxWorkers,
+                CancellationToken = cts.Token
+            });
+
         meshBlock = new ActionBlock<Chunk>(
             chunk =>
             {
-                if (!chunk.IsEmpty)
+                try
                 {
-                    chunkMesher.AddMesh(chunk);
+                    chunkMesher.Build(chunk);
+                    chunk.State = ChunkState.Ready;
                 }
-                chunk.State = ChunkState.Ready;
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    throw;
+                }
             },
             new ExecutionDataflowBlockOptions
             {
@@ -211,9 +233,10 @@ class WorldGenerator : IDisposable
         linkingInputBuffer.LinkTo(linkingBlock, linkOptions);
         linkingBlock.LinkTo(lightSeedBlock, linkOptions);
         lightSeedBlock.LinkTo(floodFillBlock, linkOptions);
-        floodFillBlock.LinkTo(meshBlock, linkOptions);
+        floodFillBlock.LinkTo(meshingInputBuffer, linkOptions);
+        meshingInputBuffer.LinkTo(meshBlock, linkOptions);
 
-        // Set up the chunk deleting system
+        // Set up the chunk deletion system
         deletionBlock = new ActionBlock<Chunk>(
         chunk =>
         {
@@ -240,7 +263,6 @@ class WorldGenerator : IDisposable
         var indexesForRemoval = region.CollectIndexesForRemoval(center);
         foreach (var index in indexesForRemoval)
         {
-            pendingLinking.TryRemove(index, out _);
             var chunk = region[index];
             if (chunk != null && chunk.IsReady)
             {
@@ -290,12 +312,7 @@ class WorldGenerator : IDisposable
 
             if (chunk.IsReady) continue;
 
-            if (!chunk.AllNeighborsExist)
-            {
-                pendingLinking.TryAdd(chunk.Index, chunk);
-                continue;
-            }
-            else
+            if (chunk.AllNeighborsExist)
             {
                 readyChunks.Add(chunk);
             }
@@ -315,7 +332,7 @@ class WorldGenerator : IDisposable
 
         Parallel.ForEach(readyChunks, chunk =>
         {
-            chunkMesher.AddMesh(chunk);
+            chunkMesher.Build(chunk);
             chunk.State = ChunkState.Ready;
         });
     }
