@@ -62,12 +62,13 @@ namespace SharpCraft.World.Blocks
 
         Dictionary<string, ushort> GetBlockNameToId()
         {
-            string[] blockTextureNames = Directory.GetFiles($"{rootDirectory}/Textures/Blocks", ".");
-            Dictionary<string, ushort> blockNameToId = new(blockTextureNames.Length);
+            string blocksPath = Path.Combine(rootDirectory, "Textures", "Blocks");
+            string[] blockTexturePaths = Directory.GetFiles(blocksPath, "*.xnb");
+            Dictionary<string, ushort> blockNameToId = new(blockTexturePaths.Length);
 
-            for (int i = 0; i < blockTextureNames.Length; i++)
+            for (int i = 0; i < blockTexturePaths.Length; i++)
             {
-                string textureName = blockTextureNames[i].Split('\\')[1].Split('.')[0];
+                string textureName = Path.GetFileNameWithoutExtension(blockTexturePaths[i]);
                 blockNameToId.Add(textureName, (ushort)(i + 1));
             }
 

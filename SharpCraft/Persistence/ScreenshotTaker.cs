@@ -38,7 +38,7 @@ namespace SharpCraft.Persistence
             name = name.Replace(' ', '_');
             name = name.Replace(':', '.');
 
-            Stream stream = File.Create($@"Screenshots\{name + ".png"}");
+            Stream stream = File.Create($@"Screenshots/{name + ".png"}");
             screenshot.SaveAsPng(stream, screenWidth, screenHeight);
 
             TakeScreenshot = false;
@@ -51,7 +51,7 @@ namespace SharpCraft.Persistence
             icon = new Texture2D(graphics, screenWidth, screenHeight);
             icon.SetData(colorData);
 
-            Stream stream = File.Create($@"Saves\{saveName}\save_icon.png");
+            Stream stream = File.Create($"Saves/{saveName}/save_icon.png");
             icon.SaveAsPng(stream, screenWidth, screenHeight);
         }
     }

@@ -373,7 +373,7 @@ namespace SharpCraft.GUI.Menus
 
                     saves.Add(CurrentSave);
 
-                    Directory.CreateDirectory($@"Saves\{saveName}");
+                    Directory.CreateDirectory($"Saves/{saveName}");
 
                     state = MenuState.Main;
                     game.IsMouseVisible = false;
@@ -421,7 +421,7 @@ namespace SharpCraft.GUI.Menus
                 assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
                 {
                     Save toDelete = saveGrid.SelectedSave;
-                    Directory.Delete($@"Saves\{toDelete.Name}", true);
+                    Directory.Delete($"Saves/{toDelete.Name}", true);
                     saves.Remove(toDelete);
                 }),
 

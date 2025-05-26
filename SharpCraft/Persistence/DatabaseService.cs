@@ -4,6 +4,7 @@ using System.IO;
 using System.Data.SQLite;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
+
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.MathUtilities;
@@ -19,7 +20,7 @@ internal class SaveData(Vec3<int> chunkIndex, Vec3<byte> blockIndex, Block block
 
 public class DatabaseService
 {
-    readonly string path;
+    readonly string connectionString;
     readonly BlockMetadataProvider blockMetadata;
 
     readonly Queue<SaveData> saveQueue = [];
@@ -61,8 +62,8 @@ public class DatabaseService
     {
         this.blockMetadata = blockMetadata;
 
-        path = @"URI=file:" + Directory.GetCurrentDirectory() + $@"\Saves\{saveName}\data.db";
-        connection = new SQLiteConnection(path);
+        connectionString = "URI=file:" + Path.Combine(Directory.GetCurrentDirectory(), "Saves", saveName, "data.db");
+        connection = new SQLiteConnection(connectionString);
 
         flushTask = Task.Run(async () =>
         {

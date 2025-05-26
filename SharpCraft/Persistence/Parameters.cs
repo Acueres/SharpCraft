@@ -44,7 +44,7 @@ namespace SharpCraft.Persistence
             SaveName = saveName;
 
             ParametersData data;
-            using (StreamReader r = new($@"Saves\{saveName}\parameters.json"))
+            using (StreamReader r = new($"Saves/{saveName}/parameters.json"))
             {
                 string json = r.ReadToEnd();
                 data = JsonConvert.DeserializeObject<ParametersData>(json);
@@ -70,7 +70,7 @@ namespace SharpCraft.Persistence
                 Direction.X, Direction.Y, Direction.Z, Inventory, WorldType, Day, Hour, Minute, Date);
 
             string json = JsonConvert.SerializeObject(data, Formatting.Indented);
-            string path = Directory.GetCurrentDirectory() + $@"\Saves\{SaveName}\parameters.json";
+            string path = Path.Combine(Directory.GetCurrentDirectory(), "Saves", SaveName, "parameters.json");
 
             File.WriteAllText(path, json);
         }

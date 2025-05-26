@@ -34,11 +34,11 @@ namespace SharpCraft.Persistence
 
         public void Clear()
         {
-            if (File.Exists(@$"Saves\{Name}\data.db"))
+            if (File.Exists(@$"Saves/{Name}/data.db"))
             {
-                string path = @"URI=file:" + Directory.GetCurrentDirectory() + @$"\Saves\{Name}\data.db";
+                string path = Path.Combine(Directory.GetCurrentDirectory(), "Saves", Name, "data.db");
 
-                var connection = new SQLiteConnection(path);
+                var connection = new SQLiteConnection(@"URI=file:" + path);
                 connection.Open();
 
                 var cmd = new SQLiteCommand(connection)
@@ -73,7 +73,7 @@ namespace SharpCraft.Persistence
 
             for (int i = 0; i < saveNames.Length; i++)
             {
-                if (!File.Exists($@"{saveNames[i]}\parameters.json"))
+                if (!File.Exists($"{saveNames[i]}/parameters.json"))
                 {
                     continue;
                 }

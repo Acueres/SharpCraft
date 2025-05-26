@@ -126,7 +126,7 @@ namespace SharpCraft
 
                             world.Init(player, currentSave.Parameters);
 
-                            if (!File.Exists($@"Saves\{currentSave.Parameters.SaveName}\save_icon.png"))
+                            if (!File.Exists($@"Saves/{currentSave.Parameters.SaveName}/save_icon.png"))
                             {
                                 player.Update(gameTime);
                                 renderer.Render(player.Camera, time);

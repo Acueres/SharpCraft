@@ -35,24 +35,28 @@ namespace SharpCraft.Assets
 
         void LoadBlocks(GraphicsDevice graphics)
         {
-            string[] blockTextureNames = Directory.GetFiles($"{rootDirectory}/Textures/Blocks", ".");
+            string blocksPath = Path.Combine(rootDirectory, "Textures", "Blocks");
+            string[] texturePaths = Directory.GetFiles(blocksPath, "*.xnb");
 
             blockTextures.Add(Util.GetColoredTexture(graphics, 64, 64, Color.Transparent, 1));
-            for (int i = 0; i < blockTextureNames.Length; i++)
+            foreach (string texturePath in texturePaths)
             {
-                string textureName = blockTextureNames[i].Split('\\')[1].Split('.')[0];
-                blockTextures.Add(content.Load<Texture2D>("Textures/Blocks/" + textureName));
+                string textureName = Path.GetFileNameWithoutExtension(texturePath);
+                string assetsTexturePath = Path.Combine("Textures", "Blocks", textureName);
+                blockTextures.Add(content.Load<Texture2D>(assetsTexturePath));
             }
         }
 
         void LoadMenu()
         {
-            string[] textureNames = [.. Directory.GetFiles($"{rootDirectory}/Textures/Menu", ".")];
+            string menuPath = Path.Combine(rootDirectory, "Textures", "Menu");
+            string[] texturePaths = Directory.GetFiles(menuPath, "*.xnb");
 
-            for (int i = 0; i < textureNames.Length; i++)
+            foreach (string texturePath in texturePaths)
             {
-                string textureName = textureNames[i].Split('\\')[1].Split('.')[0];
-                menuTextures.Add(textureName, content.Load<Texture2D>("Textures/Menu/" + textureName));
+                string textureName = Path.GetFileNameWithoutExtension(texturePath);
+                string assetsTexturePath = Path.Combine("Textures", "Menu", textureName);
+                menuTextures.Add(textureName, content.Load<Texture2D>(assetsTexturePath));
             }
         }
 
