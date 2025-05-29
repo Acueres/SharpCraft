@@ -37,7 +37,8 @@ class WorldSystem : IDisposable
 
         LightSystem lightSystem = new();
 
-        chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem);
+        chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem,
+            chunk => worldGenerator.PostToMesher(chunk));
 
         worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
     }

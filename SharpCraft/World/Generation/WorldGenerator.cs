@@ -37,7 +37,7 @@ class WorldGenerator : IDisposable
     readonly TransformManyBlock<Chunk, Chunk> floodFillBlock;
 
     // 5. Meshing
-    readonly ActionBlock<Chunk> meshBlock;
+    readonly ActionBlock<Chunk> meshingBlock;
     // Handle re-posting to the meshing phase
     readonly BufferBlock<Chunk> meshingInputBuffer;
 
@@ -162,7 +162,7 @@ class WorldGenerator : IDisposable
                 {
                     List<Chunk> ready = [];
 
-                    var visitedChunks = lightSystem.Run();
+                    var visitedChunks = lightSystem.RunBFS();
                     visitedChunks.Remove(chunk);
 
                     chunk.State = ChunkState.Lit;
@@ -206,7 +206,7 @@ class WorldGenerator : IDisposable
                 CancellationToken = cts.Token
             });
 
-        meshBlock = new ActionBlock<Chunk>(
+        meshingBlock = new ActionBlock<Chunk>(
             chunk =>
             {
                 try
@@ -234,7 +234,7 @@ class WorldGenerator : IDisposable
         linkingBlock.LinkTo(lightSeedBlock, linkOptions);
         lightSeedBlock.LinkTo(floodFillBlock, linkOptions);
         floodFillBlock.LinkTo(meshingInputBuffer, linkOptions);
-        meshingInputBuffer.LinkTo(meshBlock, linkOptions);
+        meshingInputBuffer.LinkTo(meshingBlock, linkOptions);
 
         // Set up the chunk deletion system
         deletionBlock = new ActionBlock<Chunk>(
@@ -248,6 +248,11 @@ class WorldGenerator : IDisposable
                 chunkGenerator.RemoveCache(chunk.Index);
             }
         });
+    }
+
+    public void PostToMesher(Chunk chunk)
+    {
+        meshingBlock.Post(chunk);
     }
 
     public void Update(Vector3 pos)
@@ -328,7 +333,7 @@ class WorldGenerator : IDisposable
             lightSystem.InitializeLight(chunk);
         });
 
-        lightSystem.Run();
+        lightSystem.RunBFS();
 
         Parallel.ForEach(readyChunks, chunk =>
         {
@@ -354,7 +359,7 @@ class WorldGenerator : IDisposable
         if (disposing)
         {
             generateBlock.Complete();
-            meshBlock.Complete();
+            meshingBlock.Complete();
             deletionBlock.Complete();
 
             cts.Cancel();

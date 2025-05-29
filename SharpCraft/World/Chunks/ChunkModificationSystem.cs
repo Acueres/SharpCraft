@@ -26,11 +26,13 @@ public class ChunkModificationData(Chunk chunk, Block newBlock, Vec3<byte> block
     public BlockInteractionMode InteractionMode { get; } = interactionMode;
 }
 
-class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMetadata, LightSystem lightSystem)
+class ChunkModificationSystem(DatabaseService db,
+    BlockMetadataProvider blockMetadata, LightSystem lightSystem, Action<Chunk> PostChunkForRemeshing)
 {
     readonly DatabaseService db = db;
     readonly BlockMetadataProvider blockMetadata = blockMetadata;
     readonly LightSystem lightSystem = lightSystem;
+    readonly Action<Chunk> PostChunkForRemeshing = PostChunkForRemeshing;
 
     readonly Queue<ChunkModificationData> queue = [];
 
@@ -66,9 +68,21 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
         chunk[blockIndex.X, blockIndex.Y, blockIndex.Z] = Block.Empty;
 
-        bool lightSource = !block.IsEmpty && blockMetadata.IsLightSource(block);
+        bool isLightSource = !block.IsEmpty && blockMetadata.IsLightSource(block);
 
-        lightSystem.UpdateLight(blockIndex.X, blockIndex.Y, blockIndex.Z, Block.EmptyValue, chunk, sourceRemoved: lightSource);
+        HashSet<Chunk> visited;
+        if (isLightSource)
+        {
+            chunk.RemoveLightSource(blockIndex.X, blockIndex.Y, blockIndex.Z, block);
+            visited = lightSystem.RecalculateLightOnBlockUpdate(chunk, blockIndex);
+        }
+        else
+        {
+            visited = lightSystem.RecalculateLightOnBlockRemoval(chunk, blockIndex);
+        }
+
+        foreach (var ch in visited)
+            PostChunkForRemeshing(ch);
 
         db.AddDelta(chunk.Index, blockIndex, Block.Empty);
     }
@@ -81,7 +95,7 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         Vec3<int> dominantOffset = GetDominantAxisOffset(rayDirection, dominantAxis);
 
         (Vec3<byte> newBlockIndex, Vec3<sbyte> chunkOffset) = GetAdjacentIndex(dominantAxis, blockIndex, dominantOffset);
-        
+
         chunk = chunk.GetNeighborFromOffset(chunkOffset);
 
         if (!chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z].IsEmpty) return;
@@ -90,12 +104,23 @@ class ChunkModificationSystem(DatabaseService db, BlockMetadataProvider blockMet
         {
             chunk.Init();
             lightSystem.InitializeLight(chunk);
-            lightSystem.Run();
+            lightSystem.RunBFS();
         }
 
         chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z] = block;
 
-        lightSystem.UpdateLight(newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z, block.Value, chunk);
+        bool isLightSource = !block.IsEmpty && blockMetadata.IsLightSource(block);
+
+        HashSet<Chunk> visited;
+        if (isLightSource)
+        {
+            chunk.AddLightSource(newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z, block);
+        }
+
+        visited = lightSystem.RecalculateLightOnBlockUpdate(chunk, newBlockIndex);
+
+        foreach (var ch in visited)
+            PostChunkForRemeshing(ch);
 
         db.AddDelta(chunk.Index, newBlockIndex, block);
     }

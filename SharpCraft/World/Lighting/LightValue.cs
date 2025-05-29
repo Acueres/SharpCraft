@@ -49,8 +49,6 @@ namespace SharpCraft.World.Lighting
 
         public LightValue SubtractBlockValue(byte amount)
         {
-            if (BlockValue == 0) return this;
-
             byte blockValue = (byte)(BlockValue - amount);
             return new LightValue(SkyValue, blockValue);
         }

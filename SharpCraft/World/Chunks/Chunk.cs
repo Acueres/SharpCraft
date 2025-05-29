@@ -50,7 +50,7 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
     BitStorage storage;
     LightValue[,,] lightMap;
 
-    readonly HashSet<(Vec3<byte>, Block)> lightSources = [];
+    readonly HashSet<Vec3<byte>> lightSources = [];
 
     public void Dispose() => Dispose(true);
     readonly SafeHandle safeHandle = new SafeFileHandle(nint.Zero, true);
@@ -158,8 +158,9 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
                 palette.Add(value);
                 paletteIndexMap.Add(value, index);
 
-                // Check if the palette size has reached the next power of two, then resize
-                if ((palette.Count & (palette.Count - 1)) == 0)
+                // Check if the palette size has exceeded a power of two, then resize
+                // Here index is the old palette size. If it was 4, and we added a new block, we must increase the storage
+                if ((index & (index - 1)) == 0)
                 {
                     ResizeStorage();
                 }
@@ -265,12 +266,23 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
     public void AddLightSource(byte x, byte y, byte z, Block block)
     {
-        lightSources.Add((new Vec3<byte>(x, y, z), block));
+        lightSources.Add(new Vec3<byte>(x, y, z));
     }
 
-    public IEnumerable<(Vec3<byte>, Block)> GetLightSources()
+    public void RemoveLightSource(byte x, byte y, byte z, Block block)
     {
-        foreach (var data in lightSources) yield return data;
+        lightSources.Remove(new Vec3<byte>(x, y, z));
+    }
+
+    public byte GetLightSourceValue(Vec3<int> index)
+    {
+        Block block = this[index.X, index.Y, index.Z];
+        return blockMetadata.GetLightSourceValue(block);
+    }
+
+    public IEnumerable<Vec3<byte>> GetLightSources()
+    {
+        foreach (var sourceIndex in lightSources) yield return sourceIndex;
     }
 
     void Dispose(bool disposing)
@@ -332,28 +344,10 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
         }
     }
 
-    public bool IsBlockTransparent(Vec3<int> index)
+    public bool IsBlockTransparent(int x, int y, int z)
     {
-        Block block = this[index.X, index.Y, index.Z];
+        Block block = this[x, y, z];
         return block.IsEmpty || blockMetadata.IsBlockTransparent(block);
-    }
-
-    public bool IsBlockTransparentSolid(Vec3<int> index)
-    {
-        Block block = this[index.X, index.Y, index.Z];
-        return blockMetadata.IsBlockTransparent(block);
-    }
-
-    public bool IsBlockLightSource(Vec3<int> index)
-    {
-        Block block = this[index.X, index.Y, index.Z];
-        return blockMetadata.IsLightSource(block);
-    }
-
-    public byte GetLightSourceValue(Vec3<int> index)
-    {
-        Block block = this[index.X, index.Y, index.Z];
-        return blockMetadata.GetLightSourceValue(block);
     }
 
     public FacesState GetVisibleFaces(Vec3<byte> index)
