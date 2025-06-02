@@ -7,6 +7,7 @@ using SharpCraft.Utilities;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Lighting;
 using SharpCraft.World.Blocks;
+using SharpCraft.Assets;
 
 namespace SharpCraft.Rendering.Meshers;
 
@@ -85,10 +86,10 @@ static class Cube
     }
 }
 
-class ChunkMesher(BlockMetadataProvider blockMetadata)
+class ChunkMesher(BlockMetadataProvider blockMetadata, AssetServer assetServer)
 {
     readonly BlockMetadataProvider blockMetadata = blockMetadata;
-    readonly int blockCount = blockMetadata.BlockCount;
+    readonly TextureAtlas atlas = assetServer.Atlas;
 
     readonly ConcurrentDictionary<Vec3<int>, VertexPositionTextureLight[]> verticesCache = [];
     readonly ConcurrentDictionary<Vec3<int>, VertexPositionTextureLight[]> transparentVerticesCache = [];
@@ -168,6 +169,8 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
     VertexPositionTextureLight[] GetBlockVertices(Faces face, LightValue light, Vector3 position, ushort texture)
     {
         const int nVertices = 6;
+        const int prime = 397;
+
         VertexPositionTextureLight[] vertices = new VertexPositionTextureLight[nVertices];
         for (int i = 0; i < nVertices; i++)
         {
@@ -177,16 +180,10 @@ class ChunkMesher(BlockMetadataProvider blockMetadata)
             int skylight = light.SkyValue;
             int blockLight = light.BlockValue;
 
-            vertex.Light = skylight + 397 * blockLight;
+            vertex.Light = skylight + prime * blockLight;
 
-            if (vertex.TextureCoordinate.Y == 0)
-            {
-                vertex.TextureCoordinate.Y = (float)texture / blockCount;
-            }
-            else
-            {
-                vertex.TextureCoordinate.Y = (float)(texture + 1) / blockCount;
-            }
+            var uvCoordinate = atlas.GetUV(texture, vertex.TextureCoordinate);
+            vertex.TextureCoordinate = uvCoordinate;
 
             vertices[i] = vertex;
         }

@@ -1,10 +1,11 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System.Collections.Generic;
+using System.IO;
+
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 
-using System.Collections.Generic;
-using System.IO;
-
+using SharpCraft.Rendering;
 using SharpCraft.Utilities;
 
 namespace SharpCraft.Assets
@@ -20,10 +21,15 @@ namespace SharpCraft.Assets
 
         Effect effect;
 
-        public Effect GetEffect => effect.Clone();
+        TextureAtlas atlas;
+
+        const int textureSize = 64;
+
+        public Effect Effect => effect.Clone();
         public Texture2D GetBlockTexture(ushort index) => blockTextures[index];
         public Texture2D GetMenuTexture(string name) => menuTextures[name];
         public SpriteFont GetFont(int index) => fonts[index];
+        public TextureAtlas Atlas => atlas;
 
         public void Load(GraphicsDevice graphics)
         {
@@ -31,6 +37,7 @@ namespace SharpCraft.Assets
             LoadMenu();
             LoadFonts();
             LoadEffects();
+            BuildAtlas(graphics);
         }
 
         void LoadBlocks(GraphicsDevice graphics)
@@ -38,7 +45,7 @@ namespace SharpCraft.Assets
             string blocksPath = Path.Combine(rootDirectory, "Textures", "Blocks");
             string[] texturePaths = Directory.GetFiles(blocksPath, "*.xnb");
 
-            blockTextures.Add(Util.GetColoredTexture(graphics, 64, 64, Color.Transparent, 1));
+            blockTextures.Add(Util.GetColoredTexture(graphics, textureSize, textureSize, Color.Transparent, 1));
             foreach (string texturePath in texturePaths)
             {
                 string textureName = Path.GetFileNameWithoutExtension(texturePath);
@@ -69,6 +76,11 @@ namespace SharpCraft.Assets
         void LoadEffects()
         {
             effect = content.Load<Effect>("Effects/BlockEffect");
+        }
+
+        void BuildAtlas(GraphicsDevice graphics)
+        {
+            atlas = new TextureAtlas(textureSize, blockTextures.Count, graphics, GetBlockTexture);
         }
     }
 }

@@ -1,9 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework;
 
 using SharpCraft.Assets;
 using SharpCraft.Utilities;
-using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
 using SharpCraft.Rendering.Meshers;
@@ -12,34 +10,16 @@ namespace SharpCraft.Rendering;
 
 class Renderer
 {
-    readonly Texture2D atlas;
-
     readonly RegionRenderer regionRenderer;
     readonly UIRenderer uiRenderer;
 
     public Renderer(Region region, GraphicsDevice graphics, AssetServer assetServer,
-        BlockMetadataProvider blockMetadata, ScreenshotTaker screenshotTaker,
+        ScreenshotTaker screenshotTaker,
         ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
     { 
-
-        var effect = assetServer.GetEffect;
-
-        atlas = new Texture2D(graphics, 64, blockMetadata.BlockCount * 64);
-        Color[] atlasData = new Color[atlas.Width * atlas.Height];
-
-        for (int i = 0; i < blockMetadata.BlockCount; i++)
-        {
-            Color[] textureColor = new Color[64 * 64];
-            assetServer.GetBlockTexture((ushort)i).GetData(textureColor);
-
-            for (int j = 0; j < textureColor.Length; j++)
-            {
-                atlasData[(i * textureColor.Length) + j] = textureColor[j];
-            }
-        }
-        atlas.SetData(atlasData);
-
-        regionRenderer = new RegionRenderer(region, graphics, effect, chunkMesher, screenshotTaker, atlas);
+        var effect = assetServer.Effect;
+        
+        regionRenderer = new RegionRenderer(region, graphics, effect, chunkMesher, screenshotTaker, assetServer.Atlas);
         uiRenderer = new UIRenderer(graphics, effect, blockOutlineMesher, assetServer);
     }
 

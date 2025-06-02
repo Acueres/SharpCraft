@@ -4,7 +4,6 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 using SharpCraft.Persistence;
-using SharpCraft.Utilities;
 using SharpCraft.World.Chunks;
 using SharpCraft.Rendering.Meshers;
 
@@ -16,13 +15,13 @@ class RegionRenderer
     readonly GraphicsDevice graphics;
     readonly ScreenshotTaker screenshotTaker;
 
-    readonly Texture2D atlas;
+    readonly TextureAtlas atlas;
     readonly Effect effect;
     readonly DynamicVertexBuffer buffer;
     readonly ChunkMesher chunkMesher;
 
     public RegionRenderer(Region region, GraphicsDevice graphics, Effect effect, ChunkMesher chunkMesher,
-        ScreenshotTaker screenshotTaker, Texture2D atlas)
+        ScreenshotTaker screenshotTaker, TextureAtlas atlas)
     {
         this.region = region;
         this.graphics = graphics;
@@ -44,7 +43,7 @@ class RegionRenderer
         effect.Parameters["World"].SetValue(Matrix.Identity);
         effect.Parameters["View"].SetValue(camera.View);
         effect.Parameters["Projection"].SetValue(camera.Projection);
-        effect.Parameters["Texture"].SetValue(atlas);
+        effect.Parameters["Texture"].SetValue(atlas.Texture);
         effect.Parameters["LightIntensity"].SetValue(lightIntensity);
 
         graphics.Clear(Color.Lerp(Color.SkyBlue, Color.Black, 1f - lightIntensity));

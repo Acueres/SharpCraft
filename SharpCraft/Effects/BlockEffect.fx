@@ -13,21 +13,21 @@ sampler2D textureSampler = sampler_state
     MipFilter = Point;
     MagFilter = Point;
     MinFilter = Point;
-    AddressU = Wrap;
-    AddressV = Wrap;
+    AddressU = Clamp;
+    AddressV = Clamp;
 };
 
 struct VertexShaderInput
 {
     float4 Position : POSITION0;
-    float2 TexureCoordinate : TEXCOORD0;
+    float2 TextureCoordinate : TEXCOORD0;
     float Light : TEXCOORD01;
 };
 
 struct VertexShaderOutput
 {
     float4 Position : POSITION0;
-    float2 TexureCoordinate : TEXCOORD0;
+    float2 TextureCoordinate : TEXCOORD0;
     float Light : TEXCOORD1;
 };
 
@@ -44,7 +44,7 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
     float4 viewPosition = mul(worldPosition, View);
     output.Position = mul(viewPosition, Projection);
 
-    output.TexureCoordinate = input.TexureCoordinate;
+    output.TextureCoordinate = input.TextureCoordinate;
 
     output.Light = input.Light;
 
@@ -54,7 +54,7 @@ VertexShaderOutput VertexShaderFunction(VertexShaderInput input)
 PixelShaderOutput PixelShaderFunction(VertexShaderOutput input)
 {
     PixelShaderOutput output = (PixelShaderOutput)0;
-    output.Color = tex2D(textureSampler, input.TexureCoordinate);
+    output.Color = tex2D(textureSampler, input.TextureCoordinate);
 
     float skylight = pow(input.Light % 397 / 15.0f, 1.4f) * LightIntensity;
     float blockLight = pow(floor(input.Light / 397) / 15.0f, 1.4f);

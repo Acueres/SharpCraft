@@ -2,7 +2,6 @@
 
 using SharpCraft.Assets;
 using SharpCraft.Rendering.Meshers;
-using SharpCraft.Utilities;
 
 namespace SharpCraft.Rendering;
 

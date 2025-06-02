@@ -116,13 +116,13 @@ namespace SharpCraft
 
                             Region region = new(Settings.RenderDistance);
 
-                            ChunkMesher chunkMesher = new(blockMetadata);
+                            ChunkMesher chunkMesher = new(blockMetadata, assetServer);
                             BlockOutlineMesher blockOutlineMesher = new();
 
                             player = new Player(GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters, assetServer, blockMetadata, player);
                             world = new WorldSystem(region, gameMenu, db, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
-                            renderer = new Renderer(region, graphics.GraphicsDevice, assetServer, blockMetadata, screenshotTaker, chunkMesher, blockOutlineMesher);
+                            renderer = new Renderer(region, graphics.GraphicsDevice, assetServer, screenshotTaker, chunkMesher, blockOutlineMesher);
 
                             world.Init(player, currentSave.Parameters);
 
