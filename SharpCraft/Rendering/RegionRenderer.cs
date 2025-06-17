@@ -55,29 +55,25 @@ class RegionRenderer
 
             BoundingBox chunkBounds = new(chunk.Position, chunkMax + chunk.Position);
 
-            bool isChunkVisible = false;
             if (camera.Frustum.Intersects(chunkBounds))
             {
                 visibleChunks.Add(chunk);
-                isChunkVisible = true;
             }
+            else continue;
 
-            if (isChunkVisible)
+            effect.Parameters["Alpha"].SetValue(1f);
+
+            var vertices = chunkMesher.GetVertices(chunk.Index);
+
+            if (vertices.Length == 0) continue;
+
+            buffer.SetData(vertices);
+            graphics.SetVertexBuffer(buffer);
+
+            foreach (EffectPass pass in effect.CurrentTechnique.Passes)
             {
-                effect.Parameters["Alpha"].SetValue(1f);
-
-                var vertices = chunkMesher.GetVertices(chunk.Index);
-
-                if (vertices.Length == 0) continue;
-
-                buffer.SetData(vertices);
-                graphics.SetVertexBuffer(buffer);
-
-                foreach (EffectPass pass in effect.CurrentTechnique.Passes)
-                {
-                    pass.Apply();
-                    graphics.DrawPrimitives(PrimitiveType.TriangleList, 0, vertices.Length / 3);
-                }
+                pass.Apply();
+                graphics.DrawPrimitives(PrimitiveType.TriangleList, 0, vertices.Length / 3);
             }
         }
 
