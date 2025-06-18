@@ -2504,4 +2504,14 @@ public class FastNoiseLite
         yr += vy * warpAmp;
         zr += vz * warpAmp;
     }
+
+    public static FastNoiseLite GetNoise(int seed, float freq, FractalType ft, int oct)
+    {
+        var noise = new FastNoiseLite(seed);
+        noise.SetNoiseType(NoiseType.OpenSimplex2);
+        noise.SetFrequency(freq);
+        noise.SetFractalType(ft);
+        noise.SetFractalOctaves(oct);
+        return noise;
+    }
 }

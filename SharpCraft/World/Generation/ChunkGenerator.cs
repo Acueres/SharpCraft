@@ -14,11 +14,13 @@ class ChunkGenerator
     readonly DatabaseService db;
     readonly BlockMetadataProvider blockMetadata;
 
-    readonly TerrainGenerator terrainGenerator;
+    readonly TopographyGenerator topographyGenerator;
+    readonly BiomeMapGenerator biomeMapGenerator;
+    readonly GeologyGenerator geologyGenerator;
 
     readonly ConcurrentDictionary<Vec2<int>, int[,]> terrainLevelCache = [];
     readonly ConcurrentDictionary<Vec2<int>, int[,]> waterLevelCache = [];
-    readonly ConcurrentDictionary<Vec2<int>, BiomeType[,]> biomesCache = [];
+    readonly ConcurrentDictionary<Vec2<int>, ReliefType[,]> biomesCache = [];
     readonly ConcurrentDictionary<Vec2<int>, int> elevationCache = [];
 
     public ChunkGenerator(Parameters parameters, DatabaseService databaseService, BlockMetadataProvider blockMetadata)
@@ -28,7 +30,9 @@ class ChunkGenerator
 
         seed = parameters.Seed;
 
-        terrainGenerator = new(seed, blockMetadata);
+        topographyGenerator = new(seed);
+        biomeMapGenerator = new(seed);
+        geologyGenerator = new(blockMetadata);
     }
 
     public Chunk GenerateChunk(Vec3<int> index)
@@ -39,28 +43,28 @@ class ChunkGenerator
         Vec2<int> cacheIndex = new(index.X, index.Z);
         Random rnd = new(chunkSeed);
 
-        TerrainData terrainData;
+        TopographyData terrainData;
         if (terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainValue)
             && waterLevelCache.TryGetValue(cacheIndex, out int[,] waterLevelValue)
             && biomesCache.TryGetValue(cacheIndex, out var biomesValue)
             && elevationCache.TryGetValue(cacheIndex, out var elevationValue))
         {
-            terrainData = new TerrainData(terrainValue, waterLevelValue, biomesValue, elevationValue);
+            terrainData = new TopographyData(terrainValue, waterLevelValue, biomesValue, elevationValue);
         }
         else
         {
-            terrainData = terrainGenerator.GenerateTerrainData(chunk.Position, cacheIndex);
+            terrainData = topographyGenerator.GetTopographyData(chunk.Position);
 
             terrainLevelCache.TryAdd(cacheIndex, terrainData.TerrainLevel);
             waterLevelCache.TryAdd(cacheIndex, terrainData.WaterLevel);
-            biomesCache.TryAdd(cacheIndex, terrainData.BiomesData);
+            biomesCache.TryAdd(cacheIndex, terrainData.ReliefData);
             elevationCache.TryAdd(cacheIndex, terrainData.MaxElevation);
         }
 
         int maxElevation = terrainData.MaxElevation;
         var terrainLevel = terrainData.TerrainLevel;
         var waterLevel = terrainData.WaterLevel;
-        var biomes = terrainData.BiomesData;
+        var biomes = terrainData.ReliefData;
 
         if (chunk.Index.Y * Chunk.Size > maxElevation)
         {
@@ -80,7 +84,7 @@ class ChunkGenerator
                 {
                     int currentY = (int)chunk.Position.Y + y;
 
-                    ushort texture = terrainGenerator.Fill(terrainLevel[x, z], currentY, waterLevel[x, z], biomes[x, z], rnd);
+                    ushort texture = geologyGenerator.GetBlockForLayer(terrainLevel[x, z], currentY, waterLevel[x, z], biomes[x, z], rnd);
 
                     if (texture != Block.EmptyValue)
                     {
