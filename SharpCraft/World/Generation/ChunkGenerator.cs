@@ -18,10 +18,10 @@ class ChunkGenerator
     readonly BiomeMapGenerator biomeMapGenerator;
     readonly GeologyGenerator geologyGenerator;
 
-    readonly ConcurrentDictionary<Vec2<int>, int[,]> terrainLevelCache = [];
+    readonly ConcurrentDictionary<Vec2<int>, int[,]> heightLevelCache = [];
     readonly ConcurrentDictionary<Vec2<int>, int[,]> waterLevelCache = [];
-    readonly ConcurrentDictionary<Vec2<int>, ReliefType[,]> biomesCache = [];
-    readonly ConcurrentDictionary<Vec2<int>, int> elevationCache = [];
+    readonly ConcurrentDictionary<Vec2<int>, ReliefType[,]> terrainCache = [];
+    readonly ConcurrentDictionary<Vec2<int>, int> maxElevationCache = [];
 
     public ChunkGenerator(Parameters parameters, DatabaseService databaseService, BlockMetadataProvider blockMetadata)
     {
@@ -43,28 +43,28 @@ class ChunkGenerator
         Vec2<int> cacheIndex = new(index.X, index.Z);
         Random rnd = new(chunkSeed);
 
-        TopographyData terrainData;
-        if (terrainLevelCache.TryGetValue(cacheIndex, out int[,] terrainValue)
+        TopographyData topographyData;
+        if (heightLevelCache.TryGetValue(cacheIndex, out int[,] heightValue)
             && waterLevelCache.TryGetValue(cacheIndex, out int[,] waterLevelValue)
-            && biomesCache.TryGetValue(cacheIndex, out var biomesValue)
-            && elevationCache.TryGetValue(cacheIndex, out var elevationValue))
+            && terrainCache.TryGetValue(cacheIndex, out var terrainValue)
+            && maxElevationCache.TryGetValue(cacheIndex, out var maxElevationValue))
         {
-            terrainData = new TopographyData(terrainValue, waterLevelValue, biomesValue, elevationValue);
+            topographyData = new TopographyData(heightValue, waterLevelValue, terrainValue, maxElevationValue);
         }
         else
         {
-            terrainData = topographyGenerator.GetTopographyData(chunk.Position);
+            topographyData = topographyGenerator.GetTopographyData(chunk.Position);
 
-            terrainLevelCache.TryAdd(cacheIndex, terrainData.TerrainLevel);
-            waterLevelCache.TryAdd(cacheIndex, terrainData.WaterLevel);
-            biomesCache.TryAdd(cacheIndex, terrainData.ReliefData);
-            elevationCache.TryAdd(cacheIndex, terrainData.MaxElevation);
+            heightLevelCache.TryAdd(cacheIndex, topographyData.HeightLevel);
+            waterLevelCache.TryAdd(cacheIndex, topographyData.WaterLevel);
+            terrainCache.TryAdd(cacheIndex, topographyData.ReliefData);
+            maxElevationCache.TryAdd(cacheIndex, topographyData.MaxElevation);
         }
 
-        int maxElevation = terrainData.MaxElevation;
-        var terrainLevel = terrainData.TerrainLevel;
-        var waterLevel = terrainData.WaterLevel;
-        var biomes = terrainData.ReliefData;
+        int maxElevation = topographyData.MaxElevation;
+        var heightLevel = topographyData.HeightLevel;
+        var waterLevel = topographyData.WaterLevel;
+        var terrain = topographyData.ReliefData;
 
         if (chunk.Index.Y * Chunk.Size > maxElevation)
         {
@@ -84,7 +84,7 @@ class ChunkGenerator
                 {
                     int currentY = (int)chunk.Position.Y + y;
 
-                    ushort texture = geologyGenerator.GetBlockForLayer(terrainLevel[x, z], currentY, waterLevel[x, z], biomes[x, z], rnd);
+                    ushort texture = geologyGenerator.GetBlockForLayer(heightLevel[x, z], currentY, waterLevel[x, z], terrain[x, z], rnd);
 
                     if (texture != Block.EmptyValue)
                     {
@@ -103,18 +103,23 @@ class ChunkGenerator
 
     public bool IsSunlight(Chunk chunk)
     {
-        int maxElevation = elevationCache[new Vec2<int>(chunk.Index.X, chunk.Index.Z)];
+        int maxElevation = maxElevationCache[new Vec2<int>(chunk.Index.X, chunk.Index.Z)];
         int y = Chunk.WorldToChunkIndex(maxElevation);
         return chunk.Index.Y == y;
+    }
+
+    public ReliefType GetReliefType(int cx, int cz, int bx, int bz)
+    {
+        return terrainCache[new Vec2<int>(cx, cz)][bx, bz];
     }
 
     public void RemoveCache(Vec3<int> index)
     {
         Vec2<int> cacheIndex = new(index.X, index.Z);
-        terrainLevelCache.TryRemove(cacheIndex, out _);
+        heightLevelCache.TryRemove(cacheIndex, out _);
         waterLevelCache.TryRemove(cacheIndex, out _);
-        biomesCache.TryRemove(cacheIndex, out _);
-        elevationCache.TryRemove(cacheIndex, out _);
+        terrainCache.TryRemove(cacheIndex, out _);
+        maxElevationCache.TryRemove(cacheIndex, out _);
     }
 
     void AdjustMaximumElevation(Chunk chunk, Vec2<int> cacheIndex)
@@ -122,7 +127,7 @@ class ChunkGenerator
         int? newMaxElevation = chunk.GetMaximumTerrainElevation();
         if (newMaxElevation.HasValue)
         {
-            elevationCache[cacheIndex] = (int)newMaxElevation;
+            maxElevationCache[cacheIndex] = (int)newMaxElevation;
         }
     }
 }

@@ -347,6 +347,8 @@ class WorldGenerator : IDisposable
         });
     }
 
+    public ReliefType GetReliefType(int cx, int cz, int bx, int bz) => chunkGenerator.GetReliefType(cx, cz, bx, bz);
+
     // Disposal
     bool disposed;
 

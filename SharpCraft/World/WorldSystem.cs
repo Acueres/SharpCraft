@@ -41,6 +41,7 @@ class WorldSystem : IDisposable
             chunk => worldGenerator.PostToMesher(chunk));
 
         worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
+        this.gameMenu.SetWorldGenerator(worldGenerator);
     }
 
     public void Init(Player player, Parameters parameters)
