@@ -78,8 +78,8 @@ class GameMenu
 
         inventory = new Inventory(game, spriteBatch, font14, parameters, assetServer, blockMetadata, () =>
         {
-            Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
-            game.IsMouseVisible = false;
+            //Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
+            //game.IsMouseVisible = false;
             game.Paused = false;
             game.ExitedMenu = true;
             state = MenuState.Main;
@@ -100,8 +100,8 @@ class GameMenu
             {
                 game.Paused = false;
 
-                Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
-                game.IsMouseVisible = false;
+                //Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
+                //game.IsMouseVisible = false;
                 game.ExitedMenu = true;
 
                 state = MenuState.Main;
@@ -112,7 +112,7 @@ class GameMenu
             assetServer.GetMenuTexture("button"), assetServer.GetMenuTexture("button_selector"), () =>
             {
                 game.Paused = false;
-                game.IsMouseVisible = false;
+                //game.IsMouseVisible = false;
                 inventory.SaveParameters(parameters);
                 game.State = GameState.Exiting;
             });
@@ -221,7 +221,7 @@ class GameMenu
         {
             game.Paused = true;
 
-            Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
+            //Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
             game.IsMouseVisible = true;
 
             state = MenuState.Pause;
@@ -231,7 +231,7 @@ class GameMenu
         {
             game.Paused = true;
 
-            Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
+            //Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
             game.IsMouseVisible = true;
 
             state = MenuState.Inventory;
@@ -256,8 +256,8 @@ class GameMenu
         {
             game.Paused = false;
 
-            Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
-            game.IsMouseVisible = false;
+            //Mouse.SetPosition((int)screenCenter.X, (int)screenCenter.Y);
+            //game.IsMouseVisible = false;
 
             state = MenuState.Main;
         }
