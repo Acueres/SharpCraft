@@ -11,7 +11,7 @@ namespace SharpCraft.World.Generation;
 class ChunkGenerator
 {
     readonly int seed;
-    readonly DatabaseService db;
+    readonly ChunkPersistenceService chunkPersistence;
     readonly BlockMetadataProvider blockMetadata;
 
     readonly TopographyGenerator topographyGenerator;
@@ -23,10 +23,11 @@ class ChunkGenerator
     readonly ConcurrentDictionary<Vec2<int>, ReliefType[,]> terrainCache = [];
     readonly ConcurrentDictionary<Vec2<int>, int> maxElevationCache = [];
 
-    public ChunkGenerator(Parameters parameters, DatabaseService databaseService, BlockMetadataProvider blockMetadata)
+    public ChunkGenerator(Parameters parameters, ChunkPersistenceService chunkPersistence,
+        BlockMetadataProvider blockMetadata)
     {
         this.blockMetadata = blockMetadata;
-        db = databaseService;
+        this.chunkPersistence = chunkPersistence;
 
         seed = parameters.Seed;
 
@@ -38,9 +39,19 @@ class ChunkGenerator
     public Chunk GenerateChunk(Vec3<int> index)
     {
         Chunk chunk = new(index, blockMetadata);
-        Block[,,] buffer = null;
-        int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
+
         Vec2<int> cacheIndex = new(index.X, index.Z);
+        
+        // Load chunk from disk, if exists
+        if (chunkPersistence.TryLoadChunk(index, out var buffer))
+        {
+            chunk.BuildPalette(buffer);
+            SeedLightSourcesFromBuffer(chunk, buffer);
+            AdjustMaximumElevation(chunk, cacheIndex);
+            return chunk;
+        }
+        
+        int chunkSeed = HashCode.Combine(index.X, index.Y, index.Z, seed);
         Random rnd = new(chunkSeed);
 
         TopographyData topographyData;
@@ -65,40 +76,50 @@ class ChunkGenerator
         var heightLevel = topographyData.HeightLevel;
         var waterLevel = topographyData.WaterLevel;
         var terrain = topographyData.ReliefData;
-
+        
         if (chunk.Index.Y * Chunk.Size > maxElevation)
         {
-            buffer = db.ApplyDelta(chunk, buffer);
-            chunk.BuildPalette(buffer);
-            AdjustMaximumElevation(chunk, cacheIndex);
             return chunk;
         }
 
         buffer = Chunk.GetBlockArray();
 
         for (int x = 0; x < Chunk.Size; x++)
+        for (int z = 0; z < Chunk.Size; z++)
+        for (int y = 0; y < Chunk.Size; y++)
         {
-            for (int z = 0; z < Chunk.Size; z++)
-            {
-                for (int y = 0; y < Chunk.Size; y++)
-                {
-                    int currentY = (int)chunk.Position.Y + y;
+            int currentY = (int)chunk.Position.Y + y;
 
-                    ushort texture = geologyGenerator.GetBlockForLayer(heightLevel[x, z], currentY, waterLevel[x, z], terrain[x, z], rnd);
+            ushort texture = geologyGenerator.GetBlockForLayer(
+                heightLevel[x, z],
+                currentY,
+                waterLevel[x, z],
+                terrain[x, z],
+                rnd
+            );
 
-                    if (texture != Block.EmptyValue)
-                    {
-                        buffer[x, y, z] = new(texture);
-                    }
-                }
-            }
+            if (texture != Block.EmptyValue)
+                buffer[x, y, z] = new(texture);
         }
 
-        db.ApplyDelta(chunk, buffer);
-
         chunk.BuildPalette(buffer);
+        SeedLightSourcesFromBuffer(chunk, buffer);
 
         return chunk;
+    }
+
+    private void SeedLightSourcesFromBuffer(Chunk chunk, Block[,,] buffer)
+    {
+        if (buffer is null) return;
+
+        for (byte y = 0; y < Chunk.Size; y++)
+        for (byte x = 0; x < Chunk.Size; x++)
+        for (byte z = 0; z < Chunk.Size; z++)
+        {
+            Block b = buffer[x, y, z];
+            if (!b.IsEmpty && blockMetadata.IsLightSource(b))
+                chunk.AddLightSource(x, y, z, b);
+        }
     }
 
     public bool IsSunlight(Chunk chunk)

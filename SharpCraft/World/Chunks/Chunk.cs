@@ -33,8 +33,10 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
     public ChunkState State { get; set; }
     public bool IsEmpty => palette is null;
+    public int PaletteCount => palette.Count;
     public bool IsReady => State == ChunkState.Ready;
     public bool IsUnloaded => State == ChunkState.Unloaded;
+    public readonly object SyncRoot = new();
 
     //Adjacent chunk references
     public Chunk XNeg { get; set; }
@@ -61,10 +63,8 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
     public void Dispose() => Dispose(true);
     readonly SafeHandle safeHandle = new SafeFileHandle(nint.Zero, true);
-    bool disposed = false;
-
-    readonly BlockMetadataProvider blockMetadata = blockMetadata;
-
+    bool disposed;
+    
     public void BuildPalette(Block[,,] buffer)
     {
         if (buffer is null)
@@ -102,26 +102,56 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
             }
         }
     }
+    
+    public void RebuildPalette()
+    {
+        if (storage is null)
+        {
+            palette = null;
+            paletteIndexMap = null;
+            lightSources.Clear();
+            return;
+        }
+        
+        Block[,,] buffer = GetBlockArray();
+        bool anyNonEmpty = false;
+
+        for (int y = 0; y < Size; y++)
+        for (int x = 0; x < Size; x++)
+        for (int z = 0; z < Size; z++)
+        {
+            Block b = this[x, y, z];
+            buffer[x, y, z] = b;
+            if (!b.IsEmpty) anyNonEmpty = true;
+        }
+
+        if (!anyNonEmpty)
+        {
+            palette = null;
+            paletteIndexMap = null;
+            storage = null;
+            lightSources.Clear();
+            return;
+        }
+        
+        BuildPalette(buffer);
+    }
 
     static HashSet<Block> GetUniqueBlocks(Block[,,] buffer)
     {
         // Extract unique block types
         HashSet<Block> uniqueBlocks = [];
         for (int y = 0; y < Size; y++)
+        for (int x = 0; x < Size; x++)
+        for (int z = 0; z < Size; z++)
         {
-            for (int x = 0; x < Size; x++)
-            {
-                for (int z = 0; z < Size; z++)
-                {
-                    uniqueBlocks.Add(buffer[x, y, z]);
-                }
-            }
+            uniqueBlocks.Add(buffer[x, y, z]);
         }
 
         return uniqueBlocks;
     }
 
-    static int GetBitsPerBlock(int count)
+    public static int GetBitsPerBlock(int count)
     {
         if (count <= 1) return 1;
         return (int)Math.Log2(count - 1) + 1;
@@ -144,16 +174,15 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
         lightMap = new LightValue[Size, Size, Size];
     }
 
-    public static Block[,,] GetBlockArray()
-    {
-        return new Block[Size, Size, Size];
-    }
-
     public Block this[int x, int y, int z]
     {
         get
         {
             if (IsEmpty) return Block.Empty;
+            if (storage is null)
+            {
+                int u = 8;
+            }
             uint id = storage[x, y, z];
             return palette[(int)id];
         }
@@ -176,6 +205,14 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
             storage[x, y, z] = index;
         }
     }
+
+    public uint GetStorageValue(int x, int y, int z)
+    {
+        uint id = storage[x, y, z];
+        return id;
+    }
+
+    public ushort GetPaletteValue(int p) => palette[p].Value;
 
     public IEnumerable<Chunk> GetNeighbours()
     {
@@ -433,6 +470,11 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
         visibleFaces.XNeg = adjacentBlock.IsEmpty || blockMetadata.IsBlockTransparent(adjacentBlock) && isBlockOpaque;
 
         return visibleFaces;
+    }
+    
+    public static Block[,,] GetBlockArray()
+    {
+        return new Block[Size, Size, Size];
     }
 
     public static int WorldToChunkIndex(float worldCoord)

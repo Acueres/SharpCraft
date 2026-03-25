@@ -26,14 +26,9 @@ public class ChunkModificationData(Chunk chunk, Block newBlock, Vec3<byte> block
     public BlockInteractionMode InteractionMode { get; } = interactionMode;
 }
 
-class ChunkModificationSystem(DatabaseService db,
+class ChunkModificationSystem(ChunkPersistenceService chunkPersistence,
     BlockMetadataProvider blockMetadata, LightSystem lightSystem, Action<Chunk> PostChunkForRemeshing)
 {
-    readonly DatabaseService db = db;
-    readonly BlockMetadataProvider blockMetadata = blockMetadata;
-    readonly LightSystem lightSystem = lightSystem;
-    readonly Action<Chunk> PostChunkForRemeshing = PostChunkForRemeshing;
-
     readonly Queue<ChunkModificationData> queue = [];
 
     public void Add(Vec3<byte> blockIndex, Chunk chunk, BlockInteractionMode interactionMode)
@@ -84,7 +79,7 @@ class ChunkModificationSystem(DatabaseService db,
         foreach (var ch in visited)
             PostChunkForRemeshing(ch);
 
-        db.AddDelta(chunk.Index, blockIndex, Block.Empty);
+        chunkPersistence.AddToPending(chunk);
     }
 
     void AddBlock(Chunk chunk, Block block, Vec3<byte> blockIndex, Vector3 rayDirection)
@@ -122,7 +117,7 @@ class ChunkModificationSystem(DatabaseService db,
         foreach (var ch in visited)
             PostChunkForRemeshing(ch);
 
-        db.AddDelta(chunk.Index, newBlockIndex, block);
+        chunkPersistence.AddToPending(chunk);
     }
 
     static (Vec3<byte> blockIndex, Vec3<sbyte> chunkOffset) GetAdjacentIndex(AxisDirection dominantAxis, Vec3<byte> index, Vec3<int> offset)

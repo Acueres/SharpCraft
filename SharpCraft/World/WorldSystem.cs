@@ -25,19 +25,19 @@ class WorldSystem : IDisposable
 
     readonly WorldGenerator worldGenerator;
 
-    public WorldSystem(Region region, GameMenu gameMenu, DatabaseService db,
+    public WorldSystem(Region region, GameMenu gameMenu, ChunkPersistenceService chunkPersistence,
         Parameters parameters, BlockMetadataProvider blockMetadata,
         ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
     {
         this.region = region;
         this.gameMenu = gameMenu;
 
-        chunkGenerator = new ChunkGenerator(parameters, db, blockMetadata);
+        chunkGenerator = new ChunkGenerator(parameters, chunkPersistence, blockMetadata);
         this.blockOutlineMesher = blockOutlineMesher;
 
         LightSystem lightSystem = new();
 
-        chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem,
+        chunkModSystem = new ChunkModificationSystem(chunkPersistence, blockMetadata, lightSystem,
             chunk => worldGenerator.PostToMesher(chunk));
 
         worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
@@ -48,20 +48,20 @@ class WorldSystem : IDisposable
     {
         this.player = player;
         player.Flying = true;
-
-        worldGenerator.BulkGenerate(player.Position);
-
-        Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
-        player.Index = currentPlayerIndex;
-
-        if (parameters.Position == Vector3.Zero)
-        {
-            player.Position = new Vector3(0, 100, 0);
-        }
-        else
+        
+        if (parameters.Position != Vector3.Zero)
         {
             player.Position = parameters.Position;
         }
+        else
+        {
+            player.Position = new Vector3(0, 250, 0);
+        }
+        
+        Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
+        player.Index = currentPlayerIndex;
+        
+        worldGenerator.BulkGenerate(player.Position);
     }
 
     public void Update(GameTime gameTime, bool exitedMenu)
@@ -101,7 +101,6 @@ class WorldSystem : IDisposable
         const float maxDistance = 4.5f;
 
         Vector3 blockPosition = player.Camera.Position;
-        Vec3<int> chunkIndex;// = Chunk.WorldToChunkCoords(blockPosition);
         Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(blockPosition);
         Block block = Block.Empty;
         Chunk chunk = null;
@@ -109,10 +108,13 @@ class WorldSystem : IDisposable
         while (raycaster.Length(blockPosition) < maxDistance)
         {
             blockPosition = raycaster.Step();
-            chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+            var chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
             blockIndex = Chunk.WorldToBlockCoords(blockPosition);
 
             chunk = region[chunkIndex];
+
+            if (chunk is null) break;
+            
             block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
             if (!block.IsEmpty) break;
         }
@@ -184,7 +186,9 @@ class WorldSystem : IDisposable
         foreach (var (chunkIndex, blockIndex) in collisionIndices)
         {
             Chunk chunk = region[chunkIndex];
-
+            
+            if (chunk is null) continue;
+            
             Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
             if (!block.IsEmpty)
             {

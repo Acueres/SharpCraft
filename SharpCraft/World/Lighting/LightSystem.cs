@@ -28,14 +28,12 @@ public class LightSystem
         emitterChunk.InitLight();
 
         for (int x = 0; x < Chunk.Size; x++)
+        for (int z = 0; z < Chunk.Size; z++)
         {
-            for (int z = 0; z < Chunk.Size; z++)
-            {
-                if (!emitterChunk[x, Chunk.Last, z].IsEmpty) continue;
+            if (!emitterChunk[x, Chunk.Last, z].IsEmpty) continue;
 
-                emitterChunk.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
-                lightQueue.Enqueue(new LightNode(emitterChunk, x, Chunk.Last, z));
-            }
+            emitterChunk.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
+            lightQueue.Enqueue(new LightNode(emitterChunk, x, Chunk.Last, z));
         }
     }
 

@@ -78,7 +78,7 @@ namespace SharpCraft.Persistence
                     continue;
                 }
 
-                string saveName = saveNames[i].Split('\\')[1];
+                string saveName = saveNames[i].Split(Path.DirectorySeparatorChar)[1];
                 saves.Add(Load(graphics, saveName));
             }
 
@@ -87,7 +87,7 @@ namespace SharpCraft.Persistence
 
         public static Save Load(GraphicsDevice graphics, string name)
         {
-            using FileStream fileStream = new(@$"Saves\{name}\save_icon.png", FileMode.Open);
+            using FileStream fileStream = new(Path.Combine("Saves", name, "save_icon.png"), FileMode.Open);
             Texture2D icon = Texture2D.FromStream(graphics, fileStream);
 
             return new Save(icon, name, new Parameters(name));

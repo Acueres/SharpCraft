@@ -38,6 +38,11 @@ namespace SharpCraft.Persistence
             name = name.Replace(' ', '_');
             name = name.Replace(':', '.');
 
+            if (!Directory.Exists("Screenshots"))
+            {
+                Directory.CreateDirectory("Screenshots");
+            }
+
             Stream stream = File.Create($@"Screenshots/{name + ".png"}");
             screenshot.SaveAsPng(stream, screenWidth, screenHeight);
 
