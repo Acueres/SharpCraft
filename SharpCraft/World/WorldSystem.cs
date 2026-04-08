@@ -15,7 +15,6 @@ using SharpCraft.World.Lighting;
 namespace SharpCraft.World;
 class WorldSystem : IDisposable
 {
-    Player player;
     readonly Region region;
     readonly ChunkModificationSystem chunkModSystem;
 
@@ -23,12 +22,17 @@ class WorldSystem : IDisposable
     readonly ChunkGenerator chunkGenerator;
     readonly BlockOutlineMesher blockOutlineMesher;
 
+    readonly Player player;
+    readonly Parameters parameters;
     readonly WorldGenerator worldGenerator;
+    readonly SpawnResolver spawnResolver;
 
-    public WorldSystem(Region region, GameMenu gameMenu, ChunkPersistenceService chunkPersistence,
+    public WorldSystem(Player player, Region region, GameMenu gameMenu, ChunkPersistenceService chunkPersistence,
         Parameters parameters, BlockMetadataProvider blockMetadata,
         ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
     {
+        this.player = player;
+        this.parameters = parameters;
         this.region = region;
         this.gameMenu = gameMenu;
 
@@ -42,26 +46,20 @@ class WorldSystem : IDisposable
 
         worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
         this.gameMenu.SetWorldGenerator(worldGenerator);
+
+        spawnResolver = new SpawnResolver(player, parameters, worldGenerator, chunkGenerator, region);
     }
 
-    public void Init(Player player, Parameters parameters)
+    public void Init()
     {
-        this.player = player;
-        player.Flying = true;
-        
-        if (parameters.Position != Vector3.Zero)
-        {
-            player.Position = parameters.Position;
-        }
-        else
-        {
-            player.Position = new Vector3(0, 250, 0);
-        }
-        
-        Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
-        player.Index = currentPlayerIndex;
-        
-        worldGenerator.BulkGenerate(player.Position);
+        player.Flying = parameters.IsFlying;
+
+        var spawnPosition = spawnResolver.Resolve();
+
+        player.Position = spawnPosition;
+        player.Index = Chunk.WorldToChunkCoords(spawnPosition);
+
+        worldGenerator.BulkGenerate(spawnPosition);
     }
 
     public void Update(GameTime gameTime, bool exitedMenu)
@@ -203,6 +201,7 @@ class WorldSystem : IDisposable
             player.Physics.ResolveCollision(bound);
         }
     }
+
 
     bool disposed;
 

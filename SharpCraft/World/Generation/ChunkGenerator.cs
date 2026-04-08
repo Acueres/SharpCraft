@@ -5,6 +5,7 @@ using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
 using SharpCraft.MathUtilities;
+using Microsoft.Xna.Framework;
 
 namespace SharpCraft.World.Generation;
 
@@ -106,6 +107,71 @@ class ChunkGenerator
         SeedLightSourcesFromBuffer(chunk, buffer);
 
         return chunk;
+    }
+
+    public int GetTerrainHeight(int worldX, int worldZ)
+    {
+        var (chunkX, blockX) = SplitWorldCoord(worldX);
+        var (chunkZ, blockZ) = SplitWorldCoord(worldZ);
+
+        EnsureTopographyCached(chunkX, chunkZ);
+
+        return heightLevelCache[new Vec2<int>(chunkX, chunkZ)][blockX, blockZ];
+    }
+
+    public int GetWaterHeight(int worldX, int worldZ)
+    {
+        var (chunkX, blockX) = SplitWorldCoord(worldX);
+        var (chunkZ, blockZ) = SplitWorldCoord(worldZ);
+
+        EnsureTopographyCached(chunkX, chunkZ);
+
+        return waterLevelCache[new Vec2<int>(chunkX, chunkZ)][blockX, blockZ];
+    }
+
+    void EnsureTopographyCached(int chunkX, int chunkZ)
+    {
+        Vec2<int> cacheIndex = new(chunkX, chunkZ);
+
+        if (heightLevelCache.ContainsKey(cacheIndex)
+            && waterLevelCache.ContainsKey(cacheIndex)
+            && terrainCache.ContainsKey(cacheIndex)
+            && maxElevationCache.ContainsKey(cacheIndex))
+        {
+            return;
+        }
+
+        Vector3 chunkWorldPos = new(chunkX * Chunk.Size, 0, chunkZ * Chunk.Size);
+        TopographyData topographyData = topographyGenerator.GetTopographyData(chunkWorldPos);
+
+        heightLevelCache.TryAdd(cacheIndex, topographyData.HeightLevel);
+        waterLevelCache.TryAdd(cacheIndex, topographyData.WaterLevel);
+        terrainCache.TryAdd(cacheIndex, topographyData.ReliefData);
+        maxElevationCache.TryAdd(cacheIndex, topographyData.MaxElevation);
+    }
+
+    static (int chunk, int block) SplitWorldCoord(int worldCoord)
+    {
+        int chunk = FloorDiv(worldCoord, Chunk.Size);
+        int block = PositiveMod(worldCoord, Chunk.Size);
+        return (chunk, block);
+    }
+
+    static int FloorDiv(int value, int divisor)
+    {
+        int q = value / divisor;
+        int r = value % divisor;
+
+        if (r != 0 && ((r > 0) != (divisor > 0)))
+            q--;
+
+        return q;
+    }
+
+    static int PositiveMod(int value, int modulus)
+    {
+        int result = value % modulus;
+        return result < 0 ? result + modulus : result;
     }
 
     private void SeedLightSourcesFromBuffer(Chunk chunk, Block[,,] buffer)

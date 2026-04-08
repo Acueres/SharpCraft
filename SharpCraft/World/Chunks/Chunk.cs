@@ -479,12 +479,7 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
     public static int WorldToChunkIndex(float worldCoord)
     {
-        if (worldCoord < 0)
-        {
-            return (int)(worldCoord / Size) - 1;
-        }
-
-        return (int)(worldCoord / Size);
+        return (int)Math.Floor(worldCoord / Size);
     }
 
     public static Vec3<int> WorldToChunkCoords(Vector3 pos)

@@ -56,7 +56,7 @@ namespace SharpCraft.Persistence
             icon = new Texture2D(graphics, screenWidth, screenHeight);
             icon.SetData(colorData);
 
-            Stream stream = File.Create($"Saves/{saveName}/save_icon.png");
+            using Stream stream = File.Create($"Saves/{saveName}/save_icon.png");
             icon.SaveAsPng(stream, screenWidth, screenHeight);
         }
     }

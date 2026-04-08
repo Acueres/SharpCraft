@@ -126,23 +126,20 @@ namespace SharpCraft
 
                             player = new Player(GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(region, gameMenu, chunkPersistence, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
+                            world = new WorldSystem(player, region, gameMenu, chunkPersistence, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
                             renderer = new Renderer(region, graphics.GraphicsDevice, assetServer, screenshotTaker, chunkMesher, blockOutlineMesher);
 
-                            world.Init(player, currentSave.Parameters);
-
-                            if (!File.Exists($@"Saves/{currentSave.Parameters.SaveName}/save_icon.png"))
-                            {
-                                player.Update(gameTime);
-                                renderer.Render(player.Camera, time);
-                                screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
-                            }
+                            world.Init();
 
                             break;
                         }
 
                     case GameState.Exiting:
                         {
+                            ScreenshotTaker screenshotTaker = new(GraphicsDevice, Window.ClientBounds.Width,
+                                                                              Window.ClientBounds.Height);
+                            screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
+
                             chunkPersistence.StopAsync().ConfigureAwait(false);
 
                             player.SaveParameters(currentSave.Parameters);
