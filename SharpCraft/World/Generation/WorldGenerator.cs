@@ -34,7 +34,7 @@ class WorldGenerator : IDisposable
     readonly TransformBlock<Chunk, Chunk> lightSeedBlock;
 
     // 4. Single-threaded light queue BFS
-    readonly TransformManyBlock<Chunk, Chunk> floodFillBlock;
+    readonly TransformBlock<Chunk, Chunk> floodFillBlock;
 
     // 5. Meshing
     readonly ActionBlock<Chunk> meshingBlock;
@@ -131,11 +131,12 @@ class WorldGenerator : IDisposable
                 {
                     if (chunkGenerator.IsSunlight(chunk))
                     {
-                        lightSystem.InitializeSkylight(chunk);
+                        LightSystem.InitializeSkylightLocal(chunk);
+                        chunk.State = ChunkState.LightSeeded;
                     }
                     else if (!chunk.IsEmpty)
                     {
-                        lightSystem.InitializeLight(chunk);
+                        LightSystem.InitializeLightLocal(chunk);
                         chunk.State = ChunkState.LightSeeded;
                     }
 
@@ -153,50 +154,28 @@ class WorldGenerator : IDisposable
                 CancellationToken = cts.Token
             });
 
-        // 4. Flood fill
-        // One global single‑threaded queue
-        floodFillBlock = new TransformManyBlock<Chunk, Chunk>(
-            chunk =>
+        // 4. Light flood fill
+        floodFillBlock = new TransformBlock<Chunk, Chunk>(
+        chunk =>
+        {
+            var touchedNeighbors = lightSystem.RunBFS(chunk);
+
+            chunk.State = ChunkState.Lit;
+
+            // Re-feed neighbors who received new light values
+            foreach (var neighbor in touchedNeighbors)
             {
-                try
-                {
-                    List<Chunk> ready = [];
+                if (neighbor.State >= ChunkState.LightSeeded)
+                    floodFillBlock.Post(neighbor);
+            }
 
-                    var visitedChunks = lightSystem.RunBFS();
-                    visitedChunks.Remove(chunk);
-
-                    chunk.State = ChunkState.Lit;
-                    ready.Add(chunk);
-
-                    foreach (var visitedChunk in visitedChunks)
-                    {
-                        // For each 'visitedChunk' (whose lighting was just re-calculated):
-                        // If it's a meshable candidate (not empty, all neighbors exist), queue it for the mesher if either:
-                        //  1. It is ready (was previously meshed): its state is updated to 'Lit' to trigger a mesh rebuild reflecting the new lighting.
-                        //  2. Its current state is 'Lit' (already pending meshing or re-lit): it's added to the queue.
-                        // This ensures chunks with lighting changes are (re)processed by the meshing stage.
-                        if (!visitedChunk.IsEmpty && visitedChunk.AllNeighborsExist
-                        && (chunk.IsReady || chunk.State == ChunkState.Lit))
-                        {
-                            visitedChunk.State = ChunkState.Lit;
-                            ready.Add(visitedChunk);
-                        }
-                    }
-
-                    return ready;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex);
-                    throw;
-                }
-            },
-            new ExecutionDataflowBlockOptions
-            {
-                // Run on a single thread to ensure BFS queue safety
-                MaxDegreeOfParallelism = 1,
-                CancellationToken = cts.Token
-            });
+            return chunk;
+        },
+        new ExecutionDataflowBlockOptions
+        {
+            MaxDegreeOfParallelism = maxWorkers,
+            CancellationToken = cts.Token
+        });
 
         // 5. Meshing
         meshingInputBuffer = new BufferBlock<Chunk>(
@@ -330,15 +309,29 @@ class WorldGenerator : IDisposable
 
         Parallel.ForEach(sunlightChunks, chunk =>
         {
-            lightSystem.InitializeSkylight(chunk);
+            LightSystem.InitializeSkylightLocal(chunk);
+            lightSystem.RunBFS(chunk);
         });
 
         Parallel.ForEach(readyChunks, chunk =>
         {
-            lightSystem.InitializeLight(chunk);
+            LightSystem.InitializeLightLocal(chunk);
+            lightSystem.RunBFS(chunk);
         });
 
-        lightSystem.RunBFS();
+        bool anyPending;
+        do
+        {
+            anyPending = false;
+            Parallel.ForEach(readyChunks, chunk =>
+            {
+                if (!chunk.LightQueue.IsEmpty)
+                {
+                    lightSystem.RunBFS(chunk);
+                    anyPending = true;
+                }
+            });
+        } while (anyPending);
 
         Parallel.ForEach(readyChunks, chunk =>
         {

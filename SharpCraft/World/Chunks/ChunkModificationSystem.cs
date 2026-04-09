@@ -98,8 +98,8 @@ class ChunkModificationSystem(ChunkPersistenceService chunkPersistence,
         if (chunk.IsEmpty)
         {
             chunk.Init();
-            lightSystem.InitializeLight(chunk);
-            lightSystem.RunBFS();
+            LightSystem.InitializeLightLocal(chunk);
+            lightSystem.RunBFS(chunk);
         }
 
         chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z] = block;

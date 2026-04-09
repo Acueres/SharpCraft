@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-
-using Microsoft.Win32.SafeHandles;
+﻿using Microsoft.Win32.SafeHandles;
 using Microsoft.Xna.Framework;
-
 using SharpCraft.MathUtilities;
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Lighting;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace SharpCraft.World.Chunks;
 
@@ -59,6 +58,7 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
     BitStorage storage;
     LightValue[,,] lightMap;
 
+    public ConcurrentQueue<(LightValue Value, byte X, byte Y, byte Z)> LightQueue { get; } = [];
     readonly HashSet<Vec3<byte>> lightSources = [];
 
     public void Dispose() => Dispose(true);
