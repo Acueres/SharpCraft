@@ -9,10 +9,13 @@ using SharpCraft.Rendering.Meshers;
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
+using SharpCraft.World.ChunkStreaming;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Lighting;
+using SharpCraft.World.Meshing;
 
 namespace SharpCraft.World;
+
 class WorldSystem : IDisposable
 {
     readonly Region region;
@@ -24,7 +27,7 @@ class WorldSystem : IDisposable
 
     readonly Player player;
     readonly Parameters parameters;
-    readonly WorldGenerator worldGenerator;
+    readonly RegionStreaming regionStreaming;
     readonly SpawnResolver spawnResolver;
 
     public WorldSystem(Player player, Region region, GameMenu gameMenu, ChunkPersistenceService chunkPersistence,
@@ -42,12 +45,12 @@ class WorldSystem : IDisposable
         LightSystem lightSystem = new();
 
         chunkModSystem = new ChunkModificationSystem(chunkPersistence, blockMetadata, lightSystem,
-            chunk => worldGenerator.PostToMesher(chunk));
+            chunk => regionStreaming.ScheduleForMeshing(chunk));
 
-        worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
-        this.gameMenu.SetWorldGenerator(worldGenerator);
+        regionStreaming = new RegionStreaming(region, chunkGenerator, lightSystem, chunkMesher);
+        this.gameMenu.SetWorldGenerator(regionStreaming);
 
-        spawnResolver = new SpawnResolver(player, parameters, worldGenerator, chunkGenerator, region);
+        spawnResolver = new SpawnResolver(player, parameters, regionStreaming, chunkGenerator, region);
     }
 
     public void Init()
@@ -59,7 +62,7 @@ class WorldSystem : IDisposable
         player.Position = spawnPosition;
         player.Index = Chunk.WorldToChunkCoords(spawnPosition);
 
-        worldGenerator.BulkGenerate(spawnPosition);
+        regionStreaming.BulkGenerate(spawnPosition);
     }
 
     public void Update(GameTime gameTime, bool exitedMenu)
@@ -70,9 +73,11 @@ class WorldSystem : IDisposable
 
         if (player.Index != currentPlayerIndex)
         {
-            worldGenerator.Update(player.Position);
+            regionStreaming.Update(player.Position);
             player.Index = currentPlayerIndex;
         }
+
+        regionStreaming.Update();
     }
 
     public void UpdateEntities(GameTime gameTime, bool exitedMenu)
@@ -218,7 +223,7 @@ class WorldSystem : IDisposable
 
         if (disposing)
         {
-            worldGenerator.Dispose();
+            regionStreaming.Dispose();
         }
     }
 }

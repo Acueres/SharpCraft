@@ -11,7 +11,7 @@ using SharpCraft.GUI.Elements;
 using SharpCraft.GUI.Components;
 using SharpCraft.Persistence;
 using SharpCraft.MathUtilities;
-using SharpCraft.World.Generation;
+using SharpCraft.World.ChunkStreaming;
 
 namespace SharpCraft.GUI.Menus;
 
@@ -23,7 +23,7 @@ class GameMenu
     GraphicsDevice graphics;
     SpriteBatch spriteBatch;
     readonly AssetServer assetServer;
-    WorldGenerator worldGenerator;
+    RegionStreaming worldGenerator;
     readonly Player player;
 
     Inventory inventory;
@@ -130,7 +130,7 @@ class GameMenu
         screenShadingTexture.SetData(darkBackGroundColor);
     }
 
-    public void SetWorldGenerator(WorldGenerator generator)
+    public void SetWorldGenerator(RegionStreaming generator)
     {
         worldGenerator = generator;
     }

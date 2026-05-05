@@ -98,7 +98,7 @@ class ChunkModificationSystem(ChunkPersistenceService chunkPersistence,
         if (chunk.IsEmpty)
         {
             chunk.Init();
-            LightSystem.InitializeLightLocal(chunk);
+            LightSystem.InitializeLight(chunk);
             lightSystem.RunBFS(chunk);
         }
 

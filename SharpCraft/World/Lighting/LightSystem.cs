@@ -11,34 +11,23 @@ public class LightSystem
     readonly ConcurrentQueue<LightNode> lightQueue = [];
     readonly ConcurrentQueue<(LightNode, LightValue)> lightRemovalQueue = [];
 
-    public static void InitializeSkylightLocal(Chunk chunk)
+    public static void InitializeSkylight(Chunk chunk)
     {
-        chunk.InitLight();
+        chunk.EnsureLight();
+
+        const byte sunlightLevel = Chunk.Last;
 
         for (int x = 0; x < Chunk.Size; x++)
             for (int z = 0; z < Chunk.Size; z++)
             {
-                if (!chunk.IsEmpty && !chunk[x, Chunk.Last, z].IsEmpty) continue;
-                chunk.LightQueue.Enqueue((LightValue.Sunlight, (byte)x, Chunk.Last, (byte)z));
+                if (!chunk[x, Chunk.Last, z].IsEmpty) continue;
+                chunk.LightQueue.Enqueue((LightValue.Sunlight, (byte)x, sunlightLevel, (byte)z));
             }
     }
 
-    public static void InitializeLightLocal(Chunk chunk)
+    public static void InitializeLight(Chunk chunk)
     {
-        chunk.InitLight();
-
-        // Inherit sky from the chunk above
-        if (chunk.YPos is not null)
-        {
-            for (int x = 0; x < Chunk.Size; x++)
-                for (int z = 0; z < Chunk.Size; z++)
-                {
-                    if (!chunk.YPos[x, 0, z].IsEmpty) continue;
-                    LightValue above = chunk.YPos.GetLight(x, 0, z);
-                    if (above != LightValue.Null)
-                        chunk.LightQueue.Enqueue((above, (byte)x, Chunk.Last, (byte)z));
-                }
-        }
+        chunk.EnsureLight();
 
         // Seed block light sources directly into the queue
         foreach (Vec3<byte> src in chunk.GetLightSources())

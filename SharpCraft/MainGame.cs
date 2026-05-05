@@ -10,7 +10,8 @@ using SharpCraft.GUI.Menus;
 using SharpCraft.Persistence;
 using SharpCraft.Rendering;
 using SharpCraft.Rendering.Meshers;
-using SharpCraft.World.Chunks;
+using SharpCraft.World.Meshing;
+using SharpCraft.World.ChunkStreaming;
 
 namespace SharpCraft
 {

@@ -43,6 +43,11 @@ class ChunkGenerator
 
         Vec2<int> cacheIndex = new(index.X, index.Z);
         
+        if (index == new Vec3<int>(0, 16, -2))
+        {
+            int f = 0;
+        }
+
         // Load chunk from disk, if exists
         if (chunkPersistence.TryLoadChunk(index, out var buffer))
         {
@@ -192,7 +197,7 @@ class ChunkGenerator
     {
         int maxElevation = maxElevationCache[new Vec2<int>(chunk.Index.X, chunk.Index.Z)];
         int y = Chunk.WorldToChunkIndex(maxElevation);
-        return chunk.Index.Y == y;
+        return chunk.Index.Y == y || chunk.Index.Y == y + 1;
     }
 
     public ReliefType GetReliefType(int cx, int cz, int bx, int bz)

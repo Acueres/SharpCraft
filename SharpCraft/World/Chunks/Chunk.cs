@@ -169,9 +169,9 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
         lightMap = new LightValue[Size, Size, Size];
     }
 
-    public void InitLight()
+    public void EnsureLight()
     {
-        lightMap = new LightValue[Size, Size, Size];
+        lightMap ??= new LightValue[Size, Size, Size];
     }
 
     public Block this[int x, int y, int z]
@@ -179,10 +179,6 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
         get
         {
             if (IsEmpty) return Block.Empty;
-            if (storage is null)
-            {
-                int u = 8;
-            }
             uint id = storage[x, y, z];
             return palette[(int)id];
         }
@@ -222,6 +218,16 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
         if (YPos != null) yield return YPos;
         if (ZNeg != null) yield return ZNeg;
         if (ZPos != null) yield return ZPos;
+    }
+
+    public IEnumerable<Vec3<int>> GetNeighborIndexes()
+    {
+        yield return Index + new Vec3<int>(-1, 0, 0);
+        yield return Index + new Vec3<int>(1, 0, 0);
+        yield return Index + new Vec3<int>(0, -1, 0);
+        yield return Index + new Vec3<int>(0, 1, 0);
+        yield return Index + new Vec3<int>(0, 0, -1);
+        yield return Index + new Vec3<int>(0, 0, 1);
     }
 
     public int? GetMaximumTerrainElevation()
@@ -299,13 +305,14 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
 
     public LightValue GetLight(int x, int y, int z)
     {
-        return lightMap is null ? LightValue.Sunlight : lightMap[x, y, z];
+        EnsureLight();
+        return lightMap[x, y, z];
     }
 
     public void SetLight(int x, int y, int z, LightValue value)
     {
-        if (lightMap is not null)
-            lightMap[x, y, z] = value;
+        EnsureLight();
+        lightMap[x, y, z] = value;
     }
 
     public void AddLightSource(byte x, byte y, byte z, Block block)

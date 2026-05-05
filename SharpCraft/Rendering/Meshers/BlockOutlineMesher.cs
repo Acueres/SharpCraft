@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using SharpCraft.Utilities;
+using SharpCraft.World.Meshing;
 
 namespace SharpCraft.Rendering.Meshers;
 
