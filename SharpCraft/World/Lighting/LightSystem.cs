@@ -1,8 +1,9 @@
-﻿using SharpCraft.MathUtilities;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
+
+using SharpCraft.MathUtilities;
 using SharpCraft.Utilities;
 using SharpCraft.World.Chunks;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace SharpCraft.World.Lighting;
 
@@ -15,13 +16,11 @@ public class LightSystem
     {
         chunk.EnsureLight();
 
-        const byte sunlightLevel = Chunk.Last;
-
         for (int x = 0; x < Chunk.Size; x++)
             for (int z = 0; z < Chunk.Size; z++)
             {
                 if (!chunk[x, Chunk.Last, z].IsEmpty) continue;
-                chunk.LightQueue.Enqueue((LightValue.Sunlight, (byte)x, sunlightLevel, (byte)z));
+                chunk.LightQueue.Enqueue((LightValue.Sunlight, (byte)x, Chunk.Last, (byte)z));
             }
     }
 
@@ -36,27 +35,30 @@ public class LightSystem
             LightValue current = chunk.GetLight(src.X, src.Y, src.Z);
             chunk.LightQueue.Enqueue((new LightValue(current.SkyValue, srcVal), src.X, src.Y, src.Z));
         }
+
+        GetNeighborsLight(chunk);
     }
 
     public HashSet<Chunk> RunBFS()
     {
-        HashSet<Chunk> toueched = [];
+        HashSet<Chunk> touched = [];
 
         while (lightQueue.TryDequeue(out LightNode node))
         {
-            toueched.Add(node.Chunk);
+            touched.Add(node.Chunk);
 
             if (node.IsEmpty) continue;
 
             BFSPropagate(node.Chunk, node.X, node.Y, node.Z);
         }
 
-        return toueched;
+        return touched;
     }
 
-    public HashSet<Chunk> RunBFS(Chunk chunk)
+    public static (HashSet<Chunk> lightTouched, HashSet<Chunk> meshTouched) RunBFS(Chunk chunk)
     {
-        HashSet<Chunk> touched = [];
+        HashSet<Chunk> lightPropagationTargets = [];
+        HashSet<Chunk> meshRefreshTargets = [];
         Queue<LightNode> localQueue = [];
 
         while (chunk.LightQueue.TryDequeue(out var pending))
@@ -72,10 +74,10 @@ public class LightSystem
         while (localQueue.TryDequeue(out var node))
         {
             if (node.IsEmpty) continue;
-            BFSPropagateChunkLocal(node.Chunk, node.X, node.Y, node.Z, localQueue, touched);
+            BFSPropagateChunkLocal(node.Chunk, node.X, node.Y, node.Z, localQueue, lightPropagationTargets, meshRefreshTargets);
         }
 
-        return touched;
+        return (lightPropagationTargets, meshRefreshTargets);
     }
 
     public HashSet<Chunk> RunRemovalBFS()
@@ -123,6 +125,82 @@ public class LightSystem
         }
 
         return RunBFS();
+    }
+
+    private static void GetNeighborsLight(Chunk chunk)
+    {
+        for (int x = 0; x < Chunk.Size; x++)
+            for (int z = 0; z < Chunk.Size; z++)
+            {
+                // Light entering this chunk from the chunk above.
+                SeedFromNeighbor(
+                    chunk,
+                    localX: x, localY: Chunk.Last, localZ: z,
+                    neighbor: chunk.YPos,
+                    neighborX: x, neighborY: 0, neighborZ: z,
+                    downward: true);
+
+                // Light entering from below
+                SeedFromNeighbor(
+                    chunk,
+                    localX: x, localY: 0, localZ: z,
+                    neighbor: chunk.YNeg,
+                    neighborX: x, neighborY: Chunk.Last, neighborZ: z,
+                    downward: false);
+            }
+
+        for (int y = 0; y < Chunk.Size; y++)
+            for (int z = 0; z < Chunk.Size; z++)
+            {
+                SeedFromNeighbor(chunk, Chunk.Last, y, z, chunk.XPos, 0, y, z, downward: false);
+                SeedFromNeighbor(chunk, 0, y, z, chunk.XNeg, Chunk.Last, y, z, downward: false);
+            }
+
+        for (int x = 0; x < Chunk.Size; x++)
+            for (int y = 0; y < Chunk.Size; y++)
+            {
+                SeedFromNeighbor(chunk, x, y, Chunk.Last, chunk.ZPos, x, y, 0, downward: false);
+                SeedFromNeighbor(chunk, x, y, 0, chunk.ZNeg, x, y, Chunk.Last, downward: false);
+            }
+    }
+
+    private static void SeedFromNeighbor(
+    Chunk chunk,
+    int localX, int localY, int localZ,
+    Chunk neighbor,
+    int neighborX, int neighborY, int neighborZ,
+    bool downward)
+    {
+        if (neighbor is null)
+            return;
+
+        if (!chunk.IsBlockTransparent(localX, localY, localZ))
+            return;
+
+        LightValue source = neighbor.GetLight(neighborX, neighborY, neighborZ);
+        if (source == LightValue.Null)
+            return;
+
+        LightValue incoming = source;
+
+        if (incoming.SkyValue > 0)
+        {
+            if (!downward || incoming.SkyValue < LightValue.MaxValue)
+                incoming = incoming.SubtractSkyValue(1);
+        }
+
+        if (incoming.BlockValue > 0)
+            incoming = incoming.SubtractBlockValue(1);
+
+        LightValue existing = chunk.GetLight(localX, localY, localZ);
+        if (existing.Compare(incoming, out LightValue merged))
+        {
+            chunk.LightQueue.Enqueue((
+                merged,
+                (byte)localX,
+                (byte)localY,
+                (byte)localZ));
+        }
     }
 
     void SetSourceLight(Chunk chunk)
@@ -233,7 +311,8 @@ public class LightSystem
     Chunk chunk,
     int x, int y, int z,
     Queue<LightNode> localQueue,
-    HashSet<Chunk> touched)
+    HashSet<Chunk> lightPropagationTargets,
+    HashSet<Chunk> meshRefreshTargets)
     {
         LightValue light = chunk.GetLight(x, y, z);
         if (light == LightValue.Null) return;
@@ -250,12 +329,12 @@ public class LightSystem
         if (down.BlockValue > 0)
             down = down.SubtractBlockValue(1);
 
-        PropagateFace(chunk, x, y + 1, z, chunk.YPos, x, 0, z, y == Chunk.Last, lateral, localQueue, touched);
-        PropagateFace(chunk, x, y - 1, z, chunk.YNeg, x, Chunk.Last, z, y == 0, down, localQueue, touched);
-        PropagateFace(chunk, x + 1, y, z, chunk.XPos, 0, y, z, x == Chunk.Last, lateral, localQueue, touched);
-        PropagateFace(chunk, x - 1, y, z, chunk.XNeg, Chunk.Last, y, z, x == 0, lateral, localQueue, touched);
-        PropagateFace(chunk, x, y, z + 1, chunk.ZPos, x, y, 0, z == Chunk.Last, lateral, localQueue, touched);
-        PropagateFace(chunk, x, y, z - 1, chunk.ZNeg, x, y, Chunk.Last, z == 0, lateral, localQueue, touched);
+        PropagateFace(chunk, x, y + 1, z, chunk.YPos, x, 0, z, y == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x, y - 1, z, chunk.YNeg, x, Chunk.Last, z, y == 0, down, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x + 1, y, z, chunk.XPos, 0, y, z, x == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x - 1, y, z, chunk.XNeg, Chunk.Last, y, z, x == 0, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x, y, z + 1, chunk.ZPos, x, y, 0, z == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x, y, z - 1, chunk.ZNeg, x, y, Chunk.Last, z == 0, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
     }
 
     void BFSPropagate(Chunk chunk, sbyte x, sbyte y, sbyte z)
@@ -485,16 +564,21 @@ public class LightSystem
     bool isBoundary,
     LightValue next,
     Queue<LightNode> localQueue,
-    HashSet<Chunk> touched)
+    HashSet<Chunk> lightPropagationTargets,
+    HashSet<Chunk> meshRefreshTargets)
     {
         if (isBoundary)
         {
             if (neighbor is null) return;
-            if (!neighbor.IsBlockTransparent(nx, ny, nz)) return;
+            if (!neighbor.IsBlockTransparent(nx, ny, nz))
+            {
+                meshRefreshTargets.Add(neighbor);
+                return;
+            }
             if (neighbor.GetLight(nx, ny, nz).Compare(next, out LightValue value))
             {
                 neighbor.LightQueue.Enqueue((value, (byte)nx, (byte)ny, (byte)nz));
-                touched.Add(neighbor);
+                lightPropagationTargets.Add(neighbor);
             }
         }
         else

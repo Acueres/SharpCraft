@@ -42,11 +42,6 @@ class ChunkGenerator
         Chunk chunk = new(index, blockMetadata);
 
         Vec2<int> cacheIndex = new(index.X, index.Z);
-        
-        if (index == new Vec3<int>(0, 16, -2))
-        {
-            int f = 0;
-        }
 
         // Load chunk from disk, if exists
         if (chunkPersistence.TryLoadChunk(index, out var buffer))

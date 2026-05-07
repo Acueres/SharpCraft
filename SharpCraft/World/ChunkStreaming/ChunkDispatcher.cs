@@ -29,7 +29,8 @@ enum ResultStatus
     Success,
     Failed,
     Skipped,
-    RelightRequested
+    RelightRequested,
+    RemeshRequested
 }
 
 record struct WorkResult(Vec3<int> Index, int Version, JobType JobType, ResultStatus Status, Chunk Chunk, Exception Exception);
@@ -198,6 +199,9 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
             case ResultStatus.RelightRequested:
                 HandleRelight(result.Index, result.Version);
                 return;
+            case ResultStatus.RemeshRequested:
+                HandleRemesh(result.Index, result.Version);
+                return;
         }
     }
 
@@ -350,6 +354,39 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
                 return;
 
             case ChunkStage.Lighting:
+                return;
+
+            default:
+                return;
+        }
+    }
+
+    private void HandleRemesh(Vec3<int> index, int version)
+    {
+        if (!registry.TryGetValue(index, out var record)) return;
+        if (record.Version != version) return;
+        if (!record.Flags.HasFlag(ChunkFlags.Wanted)) return;
+        if (record.Chunk is null) return;
+
+        switch (record.Stage)
+        {
+            case ChunkStage.Lit:
+            case ChunkStage.Meshed:
+                record.Stage = ChunkStage.Lit;
+                TryScheduleMeshing(index);
+                return;
+
+            case ChunkStage.Meshing:
+                record.Version++;
+                record.Stage = ChunkStage.Lit;
+                TryScheduleMeshing(index);
+                return;
+
+            case ChunkStage.Lighting:
+            case ChunkStage.Fresh:
+            case ChunkStage.Generating:
+            case ChunkStage.Generated:
+            case ChunkStage.Linking:
                 return;
 
             default:
@@ -566,23 +603,45 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
                 {
                     LightSystem.InitializeSkylight(chunk);
                 }
-                else if (!chunk.IsEmpty)
+
+                if (!chunk.IsEmpty)
                 {
                     LightSystem.InitializeLight(chunk);
                 }
 
-                var touchedNeighbors = lightSystem.RunBFS(chunk);
+                var (relightNeighbors, refreshMeshNeighbors) = LightSystem.RunBFS(chunk);
 
                 result.Status = ResultStatus.Success;
 
                 // Re-feed neighbors who received new light values
-                foreach (var neighbor in touchedNeighbors)
+                foreach (var neighbor in relightNeighbors)
                 {
                     if (!registry.TryGetValue(neighbor.Index, out var neighborRecord))
                         continue;
 
                     var neighborRelightResult = new WorkResult(neighbor.Index, neighborRecord.Version, JobType.Lighting, ResultStatus.RelightRequested, null, null);
                     await resultChannel.Writer.WriteAsync(neighborRelightResult, ct);
+                }
+
+                // Rebuild neighbors whose boundary mesh depends on this light,
+                // but who did not receive light because the boundary block is opaque
+                foreach (var neighbor in refreshMeshNeighbors)
+                {
+                    if (relightNeighbors.Contains(neighbor))
+                        continue;
+
+                    if (!registry.TryGetValue(neighbor.Index, out var neighborRecord))
+                        continue;
+
+                    var neighborRemeshResult = new WorkResult(
+                        neighbor.Index,
+                        neighborRecord.Version,
+                        JobType.Meshing,
+                        ResultStatus.RemeshRequested,
+                        null,
+                        null);
+
+                    await resultChannel.Writer.WriteAsync(neighborRemeshResult, ct);
                 }
             }
             catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))

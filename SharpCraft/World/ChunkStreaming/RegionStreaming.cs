@@ -98,13 +98,13 @@ class RegionStreaming(
         Parallel.ForEach(sunlightChunks, chunk =>
         {
             LightSystem.InitializeSkylight(chunk);
-            lightSystem.RunBFS(chunk);
+            LightSystem.RunBFS(chunk);
         });
 
         Parallel.ForEach(readyChunks, chunk =>
         {
             LightSystem.InitializeLight(chunk);
-            lightSystem.RunBFS(chunk);
+            LightSystem.RunBFS(chunk);
         });
 
         int anyPending;
@@ -116,7 +116,7 @@ class RegionStreaming(
             {
                 if (!chunk.LightQueue.IsEmpty)
                 {
-                    lightSystem.RunBFS(chunk);
+                    LightSystem.RunBFS(chunk);
                     Interlocked.Exchange(ref anyPending, 1);
                 }
             });

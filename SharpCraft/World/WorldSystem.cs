@@ -50,7 +50,7 @@ class WorldSystem : IDisposable
         regionStreaming = new RegionStreaming(region, chunkGenerator, lightSystem, chunkMesher);
         this.gameMenu.SetWorldGenerator(regionStreaming);
 
-        spawnResolver = new SpawnResolver(player, parameters, regionStreaming, chunkGenerator, region);
+        spawnResolver = new SpawnResolver(player, parameters, regionStreaming, chunkGenerator);
     }
 
     public void Init()

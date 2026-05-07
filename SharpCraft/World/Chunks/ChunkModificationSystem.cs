@@ -99,7 +99,7 @@ class ChunkModificationSystem(ChunkPersistenceService chunkPersistence,
         {
             chunk.Init();
             LightSystem.InitializeLight(chunk);
-            lightSystem.RunBFS(chunk);
+            LightSystem.RunBFS(chunk);
         }
 
         chunk[newBlockIndex.X, newBlockIndex.Y, newBlockIndex.Z] = block;
