@@ -1,5 +1,7 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System.Globalization;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+
 using SharpCraft.Persistence;
 
 namespace SharpCraft.GUI.Components
@@ -27,6 +29,8 @@ namespace SharpCraft.GUI.Components
 
         public void DrawAt(int y, Save save, bool selected)
         {
+            
+            var dateText = save.Parameters.Date.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
             Vector2 namePosition = new(rect.X + 74, y + 10);
             Vector2 datePosition = new(rect.X + 74, y + 30);
 
@@ -34,7 +38,7 @@ namespace SharpCraft.GUI.Components
 
             spriteBatch.Draw(save.Icon, new Rectangle(rect.X + 10, y + 10, 64, 64), Color.White);
             spriteBatch.DrawString(font, save.Name, namePosition, Color.White);
-            spriteBatch.DrawString(font, "Last modified on: " + save.Parameters.Date, datePosition, Color.DarkGray);
+            spriteBatch.DrawString(font, $"Last modified on: {dateText}", datePosition, Color.DarkGray);
 
             if (selected)
             {

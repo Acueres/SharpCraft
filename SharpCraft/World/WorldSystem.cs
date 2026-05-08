@@ -9,13 +9,15 @@ using SharpCraft.Rendering.Meshers;
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
+using SharpCraft.World.WorldStreaming;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Lighting;
+using SharpCraft.World.Meshing;
 
 namespace SharpCraft.World;
+
 class WorldSystem : IDisposable
 {
-    Player player;
     readonly Region region;
     readonly ChunkModificationSystem chunkModSystem;
 
@@ -23,44 +25,44 @@ class WorldSystem : IDisposable
     readonly ChunkGenerator chunkGenerator;
     readonly BlockOutlineMesher blockOutlineMesher;
 
-    readonly WorldGenerator worldGenerator;
+    readonly Player player;
+    readonly Parameters parameters;
+    readonly WorldStreamer worldStreamer;
+    readonly SpawnResolver spawnResolver;
 
-    public WorldSystem(Region region, GameMenu gameMenu, DatabaseService db,
+    public WorldSystem(Player player, Region region, GameMenu gameMenu, ChunkPersistenceService chunkPersistence,
         Parameters parameters, BlockMetadataProvider blockMetadata,
         ChunkMesher chunkMesher, BlockOutlineMesher blockOutlineMesher)
     {
+        this.player = player;
+        this.parameters = parameters;
         this.region = region;
         this.gameMenu = gameMenu;
 
-        chunkGenerator = new ChunkGenerator(parameters, db, blockMetadata);
+        chunkGenerator = new ChunkGenerator(parameters, chunkPersistence, blockMetadata);
         this.blockOutlineMesher = blockOutlineMesher;
 
         LightSystem lightSystem = new();
 
-        chunkModSystem = new ChunkModificationSystem(db, blockMetadata, lightSystem,
-            chunk => worldGenerator.PostToMesher(chunk));
+        chunkModSystem = new ChunkModificationSystem(chunkPersistence, blockMetadata, lightSystem,
+            chunk => worldStreamer.ScheduleForMeshing(chunk));
 
-        worldGenerator = new WorldGenerator(region, chunkGenerator, lightSystem, chunkMesher, Environment.ProcessorCount);
+        worldStreamer = new WorldStreamer(region, chunkGenerator, chunkMesher);
+        this.gameMenu.SetWorldGenerator(worldStreamer);
+
+        spawnResolver = new SpawnResolver(player, parameters, worldStreamer, chunkGenerator);
     }
 
-    public void Init(Player player, Parameters parameters)
+    public void Init()
     {
-        this.player = player;
-        player.Flying = true;
+        player.Flying = parameters.IsFlying;
 
-        worldGenerator.BulkGenerate(player.Position);
+        var spawnPosition = spawnResolver.Resolve();
 
-        Vec3<int> currentPlayerIndex = Chunk.WorldToChunkCoords(player.Position);
-        player.Index = currentPlayerIndex;
+        player.Position = spawnPosition;
+        player.Index = Chunk.WorldToChunkCoords(spawnPosition);
 
-        if (parameters.Position == Vector3.Zero)
-        {
-            player.Position = new Vector3(0, 100, 0);
-        }
-        else
-        {
-            player.Position = parameters.Position;
-        }
+        worldStreamer.BulkGenerate(spawnPosition);
     }
 
     public void Update(GameTime gameTime, bool exitedMenu)
@@ -71,9 +73,11 @@ class WorldSystem : IDisposable
 
         if (player.Index != currentPlayerIndex)
         {
-            worldGenerator.Update(player.Position);
+            worldStreamer.Recenter(player.Position);
             player.Index = currentPlayerIndex;
         }
+
+        worldStreamer.Tick();
     }
 
     public void UpdateEntities(GameTime gameTime, bool exitedMenu)
@@ -100,7 +104,6 @@ class WorldSystem : IDisposable
         const float maxDistance = 4.5f;
 
         Vector3 blockPosition = player.Camera.Position;
-        Vec3<int> chunkIndex;// = Chunk.WorldToChunkCoords(blockPosition);
         Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(blockPosition);
         Block block = Block.Empty;
         Chunk chunk = null;
@@ -108,10 +111,13 @@ class WorldSystem : IDisposable
         while (raycaster.Length(blockPosition) < maxDistance)
         {
             blockPosition = raycaster.Step();
-            chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
+            var chunkIndex = Chunk.WorldToChunkCoords(blockPosition);
             blockIndex = Chunk.WorldToBlockCoords(blockPosition);
 
             chunk = region[chunkIndex];
+
+            if (chunk is null) break;
+            
             block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
             if (!block.IsEmpty) break;
         }
@@ -183,7 +189,9 @@ class WorldSystem : IDisposable
         foreach (var (chunkIndex, blockIndex) in collisionIndices)
         {
             Chunk chunk = region[chunkIndex];
-
+            
+            if (chunk is null) continue;
+            
             Block block = chunk[blockIndex.X, blockIndex.Y, blockIndex.Z];
             if (!block.IsEmpty)
             {
@@ -198,6 +206,7 @@ class WorldSystem : IDisposable
             player.Physics.ResolveCollision(bound);
         }
     }
+
 
     bool disposed;
 
@@ -214,7 +223,7 @@ class WorldSystem : IDisposable
 
         if (disposing)
         {
-            worldGenerator.Dispose();
+            worldStreamer.Dispose();
         }
     }
 }

@@ -1,8 +1,9 @@
-﻿using SharpCraft.MathUtilities;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
+
+using SharpCraft.MathUtilities;
 using SharpCraft.Utilities;
 using SharpCraft.World.Chunks;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace SharpCraft.World.Lighting;
 
@@ -11,69 +12,72 @@ public class LightSystem
     readonly ConcurrentQueue<LightNode> lightQueue = [];
     readonly ConcurrentQueue<(LightNode, LightValue)> lightRemovalQueue = [];
 
-    public void InitializeSkylight(Chunk chunk)
+    public static void InitializeSkylight(Chunk chunk)
     {
-        //Propagate light downward from a sky chunk
-        Chunk emitterChunk;
-
-        if (chunk.IsEmpty)
-        {
-            emitterChunk = chunk.YNeg;
-        }
-        else
-        {
-            emitterChunk = chunk;
-        }
-
-        emitterChunk.InitLight();
+        chunk.EnsureLight();
 
         for (int x = 0; x < Chunk.Size; x++)
-        {
             for (int z = 0; z < Chunk.Size; z++)
             {
-                if (!emitterChunk[x, Chunk.Last, z].IsEmpty) continue;
-
-                emitterChunk.SetLight(x, Chunk.Last, z, LightValue.Sunlight);
-                lightQueue.Enqueue(new LightNode(emitterChunk, x, Chunk.Last, z));
+                if (!chunk[x, Chunk.Last, z].IsEmpty) continue;
+                chunk.LightQueue.Enqueue((LightValue.Sunlight, (byte)x, Chunk.Last, (byte)z));
             }
-        }
     }
 
-    public void InitializeLight(Chunk chunk)
+    public static void InitializeLight(Chunk chunk)
     {
-        chunk.InitLight();
+        chunk.EnsureLight();
 
-        if (chunk.YPos is not null)
+        // Seed block light sources directly into the queue
+        foreach (Vec3<byte> src in chunk.GetLightSources())
         {
-            for (int x = 0; x < Chunk.Size; x++)
-            {
-                for (int z = 0; z < Chunk.Size; z++)
-                {
-                    if (!chunk.YPos[x, 0, z].IsEmpty) continue;
-
-                    lightQueue.Enqueue(new LightNode(chunk.YPos, x, 0, z));
-                }
-            }
+            byte srcVal = chunk.GetLightSourceValue(src.Into<int>());
+            LightValue current = chunk.GetLight(src.X, src.Y, src.Z);
+            chunk.LightQueue.Enqueue((new LightValue(current.SkyValue, srcVal), src.X, src.Y, src.Z));
         }
 
-        SetSourceLight(chunk);
+        GetNeighborsLight(chunk);
     }
 
     public HashSet<Chunk> RunBFS()
     {
-        HashSet<Chunk> visitedChunks = [];
-        while (!lightQueue.IsEmpty)
-        {
-            lightQueue.TryDequeue(out LightNode node);
+        HashSet<Chunk> touched = [];
 
-            visitedChunks.Add(node.Chunk);
+        while (lightQueue.TryDequeue(out LightNode node))
+        {
+            touched.Add(node.Chunk);
 
             if (node.IsEmpty) continue;
 
             BFSPropagate(node.Chunk, node.X, node.Y, node.Z);
         }
 
-        return visitedChunks;
+        return touched;
+    }
+
+    public static (HashSet<Chunk> lightTouched, HashSet<Chunk> meshTouched) RunBFS(Chunk chunk)
+    {
+        HashSet<Chunk> lightPropagationTargets = [];
+        HashSet<Chunk> meshRefreshTargets = [];
+        Queue<LightNode> localQueue = [];
+
+        while (chunk.LightQueue.TryDequeue(out var pending))
+        {
+            LightValue existing = chunk.GetLight(pending.X, pending.Y, pending.Z);
+            if (existing.Compare(pending.Value, out LightValue merged))
+            {
+                chunk.SetLight(pending.X, pending.Y, pending.Z, merged);
+                localQueue.Enqueue(new LightNode(chunk, pending.X, pending.Y, pending.Z));
+            }
+        }
+
+        while (localQueue.TryDequeue(out var node))
+        {
+            if (node.IsEmpty) continue;
+            BFSPropagateChunkLocal(node.Chunk, node.X, node.Y, node.Z, localQueue, lightPropagationTargets, meshRefreshTargets);
+        }
+
+        return (lightPropagationTargets, meshRefreshTargets);
     }
 
     public HashSet<Chunk> RunRemovalBFS()
@@ -95,40 +99,21 @@ public class LightSystem
         return visitedChunks;
     }
 
-    /// <summary>
-    /// Recalculates light after a block is placed or a light source is removed.
-    /// This involves removing light invalidated by the update, then fully re-propagating light.
-    /// This is a comprehensive update involving both light removal and propagation phases.
-    /// </summary>
-    /// <param name="chunk">The chunk containing the updated block</param>
-    /// <param name="index">The index of the updated block within the chunk</param>
-    /// <returns>A HashSet of chunks affected by the light recalculation.</returns>
     public HashSet<Chunk> RecalculateLightOnBlockUpdate(Chunk chunk, Vec3<byte> index)
     {
         lightRemovalQueue.Enqueue((new LightNode(chunk, index.X, index.Y, index.Z), LightValue.Null));
         var removedVisited = RunRemovalBFS();
 
         foreach (var ch in removedVisited)
-        {
             SetSourceLight(ch);
-        }
 
         var visited = RunBFS();
 
         HashSet<Chunk> combined = [.. removedVisited];
         combined.UnionWith(visited);
-
         return combined;
     }
 
-    /// <summary>
-    /// Recalculates light when a non-source block is removed.
-    /// Propagates existing light from neighbors into the newly emptied space.
-    /// This is a light-spreading operation.
-    /// </summary>
-    /// <param name="chunk">The chunk containing the block that was removed</param>
-    /// <param name="index">The index of the block that was removed within the chunk</param>
-    /// <returns>A HashSet of chunks affected by the light recalculation.</returns>
     public HashSet<Chunk> RecalculateLightOnBlockRemoval(Chunk chunk, Vec3<byte> index)
     {
         var (neighborNodes, _) =
@@ -140,6 +125,82 @@ public class LightSystem
         }
 
         return RunBFS();
+    }
+
+    private static void GetNeighborsLight(Chunk chunk)
+    {
+        for (int x = 0; x < Chunk.Size; x++)
+            for (int z = 0; z < Chunk.Size; z++)
+            {
+                // Light entering this chunk from the chunk above.
+                SeedFromNeighbor(
+                    chunk,
+                    localX: x, localY: Chunk.Last, localZ: z,
+                    neighbor: chunk.YPos,
+                    neighborX: x, neighborY: 0, neighborZ: z,
+                    downward: true);
+
+                // Light entering from below
+                SeedFromNeighbor(
+                    chunk,
+                    localX: x, localY: 0, localZ: z,
+                    neighbor: chunk.YNeg,
+                    neighborX: x, neighborY: Chunk.Last, neighborZ: z,
+                    downward: false);
+            }
+
+        for (int y = 0; y < Chunk.Size; y++)
+            for (int z = 0; z < Chunk.Size; z++)
+            {
+                SeedFromNeighbor(chunk, Chunk.Last, y, z, chunk.XPos, 0, y, z, downward: false);
+                SeedFromNeighbor(chunk, 0, y, z, chunk.XNeg, Chunk.Last, y, z, downward: false);
+            }
+
+        for (int x = 0; x < Chunk.Size; x++)
+            for (int y = 0; y < Chunk.Size; y++)
+            {
+                SeedFromNeighbor(chunk, x, y, Chunk.Last, chunk.ZPos, x, y, 0, downward: false);
+                SeedFromNeighbor(chunk, x, y, 0, chunk.ZNeg, x, y, Chunk.Last, downward: false);
+            }
+    }
+
+    private static void SeedFromNeighbor(
+    Chunk chunk,
+    int localX, int localY, int localZ,
+    Chunk neighbor,
+    int neighborX, int neighborY, int neighborZ,
+    bool downward)
+    {
+        if (neighbor is null)
+            return;
+
+        if (!chunk.IsBlockTransparent(localX, localY, localZ))
+            return;
+
+        LightValue source = neighbor.GetLight(neighborX, neighborY, neighborZ);
+        if (source == LightValue.Null)
+            return;
+
+        LightValue incoming = source;
+
+        if (incoming.SkyValue > 0)
+        {
+            if (!downward || incoming.SkyValue < LightValue.MaxValue)
+                incoming = incoming.SubtractSkyValue(1);
+        }
+
+        if (incoming.BlockValue > 0)
+            incoming = incoming.SubtractBlockValue(1);
+
+        LightValue existing = chunk.GetLight(localX, localY, localZ);
+        if (existing.Compare(incoming, out LightValue merged))
+        {
+            chunk.LightQueue.Enqueue((
+                merged,
+                (byte)localX,
+                (byte)localY,
+                (byte)localZ));
+        }
     }
 
     void SetSourceLight(Chunk chunk)
@@ -244,6 +305,36 @@ public class LightSystem
         }
 
         return (nodes, lightValues);
+    }
+
+    private static void BFSPropagateChunkLocal(
+    Chunk chunk,
+    int x, int y, int z,
+    Queue<LightNode> localQueue,
+    HashSet<Chunk> lightPropagationTargets,
+    HashSet<Chunk> meshRefreshTargets)
+    {
+        LightValue light = chunk.GetLight(x, y, z);
+        if (light == LightValue.Null) return;
+
+        // Lateral attenuation: both sky and block lose 1
+        LightValue lateral = light;
+        if (lateral.SkyValue > 0) lateral = lateral.SubtractSkyValue(1);
+        if (lateral.BlockValue > 0) lateral = lateral.SubtractBlockValue(1);
+
+        // Downward: full skylight passes through unattenuated, block still loses 1
+        LightValue down = light;
+        if (down.SkyValue < LightValue.MaxValue && down.SkyValue > 0)
+            down = down.SubtractSkyValue(1);
+        if (down.BlockValue > 0)
+            down = down.SubtractBlockValue(1);
+
+        PropagateFace(chunk, x, y + 1, z, chunk.YPos, x, 0, z, y == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x, y - 1, z, chunk.YNeg, x, Chunk.Last, z, y == 0, down, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x + 1, y, z, chunk.XPos, 0, y, z, x == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x - 1, y, z, chunk.XNeg, Chunk.Last, y, z, x == 0, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x, y, z + 1, chunk.ZPos, x, y, 0, z == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        PropagateFace(chunk, x, y, z - 1, chunk.ZNeg, x, y, Chunk.Last, z == 0, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
     }
 
     void BFSPropagate(Chunk chunk, sbyte x, sbyte y, sbyte z)
@@ -425,14 +516,11 @@ public class LightSystem
     void BFSRemove(LightNode node, LightValue target)
     {
         LightValue current = node.GetLight();
-
-        // Avoid infinite loops
         if (current == target) return;
 
         node.SetLight(target);
 
-        var (neighborNodes, neighborValues) =
-            GetNeighborLightValues(node.X, node.Y, node.Z, node.Chunk);
+        var (neighborNodes, neighborValues) = GetNeighborLightValues(node.X, node.Y, node.Z, node.Chunk);
 
         for (int i = 0; i < 6; i++)
         {
@@ -446,14 +534,13 @@ public class LightSystem
                 continue;
             }
 
-            // Block light removal
+            // Block light removal - evaluate against original nVal
             if (nVal.BlockValue != 0)
             {
-                nVal = new LightValue(nVal.SkyValue, 0);
-                lightRemovalQueue.Enqueue((nNode, nVal));
+                lightRemovalQueue.Enqueue((nNode, new LightValue(nVal.SkyValue, 0)));
             }
 
-            // Sky light attenuation 
+            // Sky light removal - evaluate against original nVal, independent of block check
             if (nVal.SkyValue != 0 &&
                 (nVal.SkyValue < current.SkyValue || (face == Faces.YNeg && nVal.SkyValue <= current.SkyValue)))
             {
@@ -466,6 +553,41 @@ public class LightSystem
             else
             {
                 lightRemovalQueue.Enqueue((new LightNode(nNode.Chunk), LightValue.Null));
+            }
+        }
+    }
+
+    private static void PropagateFace(
+    Chunk chunk,
+    int lx, int ly, int lz,
+    Chunk neighbor, int nx, int ny, int nz,
+    bool isBoundary,
+    LightValue next,
+    Queue<LightNode> localQueue,
+    HashSet<Chunk> lightPropagationTargets,
+    HashSet<Chunk> meshRefreshTargets)
+    {
+        if (isBoundary)
+        {
+            if (neighbor is null) return;
+            if (!neighbor.IsBlockTransparent(nx, ny, nz))
+            {
+                meshRefreshTargets.Add(neighbor);
+                return;
+            }
+            if (neighbor.GetLight(nx, ny, nz).Compare(next, out LightValue value))
+            {
+                neighbor.LightQueue.Enqueue((value, (byte)nx, (byte)ny, (byte)nz));
+                lightPropagationTargets.Add(neighbor);
+            }
+        }
+        else
+        {
+            if (!chunk.IsBlockTransparent(lx, ly, lz)) return;
+            if (chunk.GetLight(lx, ly, lz).Compare(next, out LightValue value))
+            {
+                chunk.SetLight(lx, ly, lz, value);
+                localQueue.Enqueue(new LightNode(chunk, lx, ly, lz));
             }
         }
     }

@@ -17,7 +17,7 @@ public enum ReliefType
 }
 
 public record TopographyData(
-    int[,] TerrainLevel,
+    int[,] HeightLevel,
     int[,] WaterLevel,
     ReliefType[,] ReliefData,
     int MaxElevation);

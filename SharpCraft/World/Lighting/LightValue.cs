@@ -1,4 +1,5 @@
 ﻿using SharpCraft.MathUtilities;
+using System;
 
 namespace SharpCraft.World.Lighting
 {
@@ -57,7 +58,7 @@ namespace SharpCraft.World.Lighting
         => a.SkyValue == b.SkyValue && a.BlockValue == b.BlockValue;
 
         public static bool operator !=(LightValue a, LightValue b)
-        => a.SkyValue != b.SkyValue && a.BlockValue != b.BlockValue;
+        => a.SkyValue != b.SkyValue || a.BlockValue != b.BlockValue;
 
         public static bool operator >(LightValue a, LightValue b)
         => a.SkyValue > b.SkyValue || a.BlockValue > b.BlockValue;

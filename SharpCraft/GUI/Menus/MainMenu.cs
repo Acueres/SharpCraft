@@ -376,7 +376,7 @@ namespace SharpCraft.GUI.Menus
                     Directory.CreateDirectory($"Saves/{saveName}");
 
                     state = MenuState.Main;
-                    game.IsMouseVisible = false;
+                    //game.IsMouseVisible = false;
                     game.State = GameState.Loading;
                 }),
 
@@ -404,7 +404,7 @@ namespace SharpCraft.GUI.Menus
                 {
                     CurrentSave = saveGrid.SelectedSave;
                     state = MenuState.Main;
-                    game.IsMouseVisible = false;
+                    //game.IsMouseVisible = false;
                     game.State = GameState.Loading;
                 }),
 

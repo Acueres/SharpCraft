@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
 using SharpCraft.MathUtilities;
+using SharpCraft.World.Chunks;
 
-namespace SharpCraft.World.Chunks;
+namespace SharpCraft.World.WorldStreaming;
 
 class Region
 {
@@ -13,6 +13,7 @@ class Region
     readonly int apothem;
 
     readonly ConcurrentDictionary<Vec3<int>, Chunk> chunks = [];
+    readonly ConcurrentDictionary<Vec2<int>, int> columnCounts = [];
     readonly ConcurrentBag<Vec3<sbyte>> proximityIndexes = [];
     readonly object linkingLock = new();
 
@@ -32,7 +33,14 @@ class Region
 
             return null;
         }
-        set => chunks.TryAdd(index, value);
+        set
+        {
+            if (chunks.TryAdd(index, value))
+            {
+                var col = new Vec2<int>(index.X, index.Z);
+                columnCounts.AddOrUpdate(col, 1, (_, count) => count + 1);
+            }
+        }
     }
 
     public IEnumerable<Chunk> GetActiveChunks()
@@ -43,14 +51,9 @@ class Region
         }
     }
 
-    public bool ContainsIndex(int x, int z)
+    public bool ContainsColumn(int x, int z)
     {
-        foreach (var index in chunks.Keys)
-        {
-            if (index.X == x && index.Z == z) return true;
-        }
-
-        return false;
+        return columnCounts.TryGetValue(new Vec2<int>(x, z), out var count) && count > 0;
     }
 
     public List<Vec3<int>> CollectIndexesForGeneration(Vec3<int> center)
@@ -59,13 +62,9 @@ class Region
         foreach (var proximityIndex in proximityIndexes)
         {
             Vec3<int> index = center + proximityIndex.Into<int>();
-            if (!chunks.TryGetValue(index, out var chunk))
+            if (!chunks.TryGetValue(index, out var _))
             {
                 scheduledForGeneration.Add(index);
-            }
-            else if (chunk.IsUnloaded)
-            {
-                chunk.State = ChunkState.Ready;
             }
         }
 
@@ -85,6 +84,10 @@ class Region
     public void RemoveChunk(Vec3<int> index)
     {
         if (!chunks.Remove(index, out var chunk)) return;
+
+        var col = new Vec2<int>(index.X, index.Z);
+        columnCounts.AddOrUpdate(col, 0, (_, count) => count - 1);
+        columnCounts.TryRemove(new KeyValuePair<Vec2<int>, int>(col, 0));
 
         lock (linkingLock)
         {

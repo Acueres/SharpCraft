@@ -2,9 +2,10 @@
 
 using SharpCraft.Assets;
 using SharpCraft.Utilities;
-using SharpCraft.World.Chunks;
 using SharpCraft.Persistence;
 using SharpCraft.Rendering.Meshers;
+using SharpCraft.World.Meshing;
+using SharpCraft.World.WorldStreaming;
 
 namespace SharpCraft.Rendering;
 

@@ -9,7 +9,7 @@ namespace SharpCraft.Persistence
 {
     public class Parameters
     {
-        public bool IsFlying = false;
+        public bool IsFlying;
 
         public int
         Seed = 0,
@@ -26,7 +26,7 @@ namespace SharpCraft.Persistence
 
         public ushort[] Inventory = new ushort[9];
 
-        public DateTime Date = DateTime.Now;
+        public DateTime Date;
 
         public Parameters(string saveName)
         {

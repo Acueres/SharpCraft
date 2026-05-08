@@ -10,7 +10,8 @@ using SharpCraft.GUI.Menus;
 using SharpCraft.Persistence;
 using SharpCraft.Rendering;
 using SharpCraft.Rendering.Meshers;
-using SharpCraft.World.Chunks;
+using SharpCraft.World.Meshing;
+using SharpCraft.World.WorldStreaming;
 
 namespace SharpCraft
 {
@@ -39,10 +40,9 @@ namespace SharpCraft
         Renderer renderer;
         GameMenu gameMenu;
         MainMenu mainMenu;
-        DatabaseService db;
+        ChunkPersistenceService chunkPersistence;
         Save currentSave;
         Time time;
-
 
         public MainGame()
         {
@@ -108,11 +108,17 @@ namespace SharpCraft
 
                             time = new Time(currentSave.Parameters.Day, currentSave.Parameters.Hour, currentSave.Parameters.Minute);
 
+                            if (!Directory.Exists("Saves"))
+                            {
+                                Directory.CreateDirectory("Saves");
+                            }
+                            
                             ScreenshotTaker screenshotTaker = new(GraphicsDevice, Window.ClientBounds.Width,
                                                                                   Window.ClientBounds.Height);
 
-                            db = new DatabaseService(this, currentSave.Parameters.SaveName, blockMetadata);
-                            db.Initialize();
+                            chunkPersistence = new ChunkPersistenceService(currentSave.Parameters.SaveName);
+
+                            chunkPersistence.Start(TimeSpan.FromSeconds(5));
 
                             Region region = new(Settings.RenderDistance);
 
@@ -121,24 +127,21 @@ namespace SharpCraft
 
                             player = new Player(GraphicsDevice, currentSave.Parameters);
                             gameMenu = new GameMenu(this, GraphicsDevice, time, screenshotTaker, currentSave.Parameters, assetServer, blockMetadata, player);
-                            world = new WorldSystem(region, gameMenu, db, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
+                            world = new WorldSystem(player, region, gameMenu, chunkPersistence, currentSave.Parameters, blockMetadata, chunkMesher, blockOutlineMesher);
                             renderer = new Renderer(region, graphics.GraphicsDevice, assetServer, screenshotTaker, chunkMesher, blockOutlineMesher);
 
-                            world.Init(player, currentSave.Parameters);
-
-                            if (!File.Exists($@"Saves/{currentSave.Parameters.SaveName}/save_icon.png"))
-                            {
-                                player.Update(gameTime);
-                                renderer.Render(player.Camera, time);
-                                screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
-                            }
+                            world.Init();
 
                             break;
                         }
 
                     case GameState.Exiting:
                         {
-                            db.Close();
+                            ScreenshotTaker screenshotTaker = new(GraphicsDevice, Window.ClientBounds.Width,
+                                                                              Window.ClientBounds.Height);
+                            screenshotTaker.SaveIcon(currentSave.Parameters.SaveName, out currentSave.Icon);
+
+                            chunkPersistence.StopAsync().ConfigureAwait(false);
 
                             player.SaveParameters(currentSave.Parameters);
                             time.SaveParameters(currentSave.Parameters);
@@ -148,7 +151,7 @@ namespace SharpCraft
 
                             player = null;
                             world = null;
-                            db = null;
+                            chunkPersistence = null;
                             gameMenu = null;
 
                             State = GameState.MainMenu;

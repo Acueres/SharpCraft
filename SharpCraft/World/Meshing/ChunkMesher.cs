@@ -8,8 +8,9 @@ using SharpCraft.World.Chunks;
 using SharpCraft.World.Lighting;
 using SharpCraft.World.Blocks;
 using SharpCraft.Assets;
+using SharpCraft.Rendering;
 
-namespace SharpCraft.Rendering.Meshers;
+namespace SharpCraft.World.Meshing;
 
 static class Cube
 {
