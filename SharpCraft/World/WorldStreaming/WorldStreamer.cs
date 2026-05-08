@@ -11,34 +11,33 @@ using SharpCraft.MathUtilities;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.Generation;
 
-namespace SharpCraft.World.ChunkStreaming;
+namespace SharpCraft.World.WorldStreaming;
 
-class RegionStreaming(
+class WorldStreamer(
     Region region,
     ChunkGenerator chunkGenerator,
-    LightSystem lightSystem,
     ChunkMesher chunkMesher) : IDisposable
 {
-    readonly ChunkDispatcher dispatcher = new(region, chunkGenerator, lightSystem, chunkMesher);
+    readonly ChunkScheduler scheduler = new(region, chunkGenerator, chunkMesher);
 
     public void ScheduleForMeshing(Chunk chunk)
     {
-        dispatcher.AddToWorker(chunk, JobType.Meshing);
+        scheduler.AddToWorker(chunk, JobType.Meshing);
     }
 
-    public void Update(Vector3 pos)
+    public void Recenter(Vector3 pos)
     {
         Vec3<int> center = Chunk.WorldToChunkCoords(pos);
 
         var indexesForGeneration = region.CollectIndexesForGeneration(center);
         var indexesForRemoval = region.CollectIndexesForRemoval(center);
 
-        dispatcher.Dispatch(indexesForGeneration, indexesForRemoval);
+        scheduler.Schedule(indexesForGeneration, indexesForRemoval);
     }
 
-    public void Update()
+    public void Tick()
     {
-        dispatcher.Update();
+        scheduler.Tick();
     }
 
     // Use to generate chunks in bulk
@@ -57,11 +56,7 @@ class RegionStreaming(
             generatedChunks.Add(chunk);
             if (chunk.IsEmpty)
             {
-                chunk.State = ChunkState.Ready;
-            }
-            else
-            {
-                chunk.State = ChunkState.Generated;
+                chunk.IsReady = true;
             }
         });
 
@@ -81,7 +76,7 @@ class RegionStreaming(
 
             if (chunk.IsReady)
             {
-                dispatcher.AddToRegistry(chunk, ChunkStage.Meshed);
+                scheduler.AddToRegistry(chunk, ChunkStage.Meshed);
                 continue;
             }
 
@@ -91,7 +86,7 @@ class RegionStreaming(
             }
             else
             {
-                dispatcher.AddToRegistry(chunk, ChunkStage.Generated);
+                scheduler.AddToRegistry(chunk, ChunkStage.Generated);
             }
         }
 
@@ -126,8 +121,8 @@ class RegionStreaming(
         Parallel.ForEach(readyChunks, chunk =>
         {
             chunkMesher.Build(chunk);
-            chunk.State = ChunkState.Ready;
-            dispatcher.AddToRegistry(chunk, ChunkStage.Meshed);
+            chunk.IsReady = true;
+            scheduler.AddToRegistry(chunk, ChunkStage.Meshed);
         });
     }
 
@@ -149,7 +144,7 @@ class RegionStreaming(
 
         if (disposing)
         {
-            dispatcher.Dispose();
+            scheduler.Dispose();
         }
     }
 }

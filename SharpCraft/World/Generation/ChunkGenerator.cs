@@ -48,7 +48,10 @@ class ChunkGenerator
         {
             chunk.BuildPalette(buffer);
             SeedLightSourcesFromBuffer(chunk, buffer);
+
+            EnsureTopographyCached(index.X, index.Z);
             AdjustMaximumElevation(chunk, cacheIndex);
+
             return chunk;
         }
         
@@ -212,9 +215,11 @@ class ChunkGenerator
     void AdjustMaximumElevation(Chunk chunk, Vec2<int> cacheIndex)
     {
         int? newMaxElevation = chunk.GetMaximumTerrainElevation();
-        if (newMaxElevation.HasValue)
-        {
-            maxElevationCache[cacheIndex] = (int)newMaxElevation;
-        }
+        if (!newMaxElevation.HasValue) return;
+
+        maxElevationCache.AddOrUpdate(
+            cacheIndex,
+            newMaxElevation.Value,
+            (_, existing) => Math.Max(existing, newMaxElevation.Value));
     }
 }

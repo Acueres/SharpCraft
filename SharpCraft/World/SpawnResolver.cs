@@ -4,12 +4,12 @@ using Microsoft.Xna.Framework;
 
 using SharpCraft.Persistence;
 using SharpCraft.World.Chunks;
-using SharpCraft.World.ChunkStreaming;
+using SharpCraft.World.WorldStreaming;
 using SharpCraft.World.Generation;
 
 namespace SharpCraft.World;
 
-class SpawnResolver(Player player, Parameters parameters, RegionStreaming worldGenerator, ChunkGenerator chunkGenerator)
+class SpawnResolver(Player player, Parameters parameters, WorldStreamer worldStreamer, ChunkGenerator chunkGenerator)
 {
     const int SpawnSearchRadius = 32;
     const int MaxAllowedNeighborDrop = 1;
@@ -20,12 +20,12 @@ class SpawnResolver(Player player, Parameters parameters, RegionStreaming worldG
         {
             player.Position = parameters.Position;
             player.Index = Chunk.WorldToChunkCoords(player.Position);
-            worldGenerator.BulkGenerate(player.Position);
+            worldStreamer.BulkGenerate(player.Position);
             return player.Position;
         }
 
         Vector3 spawnPosition = FindSpawnPosition();
-        worldGenerator.BulkGenerate(spawnPosition);
+        worldStreamer.BulkGenerate(spawnPosition);
         return spawnPosition;
     }
 

@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+
 using SharpCraft.MathUtilities;
 using SharpCraft.World.Chunks;
 
-namespace SharpCraft.World.ChunkStreaming;
+namespace SharpCraft.World.WorldStreaming;
 
 class Region
 {
@@ -62,13 +62,9 @@ class Region
         foreach (var proximityIndex in proximityIndexes)
         {
             Vec3<int> index = center + proximityIndex.Into<int>();
-            if (!chunks.TryGetValue(index, out var chunk))
+            if (!chunks.TryGetValue(index, out var _))
             {
                 scheduledForGeneration.Add(index);
-            }
-            else if (chunk.IsUnloaded)
-            {
-                chunk.State = ChunkState.Ready;
             }
         }
 

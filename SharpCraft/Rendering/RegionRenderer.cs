@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework;
 using SharpCraft.Persistence;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Meshing;
-using SharpCraft.World.ChunkStreaming;
+using SharpCraft.World.WorldStreaming;
 
 namespace SharpCraft.Rendering;
 

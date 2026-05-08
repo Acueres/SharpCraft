@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -12,7 +11,7 @@ using SharpCraft.World.Generation;
 using SharpCraft.World.Lighting;
 using SharpCraft.World.Meshing;
 
-namespace SharpCraft.World.ChunkStreaming;
+namespace SharpCraft.World.WorldStreaming;
 
 enum JobType
 {
@@ -35,13 +34,12 @@ enum ResultStatus
 
 record struct WorkResult(Vec3<int> Index, int Version, JobType JobType, ResultStatus Status, Chunk Chunk, Exception Exception);
 
-class ChunkDispatcher : IDisposable, IAsyncDisposable
+class ChunkScheduler : IDisposable, IAsyncDisposable
 {
     private const int chunkCapacity = 500;
 
     private readonly Region region;
     private readonly ChunkGenerator chunkGenerator;
-    private readonly LightSystem lightSystem;
     private readonly ChunkMesher chunkMesher;
 
     private readonly CancellationTokenSource cts = new();
@@ -84,11 +82,10 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
     private readonly Task lightingWorker;
     private readonly Task meshingWorker;
 
-    public ChunkDispatcher(Region region, ChunkGenerator chunkGenerator, LightSystem lightSystem, ChunkMesher chunkMesher)
+    public ChunkScheduler(Region region, ChunkGenerator chunkGenerator, ChunkMesher chunkMesher)
     {
         this.region = region;
         this.chunkGenerator = chunkGenerator;
-        this.lightSystem = lightSystem;
         this.chunkMesher = chunkMesher;
 
         CancellationToken ct = cts.Token;
@@ -99,20 +96,14 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
         meshingWorker = Task.Run(() => MeshChunkAsync(ct), ct);
     }
 
-    public void Dispatch(List<Vec3<int>> idsGeneration, List<Vec3<int>> idxDeletion)
+    public void Schedule(List<Vec3<int>> toGenerate, List<Vec3<int>> toRemove)
     {
-        idsGeneration = [..
-            idsGeneration
-            .OrderBy(i => i.ManhattanDistance)
-            .ThenByDescending(i => i.Y)
-        ];
-
-        MarkForDeletion(idxDeletion);
-        ProcessFresh(idsGeneration);
-        ProcessDeletion(idxDeletion);
+        MarkForDeletion(toRemove);
+        ProcessFresh(toGenerate);
+        ProcessDeletion(toRemove);
     }
 
-    public void Update()
+    public void Tick()
     {
         DrainResults();
         Flush();
@@ -207,6 +198,21 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
 
     private void HandleSkipped(ChunkRecord record, WorkResult result)
     {
+        if (!record.Flags.HasFlag(ChunkFlags.Wanted) ||
+            record.Flags.HasFlag(ChunkFlags.DeleteRequested))
+        {
+            record.Stage = result.JobType switch
+            {
+                JobType.Generation => ChunkStage.Fresh,
+                JobType.Linking => ChunkStage.Generated,
+                JobType.Lighting => ChunkStage.Generated,
+                JobType.Meshing => ChunkStage.Lit,
+                _ => record.Stage
+            };
+
+            return;
+        }
+
         switch (record.Stage)
         {
             case ChunkStage.Generating:
@@ -267,7 +273,7 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
                 break;
             case JobType.Meshing:
                 record.Stage = ChunkStage.Meshed;
-                record.Chunk.State = ChunkState.Ready;
+                record.Chunk.IsReady = true;
                 break;
         }
     }
@@ -394,20 +400,15 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
         }
     }
 
-    private void MarkForDeletion(List<Vec3<int>> idxDeletion)
+    private void MarkForDeletion(List<Vec3<int>> toRemove)
     {
-        foreach (var id in idxDeletion)
+        foreach (var id in toRemove)
         {
             if (!registry.TryGetValue(id, out var record))
                 continue;
 
-            bool wasDeleteRequested = record.Flags.HasFlag(ChunkFlags.DeleteRequested);
-
             record.Flags &= ~ChunkFlags.Wanted;
             record.Flags |= ChunkFlags.DeleteRequested;
-
-            if (!wasDeleteRequested)
-                record.Version++;
         }
     }
 
@@ -505,9 +506,9 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
         }
     }
 
-    private void ProcessFresh(List<Vec3<int>> idsGeneration)
+    private void ProcessFresh(List<Vec3<int>> toGenerate)
     {
-        foreach (var id in idsGeneration)
+        foreach (var id in toGenerate)
         {
             if (!registry.TryGetValue(id, out var record))
             {
@@ -523,18 +524,24 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
             else
             {
                 record.Flags |= ChunkFlags.Wanted;
+                record.Flags &= ~ChunkFlags.DeleteRequested;
             }
 
             if (record.Chunk is not null)
+            {
+                TryScheduleLinking(id);
+                TryScheduleMeshing(id);
                 continue;
+            }
 
-            record.Flags &= ~ChunkFlags.DeleteRequested;
             record.Flags |= ChunkFlags.Wanted;
+            record.Flags &= ~ChunkFlags.DeleteRequested;
 
             if (record.Stage == ChunkStage.Fresh)
             {
                 var item = new WorkItem(id, record.Version);
                 record.Stage = ChunkStage.Generating;
+
                 if (!genChannel.Writer.TryWrite(item))
                     pendingGeneration.Enqueue(item);
             }
@@ -686,14 +693,17 @@ class ChunkDispatcher : IDisposable, IAsyncDisposable
     {
         chunk = null;
 
-        if (registry.TryGetValue(index, out var record))
-        {
-            if (record.Version != version) return false;
-            chunk = record.Chunk;
-            return true;
-        }
+        if (!registry.TryGetValue(index, out var record))
+            return false;
 
-        return false;
+        if (record.Version != version)
+            return false;
+
+        if (record.Chunk is null)
+            return false;
+
+        chunk = record.Chunk;
+        return true;
     }
 
     // Disposal

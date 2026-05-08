@@ -2,7 +2,7 @@
 
 using SharpCraft.World.Chunks;
 
-namespace SharpCraft.World.ChunkStreaming;
+namespace SharpCraft.World.WorldStreaming;
 
 enum ChunkStage
 {

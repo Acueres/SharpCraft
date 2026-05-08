@@ -11,7 +11,7 @@ using SharpCraft.GUI.Elements;
 using SharpCraft.GUI.Components;
 using SharpCraft.Persistence;
 using SharpCraft.MathUtilities;
-using SharpCraft.World.ChunkStreaming;
+using SharpCraft.World.WorldStreaming;
 
 namespace SharpCraft.GUI.Menus;
 
@@ -23,7 +23,7 @@ class GameMenu
     GraphicsDevice graphics;
     SpriteBatch spriteBatch;
     readonly AssetServer assetServer;
-    RegionStreaming worldGenerator;
+    WorldStreamer worldStreamer;
     readonly Player player;
 
     Inventory inventory;
@@ -130,9 +130,9 @@ class GameMenu
         screenShadingTexture.SetData(darkBackGroundColor);
     }
 
-    public void SetWorldGenerator(RegionStreaming generator)
+    public void SetWorldGenerator(WorldStreamer streamer)
     {
-        worldGenerator = generator;
+        worldStreamer = streamer;
     }
 
     public void Update()
@@ -278,6 +278,6 @@ class GameMenu
         Vec3<byte> blockIndex = Chunk.WorldToBlockCoords(player.Position);
         spriteBatch.DrawString(font14, $"BX: {blockIndex.X}, BY: {blockIndex.Y}, BZ: {blockIndex.Z}", new Vector2(10, 110), Color.White);
 
-        spriteBatch.DrawString(font14, "Relief: " + worldGenerator.GetReliefType(chunkIndex.X, chunkIndex.Z, blockIndex.X, blockIndex.Z), new Vector2(360, 10), Color.White);
+        spriteBatch.DrawString(font14, "Relief: " + worldStreamer.GetReliefType(chunkIndex.X, chunkIndex.Z, blockIndex.X, blockIndex.Z), new Vector2(360, 10), Color.White);
     }
 }

@@ -1,26 +1,16 @@
-﻿using Microsoft.Win32.SafeHandles;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using Microsoft.Xna.Framework;
+
 using SharpCraft.MathUtilities;
 using SharpCraft.Utilities;
 using SharpCraft.World.Blocks;
 using SharpCraft.World.Lighting;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 namespace SharpCraft.World.Chunks;
-
-public enum ChunkState
-{
-    Initialized,    // Chunk created
-    Generated,     // Blocks complete
-    Linked,        // Linking complete
-    LightSeeded,   // Skylight & block light sources queued
-    Lit,           // BFS finished
-    Ready,         // Uploaded to GPU / visible
-    Unloaded       // Scheduled for removal
-}
 
 public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisposable
 {
@@ -30,11 +20,10 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
     public Vec3<int> Index { get; } = index;
     public Vector3 Position { get; } = Size * new Vector3(index.X, index.Y, index.Z);
 
-    public ChunkState State { get; set; }
     public bool IsEmpty => palette is null;
     public int PaletteCount => palette.Count;
-    public bool IsReady => State == ChunkState.Ready;
-    public bool IsUnloaded => State == ChunkState.Unloaded;
+    public bool IsReady { get; set; }
+
     public readonly object SyncRoot = new();
 
     //Adjacent chunk references
@@ -46,12 +35,6 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
     public Chunk ZPos { get; set; }
 
     public bool AllNeighborsExist => XNeg != null && XPos != null && YNeg != null && YPos != null && ZNeg != null && ZPos != null;
-    public bool AllNeighborsReady => (XNeg == null || XNeg.IsReady || XNeg.IsUnloaded)
-        && (XPos == null || XPos.IsReady || XPos.IsUnloaded)
-        && (YNeg == null || YNeg.IsReady || YNeg.IsUnloaded)
-        && (YPos == null || YPos.IsReady || YPos.IsUnloaded)
-        && (ZNeg == null || ZNeg.IsReady || ZNeg.IsUnloaded)
-        && (ZPos == null || ZPos.IsReady || ZPos.IsUnloaded);
 
     List<Block> palette;
     Dictionary<Block, uint> paletteIndexMap;
@@ -164,7 +147,6 @@ public class Chunk(Vec3<int> index, BlockMetadataProvider blockMetadata) : IDisp
             palette = [Block.Empty];
             paletteIndexMap = [];
             paletteIndexMap.Add(Block.Empty, 0);
-            State = ChunkState.Generated;
         }
         lightMap = new LightValue[Size, Size, Size];
     }

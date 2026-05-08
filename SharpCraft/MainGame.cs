@@ -11,7 +11,7 @@ using SharpCraft.Persistence;
 using SharpCraft.Rendering;
 using SharpCraft.Rendering.Meshers;
 using SharpCraft.World.Meshing;
-using SharpCraft.World.ChunkStreaming;
+using SharpCraft.World.WorldStreaming;
 
 namespace SharpCraft
 {
