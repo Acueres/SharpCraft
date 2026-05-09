@@ -19,7 +19,7 @@ internal class Program
                 Die("SDL_Init failed");
 
             SDL_Window* window;
-            fixed (byte* title = "SDL3 GPU Cube"u8)
+            fixed (byte* title = "SharpCraft"u8)
             {
                 window = SDL_CreateWindow(
                     title,
@@ -34,8 +34,6 @@ internal class Program
 
             SDL_GPUDevice* device;
 
-            // Force SPIR-V path. Passing "vulkan" asks SDL_gpu for the Vulkan backend.
-            // You can pass null instead if you want SDL to pick.
             fixed (byte* driverName = "vulkan"u8)
             {
                 device = SDL_CreateGPUDevice(
@@ -77,7 +75,7 @@ internal class Program
                     }
                 }
 
-                DrawFrame(device, window, resources);
+                DrawFrame(device, window, ref resources);
                 SDL_Delay(1);
             }
 
@@ -88,6 +86,7 @@ internal class Program
             SDL_ReleaseGPUShader(device, resources.FragmentShader);
             SDL_ReleaseGPUBuffer(device, resources.VertexBuffer);
             SDL_ReleaseGPUBuffer(device, resources.IndexBuffer);
+            SDL_ReleaseGPUTexture(device, resources.DepthTexture);
 
             SDL_ReleaseWindowFromGPUDevice(device, window);
             SDL_DestroyGPUDevice(device);
@@ -175,15 +174,18 @@ internal class Program
 
             depth_stencil_state = new SDL_GPUDepthStencilState
             {
-                enable_depth_test = false,
-                enable_depth_write = false
+                enable_depth_test = true,
+                enable_depth_write = true,
+                compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS
             },
 
             target_info = new SDL_GPUGraphicsPipelineTargetInfo
             {
                 color_target_descriptions = &colorTargetDescription,
                 num_color_targets = 1,
-                has_depth_stencil_target = false
+
+                has_depth_stencil_target = true,
+                depth_stencil_format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D24_UNORM
             }
         };
 
@@ -211,14 +213,74 @@ internal class Program
         if (indexBuffer == null)
             Die("SDL_CreateGPUBuffer index failed");
 
+        SDL_GPUTexture* depthTexture = CreateDepthTexture(
+            device,
+            width,
+            height
+        );
+
         return new CubeResources
         {
             VertexShader = vertexShader,
             FragmentShader = fragmentShader,
             Pipeline = pipeline,
             VertexBuffer = vertexBuffer,
-            IndexBuffer = indexBuffer
+            IndexBuffer = indexBuffer,
+
+            DepthTexture = depthTexture,
+            DepthWidth = width,
+            DepthHeight = height
         };
+    }
+
+    static unsafe SDL_GPUTexture* CreateDepthTexture(
+    SDL_GPUDevice* device,
+    uint width,
+    uint height)
+    {
+        SDL_GPUTextureCreateInfo depthTextureInfo = new()
+        {
+            type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D,
+            format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D24_UNORM,
+            usage = SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+            width = width,
+            height = height,
+            layer_count_or_depth = 1,
+            num_levels = 1,
+            sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
+        };
+
+        SDL_GPUTexture* depthTexture = SDL_CreateGPUTexture(device, &depthTextureInfo);
+        if (depthTexture == null)
+            Die("SDL_CreateGPUTexture depth failed");
+
+        return depthTexture;
+    }
+
+    static unsafe void EnsureDepthTextureSize(
+    SDL_GPUDevice* device,
+    ref CubeResources resources,
+    uint width,
+    uint height)
+    {
+        if (width == 0 || height == 0)
+            return;
+
+        if (resources.DepthTexture != null &&
+            resources.DepthWidth == width &&
+            resources.DepthHeight == height)
+        {
+            return;
+        }
+
+        SDL_WaitForGPUIdle(device);
+
+        if (resources.DepthTexture != null)
+            SDL_ReleaseGPUTexture(device, resources.DepthTexture);
+
+        resources.DepthTexture = CreateDepthTexture(device, width, height);
+        resources.DepthWidth = width;
+        resources.DepthHeight = height;
     }
 
     static unsafe SDL_GPUShader* CreateShader(
@@ -286,7 +348,7 @@ internal class Program
         SDL_UnmapGPUTransferBuffer(device, vertexTransfer);
 
         nint indexDst = SDL_MapGPUTransferBuffer(device, indexTransfer, false);
-        if (indexDst == null)
+        if (indexDst == IntPtr.Zero)
             Die("SDL_MapGPUTransferBuffer index failed");
 
         fixed (ushort* src = CubeIndices)
@@ -341,7 +403,7 @@ internal class Program
         SDL_ReleaseGPUTransferBuffer(device, indexTransfer);
     }
 
-    static unsafe void DrawFrame(SDL_GPUDevice* device, SDL_Window* window, CubeResources resources)
+    static unsafe void DrawFrame(SDL_GPUDevice* device, SDL_Window* window, ref CubeResources resources)
     {
         SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device);
         if (cmd == null)
@@ -367,6 +429,14 @@ internal class Program
             SDL_SubmitGPUCommandBuffer(cmd);
             return;
         }
+
+        EnsureDepthTextureSize(
+            device,
+            ref resources,
+            swapchainWidth,
+            swapchainHeight
+        );
+
 
         Matrix4x4 mvp = BuildMvp(swapchainWidth, swapchainHeight);
 
@@ -394,11 +464,25 @@ internal class Program
             cycle = false
         };
 
+        SDL_GPUDepthStencilTargetInfo depthTarget = new()
+        {
+            texture = resources.DepthTexture,
+
+            clear_depth = 1.0f,
+            load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
+            store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_DONT_CARE,
+
+            stencil_load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_DONT_CARE,
+            stencil_store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_DONT_CARE,
+
+            cycle = false
+        };
+
         SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
             cmd,
             &colorTarget,
             1,
-            null
+            &depthTarget
         );
 
         SDL_BindGPUGraphicsPipeline(renderPass, resources.Pipeline);
@@ -459,8 +543,7 @@ internal class Program
             100.0f
         );
 
-        // Vulkan-style framebuffer orientation correction.
-        // If you later target non-Vulkan backends, revisit this.
+        // Vulkan-style framebuffer orientation correction
         projection.M22 *= -1.0f;
 
         return world * view * projection;
@@ -494,6 +577,10 @@ internal class Program
         public SDL_GPUGraphicsPipeline* Pipeline;
         public SDL_GPUBuffer* VertexBuffer;
         public SDL_GPUBuffer* IndexBuffer;
+
+        public SDL_GPUTexture* DepthTexture;
+        public uint DepthWidth;
+        public uint DepthHeight;
     }
 
     static void Die(string message)
