@@ -1,35 +1,24 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <RollForward>Major</RollForward>
-    <PublishReadyToRun>false</PublishReadyToRun>
-    <TieredCompilation>false</TieredCompilation>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
-  <PropertyGroup>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Icon.ico</ApplicationIcon>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <Optimize>True</Optimize>
-  </PropertyGroup>
+
   <ItemGroup>
-    <None Remove="Icon.ico" />
+    <PackageReference Include="ppy.SDL3-CS" Version="2026.429.0" />
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Icon.ico" />
+	
+	  <ItemGroup>
+	<Content Include="Shaders\*.spv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FontStashSharp.MonoGame" Version="1.3.9" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.2.1105" />
-    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.2.1105" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
-    <PackageReference Include="System.Data.SQLite" Version="1.0.119" />
-    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
-  </ItemGroup>
-  <Target Name="RestoreDotnetTools" BeforeTargets="Restore">
-    <Message Text="Restoring dotnet tools" Importance="High" />
-    <Exec Command="dotnet tool restore" />
-  </Target>
+
+
+	<ItemGroup>
+	  <Folder Include="Shaders\" />
+	</ItemGroup>
+
 </Project>
