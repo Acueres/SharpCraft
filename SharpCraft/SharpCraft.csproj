@@ -7,18 +7,21 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
   </PropertyGroup>
-
-  <ItemGroup>
+    
+    <ItemGroup>
     <PackageReference Include="ppy.SDL3-CS" Version="2026.429.0" />
-  </ItemGroup>
-	
-	  <ItemGroup>
+    </ItemGroup>
+    
+    <ItemGroup>
 	<Content Include="Shaders\*.spv" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
+    </ItemGroup>
 
 	<ItemGroup>
 	  <Folder Include="Shaders\" />
 	</ItemGroup>
+
+    <Target Name="CompileShaders" BeforeTargets="Build">
+        <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/../ShaderCompiler/ShaderCompiler.csproj&quot; -- &quot;$(MSBuildProjectDirectory)&quot; &quot;$(TargetDir)&quot;" />
+    </Target>
 
 </Project>
