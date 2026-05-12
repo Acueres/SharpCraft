@@ -17,6 +17,7 @@ internal unsafe class GraphicsDevice : IDisposable
     private readonly IndexBuffer indexBuffer;
 
     private readonly SdlRuntime runtime;
+    private readonly GpuUploader uploader;
     private readonly GraphicsPipeline pipeline;
     private readonly DepthBuffer depthBuffer;
 
@@ -32,6 +33,7 @@ internal unsafe class GraphicsDevice : IDisposable
         fragmentShader = new Shader(device, Path.Combine("Shaders", "cube.frag.spv"),
             SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, uniformBuffers: 0, "MainFS");
 
+        uploader = new GpuUploader(device);
         pipeline = new GraphicsPipeline(device, vertexShader, fragmentShader);
 
         vertexBuffer = new VertexBuffer(device);
@@ -61,117 +63,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
     public void UploadMesh()
     {
-        SDL_GPUTransferBuffer* vertexTransfer = null;
-        SDL_GPUTransferBuffer* indexTransfer = null;
-
-        try
-        {
-            uint vertexBytes = (uint)(Cube.Vertices.Length * sizeof(Vertex));
-            uint indexBytes = (uint)(Cube.Indices.Length * sizeof(ushort));
-
-            SDL_GPUTransferBufferCreateInfo vertexTransferInfo = new()
-            {
-                usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-                size = vertexBytes
-            };
-
-            SDL_GPUTransferBufferCreateInfo indexTransferInfo = new()
-            {
-                usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-                size = indexBytes
-            };
-
-            vertexTransfer = SDL_CreateGPUTransferBuffer(device.Handle, &vertexTransferInfo);
-            indexTransfer = SDL_CreateGPUTransferBuffer(device.Handle, &indexTransferInfo);
-
-            if (vertexTransfer == null || indexTransfer == null)
-            {
-                SdlRuntime.Throw("Failed to create transfer buffer");
-            }
-
-            nint vertexDst = SDL_MapGPUTransferBuffer(device.Handle, vertexTransfer, false);
-            if (vertexDst == IntPtr.Zero)
-            {
-                SdlRuntime.Throw("Failed to map transfer vertex buffer");
-            }
-
-            fixed (Vertex* src = Cube.Vertices)
-            {
-                Buffer.MemoryCopy(src, (void*)vertexDst, vertexBytes, vertexBytes);
-            }
-
-            SDL_UnmapGPUTransferBuffer(device.Handle, vertexTransfer);
-
-            nint indexDst = SDL_MapGPUTransferBuffer(device.Handle, indexTransfer, false);
-            if (indexDst == IntPtr.Zero)
-            {
-                SdlRuntime.Throw("Failed to map transfer index buffer");
-            }
-
-            fixed (ushort* src = Cube.Indices)
-                Buffer.MemoryCopy(src, (void*)indexDst, indexBytes, indexBytes);
-
-            SDL_UnmapGPUTransferBuffer(device.Handle, indexTransfer);
-
-            SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device.Handle);
-            if (cmd == null)
-            {
-                SdlRuntime.Throw("Failed to acquire GPU command buffer");
-            }
-
-            SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmd);
-
-            SDL_GPUTransferBufferLocation vertexSource = new()
-            {
-                transfer_buffer = vertexTransfer,
-                offset = 0
-            };
-
-            SDL_GPUBufferRegion vertexDestination = new()
-            {
-                buffer = vertexBuffer.Handle,
-                offset = 0,
-                size = vertexBytes
-            };
-
-            SDL_UploadToGPUBuffer(copyPass, &vertexSource, &vertexDestination, false);
-
-            SDL_GPUTransferBufferLocation indexSource = new()
-            {
-                transfer_buffer = indexTransfer,
-                offset = 0
-            };
-
-            SDL_GPUBufferRegion indexDestination = new()
-            {
-                buffer = indexBuffer.Handle,
-                offset = 0,
-                size = indexBytes
-            };
-
-            SDL_UploadToGPUBuffer(copyPass, &indexSource, &indexDestination, false);
-
-            SDL_EndGPUCopyPass(copyPass);
-
-            if (!SDL_SubmitGPUCommandBuffer(cmd))
-            {
-                SdlRuntime.Throw("Failed to upload GPU command buffer");
-            }
-
-            device.WaitIdle();
-        }
-        finally
-        {
-            if (vertexTransfer != null)
-            {
-                SDL_ReleaseGPUTransferBuffer(device.Handle, vertexTransfer);
-            }
-
-            if (indexTransfer != null)
-            {
-                SDL_ReleaseGPUTransferBuffer(device.Handle, indexTransfer);
-            }
-        }
+        uploader.Upload(vertexBuffer, indexBuffer);
     }
 
     public void DrawFrame()
