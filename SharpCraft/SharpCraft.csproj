@@ -20,8 +20,8 @@
 	  <Folder Include="Shaders\" />
 	</ItemGroup>
 
-    <Target Name="CompileShaders" BeforeTargets="Build">
-        <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/../ShaderCompiler/ShaderCompiler.csproj&quot; -- &quot;$(MSBuildProjectDirectory)&quot; &quot;$(TargetDir)&quot;" />
-    </Target>
+	<Target Name="CompileShaders" BeforeTargets="Build">
+		<Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/../ShaderCompiler/ShaderCompiler.csproj&quot; -- &quot;$(MSBuildProjectDirectory)&quot; &quot;$(TargetDir).&quot;" />
+	</Target>
 
 </Project>
