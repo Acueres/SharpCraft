@@ -1,9 +1,13 @@
 ﻿using System.Numerics;
 using SDL;
 
+using SharpCraft.Graphics.Resources;
+using SharpCraft.Platform;
+using SharpCraft.Rendering;
+
 using static SDL.SDL3;
 
-namespace SharpCraft;
+namespace SharpCraft.Graphics;
 
 internal unsafe class GraphicsDevice : IDisposable
 {

@@ -1,8 +1,7 @@
 ﻿using SDL;
-
 using static SDL.SDL3;
 
-namespace SharpCraft;
+namespace SharpCraft.Platform;
 
 internal class SdlRuntime : IDisposable
 {

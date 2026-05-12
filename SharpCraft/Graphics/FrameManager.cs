@@ -1,8 +1,10 @@
 ﻿using SDL;
 
+using SharpCraft.Platform;
+
 using static SDL.SDL3;
 
-namespace SharpCraft;
+namespace SharpCraft.Graphics;
 
 internal unsafe class FrameManager(GpuDevice device, Window window)
 {

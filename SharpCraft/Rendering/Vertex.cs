@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using System.Runtime.InteropServices;
 
-namespace SharpCraft;
+namespace SharpCraft.Rendering;
 
 [StructLayout(LayoutKind.Sequential)]
 internal struct Vertex

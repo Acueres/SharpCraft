@@ -1,6 +1,6 @@
 ﻿using SDL;
 
-namespace SharpCraft;
+namespace SharpCraft.Graphics;
 
 internal unsafe readonly struct FrameContext(SDL_GPUCommandBuffer* commandBuffer,
     SDL_GPUTexture* swapchainTexture, uint width, uint height)

@@ -1,4 +1,4 @@
-﻿namespace SharpCraft;
+﻿namespace SharpCraft.Rendering;
 
 internal static class Cube
 {

@@ -1,9 +1,12 @@
 ﻿using SDL;
+
+using SharpCraft.Platform;
+
 using System.Text;
 
 using static SDL.SDL3;
 
-namespace SharpCraft;
+namespace SharpCraft.Graphics.Resources;
 
 internal unsafe class Shader : IDisposable
 {

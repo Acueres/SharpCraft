@@ -1,5 +1,7 @@
 ﻿using SDL;
 
+using SharpCraft.Graphics;
+
 using static SDL.SDL3;
 
 namespace SharpCraft;

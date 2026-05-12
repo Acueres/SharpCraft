@@ -1,8 +1,11 @@
 ﻿using SDL;
 
+using SharpCraft.Platform;
+using SharpCraft.Rendering;
+
 using static SDL.SDL3;
 
-namespace SharpCraft;
+namespace SharpCraft.Graphics.Resources;
 
 internal unsafe class GraphicsPipeline : IDisposable
 {
