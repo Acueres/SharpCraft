@@ -49,9 +49,14 @@ internal unsafe class Shader : IDisposable
         }
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         SDL_ReleaseGPUShader(device.Handle, shader);
+
+        disposed = true;
     }
 
     private static byte[] Utf8Bytes(string value)

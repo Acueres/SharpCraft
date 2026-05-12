@@ -54,13 +54,15 @@ internal unsafe class GpuDevice : IDisposable
         SDL_WaitForGPUIdle(device);
     }
 
+    private bool disposed;
     public void Dispose()
     {
-        if (device == null) return;
+        if (disposed || device == null) return;
 
         SDL_WaitForGPUIdle(device);
 
         SDL_ReleaseWindowFromGPUDevice(device, window.Handle);
         SDL_DestroyGPUDevice(device);
+        disposed = true;
     }
 }

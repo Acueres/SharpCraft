@@ -95,8 +95,13 @@ internal unsafe class GraphicsPipeline : IDisposable
         }
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         SDL_ReleaseGPUGraphicsPipeline(device.Handle, pipeline);
+
+        disposed = true;
     }
 }

@@ -25,8 +25,13 @@ internal unsafe class Window : IDisposable
         }
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         SDL_DestroyWindow(window);
+
+        disposed = true;
     }
 }

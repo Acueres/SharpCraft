@@ -43,8 +43,12 @@ internal unsafe class App : IDisposable
         }
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         graphics.Dispose();
+        disposed = true;
     }
 }

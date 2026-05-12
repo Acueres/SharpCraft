@@ -72,8 +72,13 @@ internal unsafe class DepthBuffer : IDisposable
         return depthTexture;
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         device.ReleaseTexture(depthTexture);
+        disposed = true;
+        depthTexture = null;
     }
 }

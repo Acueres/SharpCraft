@@ -28,8 +28,13 @@ internal unsafe class VertexBuffer : IDisposable
         }
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         SDL_ReleaseGPUBuffer(device.Handle, buffer);
+
+        disposed = true;
     }
 }

@@ -20,8 +20,13 @@ internal class SdlRuntime : IDisposable
         throw new InvalidOperationException($"{message}: {error}");
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         SDL_Quit();
+
+        disposed = true;
     }
 }

@@ -43,8 +43,11 @@ internal unsafe class GraphicsDevice : IDisposable
         depthBuffer = new DepthBuffer(device, width, height);
     }
 
+    private bool disposed;
     public void Dispose()
     {
+        if (disposed) return;
+
         device.WaitIdle();
 
         pipeline.Dispose();
@@ -60,6 +63,8 @@ internal unsafe class GraphicsDevice : IDisposable
         device.Dispose();
         window.Dispose();
         runtime.Dispose();
+
+        disposed = true;
     }
 
     public void UploadMesh()
