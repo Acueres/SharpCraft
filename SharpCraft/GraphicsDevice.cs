@@ -19,6 +19,7 @@ internal unsafe class GraphicsDevice : IDisposable
     private readonly SdlRuntime runtime;
     private readonly GpuUploader uploader;
     private readonly GraphicsPipeline pipeline;
+    private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
 
     public GraphicsDevice(uint width, uint height, string title)
@@ -38,7 +39,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         vertexBuffer = new VertexBuffer(device);
         indexBuffer = new IndexBuffer(device);
-
+        frameManager = new FrameManager(device, window);
         depthBuffer = new DepthBuffer(device, width, height);
     }
 
@@ -66,19 +67,26 @@ internal unsafe class GraphicsDevice : IDisposable
         uploader.Upload(vertexBuffer, indexBuffer);
     }
 
-    public void DrawFrame()
+    public void Draw()
     {
-        if (!TryCreateFrameContext(out var fCtx))
+        if (!frameManager.TryBeginFrame(out var frame))
         {
             return;
         }
 
-        depthBuffer.EnsureSize(fCtx.Width, fCtx.Height);
+        depthBuffer.EnsureSize(frame.Width, frame.Height);
 
-        Matrix4x4 mvp = BuildMvp(fCtx.Width, fCtx.Height);
+        DrawCube(frame);
+
+        frameManager.SubmitFrame(frame);
+    }
+
+    private void DrawCube(FrameContext frame)
+    {
+        Matrix4x4 mvp = BuildMvp(frame.Width, frame.Height);
 
         SDL_PushGPUVertexUniformData(
-            fCtx.CommandBuffer,
+            frame.CommandBuffer,
             0,
             (nint)(&mvp),
             (uint)sizeof(Matrix4x4)
@@ -86,7 +94,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUColorTargetInfo colorTarget = new()
         {
-            texture = fCtx.SwapchainTexture,
+            texture = frame.SwapchainTexture,
 
             clear_color = new SDL_FColor
             {
@@ -116,7 +124,7 @@ internal unsafe class GraphicsDevice : IDisposable
         };
 
         SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
-            fCtx.CommandBuffer,
+            frame.CommandBuffer,
             &colorTarget,
             1,
             &depthTarget
@@ -154,47 +162,6 @@ internal unsafe class GraphicsDevice : IDisposable
         );
 
         SDL_EndGPURenderPass(renderPass);
-
-        if (!SDL_SubmitGPUCommandBuffer(fCtx.CommandBuffer))
-        {
-            SdlRuntime.Throw("Failed to submit frame command buffer");
-        }
-    }
-
-    private bool TryCreateFrameContext(out FrameContext context)
-    {
-        context = default;
-
-        SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device.Handle);
-        if (cmd == null)
-        {
-            SdlRuntime.Throw("Failed to acquire command buffer");
-        }
-
-        SDL_GPUTexture* swapchainTexture = null;
-        uint swapchainWidth = 0;
-        uint swapchainHeight = 0;
-
-        if (!SDL_AcquireGPUSwapchainTexture(
-                cmd,
-                window.Handle,
-                &swapchainTexture,
-                &swapchainWidth,
-                &swapchainHeight))
-        {
-            SDL_SubmitGPUCommandBuffer(cmd);
-            return false;
-        }
-
-        if (swapchainTexture == null)
-        {
-            SDL_SubmitGPUCommandBuffer(cmd);
-            return false;
-        }
-
-        context = new FrameContext(cmd, swapchainTexture, swapchainWidth, swapchainHeight);
-
-        return true;
     }
 
     private static Matrix4x4 BuildMvp(uint width, uint height)

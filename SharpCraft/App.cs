@@ -38,7 +38,7 @@ internal unsafe class App : IDisposable
                 }
             }
 
-            graphics.DrawFrame();
+            graphics.Draw();
             SDL_Delay(1);
         }
     }
