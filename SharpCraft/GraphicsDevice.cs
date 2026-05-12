@@ -1,5 +1,5 @@
-﻿using SDL;
-using System.Numerics;
+﻿using System.Numerics;
+using SDL;
 
 using static SDL.SDL3;
 
@@ -13,8 +13,8 @@ internal unsafe class GraphicsDevice : IDisposable
     public GpuDevice Device { get; private set; }
     public Window Window { get; private set; }
 
-    public SDL_GPUBuffer* VertexBuffer { get; private set; }
-    public SDL_GPUBuffer* IndexBuffer { get; private set; }
+    public VertexBuffer VertexBuffer { get; private set; }
+    public IndexBuffer IndexBuffer { get; private set; }
 
     private readonly SdlRuntime runtime;
     private readonly SDL_GPUGraphicsPipeline* pipeline;
@@ -34,12 +34,9 @@ internal unsafe class GraphicsDevice : IDisposable
         Window = new Window(title, (int)width, (int)height);
         Device = new GpuDevice("vulkan", Window, debugInfo: true);
 
-        byte[] vertBytes = File.ReadAllBytes(Path.Combine("Shaders", "cube.vert.spv"));
-        byte[] fragBytes = File.ReadAllBytes(Path.Combine("Shaders", "cube.frag.spv"));
-
-        VertexShader = new Shader(Device.Handle, vertBytes,
+        VertexShader = new Shader(Device, Path.Combine("Shaders", "cube.vert.spv"),
             SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, uniformBuffers: 1, "MainVS");
-        FragmentShader = new Shader(Device.Handle, fragBytes,
+        FragmentShader = new Shader(Device, Path.Combine("Shaders", "cube.frag.spv"),
             SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, uniformBuffers: 0, "MainFS");
 
         SDL_GPUVertexBufferDescription vertexBufferDescription = new()
@@ -121,29 +118,8 @@ internal unsafe class GraphicsDevice : IDisposable
             SdlRuntime.Throw("Failed to create graphics pipeline");
         }
 
-        SDL_GPUBufferCreateInfo vertexBufferInfo = new()
-        {
-            usage = SDL_GPUBufferUsageFlags.SDL_GPU_BUFFERUSAGE_VERTEX,
-            size = (uint)(Cube.Vertices.Length * sizeof(Vertex))
-        };
-
-        SDL_GPUBufferCreateInfo indexBufferInfo = new()
-        {
-            usage = SDL_GPUBufferUsageFlags.SDL_GPU_BUFFERUSAGE_INDEX,
-            size = (uint)(Cube.Indices.Length * sizeof(ushort))
-        };
-
-        VertexBuffer = SDL_CreateGPUBuffer(Device.Handle, &vertexBufferInfo);
-        if (VertexBuffer == null)
-        {
-            SdlRuntime.Throw("Failed to create vertex buffer");
-        }
-
-        IndexBuffer = SDL_CreateGPUBuffer(Device.Handle, &indexBufferInfo);
-        if (IndexBuffer == null)
-        {
-            SdlRuntime.Throw("Failed to create index buffer");
-        }
+        VertexBuffer = new VertexBuffer(Device);
+        IndexBuffer = new IndexBuffer(Device);
 
         depthTexture = CreateDepthTexture(
             width,
@@ -160,8 +136,8 @@ internal unsafe class GraphicsDevice : IDisposable
         VertexShader.Dispose();
         FragmentShader.Dispose();
 
-        SDL_ReleaseGPUBuffer(Device.Handle, VertexBuffer);
-        SDL_ReleaseGPUBuffer(Device.Handle, IndexBuffer);
+        VertexBuffer.Dispose();
+        IndexBuffer.Dispose();
 
         Device.ReleaseTexture(depthTexture);
 
@@ -240,7 +216,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
             SDL_GPUBufferRegion vertexDestination = new()
             {
-                buffer = VertexBuffer,
+                buffer = VertexBuffer.Handle,
                 offset = 0,
                 size = vertexBytes
             };
@@ -255,7 +231,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
             SDL_GPUBufferRegion indexDestination = new()
             {
-                buffer = IndexBuffer,
+                buffer = IndexBuffer.Handle,
                 offset = 0,
                 size = indexBytes
             };
@@ -349,7 +325,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUBufferBinding vertexBinding = new()
         {
-            buffer = VertexBuffer,
+            buffer = VertexBuffer.Handle,
             offset = 0
         };
 
@@ -357,7 +333,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUBufferBinding indexBinding = new()
         {
-            buffer = IndexBuffer,
+            buffer = IndexBuffer.Handle,
             offset = 0
         };
 

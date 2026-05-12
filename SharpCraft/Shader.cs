@@ -9,18 +9,19 @@ internal unsafe class Shader : IDisposable
 {
     public SDL_GPUShader* Handle => shader;
 
-    private readonly SDL_GPUDevice* device;
+    private readonly GpuDevice device;
     private readonly SDL_GPUShader* shader;
 
     public Shader(
-        SDL_GPUDevice* device,
-        byte[] code,
+        GpuDevice device,
+        string path,
         SDL_GPUShaderStage stage,
         uint uniformBuffers,
         string entrypoint)
     {
         this.device = device;
 
+        byte[] code = File.ReadAllBytes(path);
         byte[] entryBytes = Utf8Bytes(entrypoint);
 
         fixed (byte* codePtr = code)
@@ -40,7 +41,7 @@ internal unsafe class Shader : IDisposable
                 num_uniform_buffers = uniformBuffers
             };
 
-            shader = SDL_CreateGPUShader(device, &info);
+            shader = SDL_CreateGPUShader(device.Handle, &info);
             if (shader == null)
             {
                 SdlRuntime.Throw($"Failed to create shader: {entrypoint}");
@@ -50,7 +51,7 @@ internal unsafe class Shader : IDisposable
 
     public void Dispose()
     {
-        SDL_ReleaseGPUShader(device, shader);
+        SDL_ReleaseGPUShader(device.Handle, shader);
     }
 
     private static byte[] Utf8Bytes(string value)
