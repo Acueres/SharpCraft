@@ -7,65 +7,55 @@ namespace SharpCraft;
 
 internal unsafe class GraphicsDevice : IDisposable
 {
-    public Shader VertexShader {  get; private set; }
-    public Shader FragmentShader { get; private set; }
+    private readonly Shader vertexShader;
+    private readonly Shader fragmentShader;
 
-    public GpuDevice Device { get; private set; }
-    public Window Window { get; private set; }
+    private readonly GpuDevice device;
+    private readonly Window window;
 
-    public VertexBuffer VertexBuffer { get; private set; }
-    public IndexBuffer IndexBuffer { get; private set; }
+    private readonly VertexBuffer vertexBuffer;
+    private readonly IndexBuffer indexBuffer;
 
     private readonly SdlRuntime runtime;
     private readonly GraphicsPipeline pipeline;
-
-    private SDL_GPUTexture* depthTexture;
-
-    private uint width;
-    private uint height;
+    private readonly DepthBuffer depthBuffer;
 
     public GraphicsDevice(uint width, uint height, string title)
     {
         runtime = new SdlRuntime();
 
-        this.width = width;
-        this.height = height;
+        window = new Window(title, (int)width, (int)height);
+        device = new GpuDevice("vulkan", window, debugInfo: true);
 
-        Window = new Window(title, (int)width, (int)height);
-        Device = new GpuDevice("vulkan", Window, debugInfo: true);
-
-        VertexShader = new Shader(Device, Path.Combine("Shaders", "cube.vert.spv"),
+        vertexShader = new Shader(device, Path.Combine("Shaders", "cube.vert.spv"),
             SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, uniformBuffers: 1, "MainVS");
-        FragmentShader = new Shader(Device, Path.Combine("Shaders", "cube.frag.spv"),
+        fragmentShader = new Shader(device, Path.Combine("Shaders", "cube.frag.spv"),
             SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, uniformBuffers: 0, "MainFS");
 
-        pipeline = new GraphicsPipeline(Device, VertexShader, FragmentShader);
+        pipeline = new GraphicsPipeline(device, vertexShader, fragmentShader);
 
-        VertexBuffer = new VertexBuffer(Device);
-        IndexBuffer = new IndexBuffer(Device);
+        vertexBuffer = new VertexBuffer(device);
+        indexBuffer = new IndexBuffer(device);
 
-        depthTexture = CreateDepthTexture(
-            width,
-            height
-        );
+        depthBuffer = new DepthBuffer(device, width, height);
     }
 
     public void Dispose()
     {
-        Device.WaitIdle();
+        device.WaitIdle();
 
         pipeline.Dispose();
 
-        VertexShader.Dispose();
-        FragmentShader.Dispose();
+        vertexShader.Dispose();
+        fragmentShader.Dispose();
 
-        VertexBuffer.Dispose();
-        IndexBuffer.Dispose();
+        vertexBuffer.Dispose();
+        indexBuffer.Dispose();
 
-        Device.ReleaseTexture(depthTexture);
+        depthBuffer.Dispose();
 
-        Device.Dispose();
-        Window.Dispose();
+        device.Dispose();
+        window.Dispose();
         runtime.Dispose();
     }
 
@@ -91,15 +81,15 @@ internal unsafe class GraphicsDevice : IDisposable
                 size = indexBytes
             };
 
-            vertexTransfer = SDL_CreateGPUTransferBuffer(Device.Handle, &vertexTransferInfo);
-            indexTransfer = SDL_CreateGPUTransferBuffer(Device.Handle, &indexTransferInfo);
+            vertexTransfer = SDL_CreateGPUTransferBuffer(device.Handle, &vertexTransferInfo);
+            indexTransfer = SDL_CreateGPUTransferBuffer(device.Handle, &indexTransferInfo);
 
             if (vertexTransfer == null || indexTransfer == null)
             {
                 SdlRuntime.Throw("Failed to create transfer buffer");
             }
 
-            nint vertexDst = SDL_MapGPUTransferBuffer(Device.Handle, vertexTransfer, false);
+            nint vertexDst = SDL_MapGPUTransferBuffer(device.Handle, vertexTransfer, false);
             if (vertexDst == IntPtr.Zero)
             {
                 SdlRuntime.Throw("Failed to map transfer vertex buffer");
@@ -110,9 +100,9 @@ internal unsafe class GraphicsDevice : IDisposable
                 Buffer.MemoryCopy(src, (void*)vertexDst, vertexBytes, vertexBytes);
             }
 
-            SDL_UnmapGPUTransferBuffer(Device.Handle, vertexTransfer);
+            SDL_UnmapGPUTransferBuffer(device.Handle, vertexTransfer);
 
-            nint indexDst = SDL_MapGPUTransferBuffer(Device.Handle, indexTransfer, false);
+            nint indexDst = SDL_MapGPUTransferBuffer(device.Handle, indexTransfer, false);
             if (indexDst == IntPtr.Zero)
             {
                 SdlRuntime.Throw("Failed to map transfer index buffer");
@@ -121,9 +111,9 @@ internal unsafe class GraphicsDevice : IDisposable
             fixed (ushort* src = Cube.Indices)
                 Buffer.MemoryCopy(src, (void*)indexDst, indexBytes, indexBytes);
 
-            SDL_UnmapGPUTransferBuffer(Device.Handle, indexTransfer);
+            SDL_UnmapGPUTransferBuffer(device.Handle, indexTransfer);
 
-            SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(Device.Handle);
+            SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device.Handle);
             if (cmd == null)
             {
                 SdlRuntime.Throw("Failed to acquire GPU command buffer");
@@ -139,7 +129,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
             SDL_GPUBufferRegion vertexDestination = new()
             {
-                buffer = VertexBuffer.Handle,
+                buffer = vertexBuffer.Handle,
                 offset = 0,
                 size = vertexBytes
             };
@@ -154,7 +144,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
             SDL_GPUBufferRegion indexDestination = new()
             {
-                buffer = IndexBuffer.Handle,
+                buffer = indexBuffer.Handle,
                 offset = 0,
                 size = indexBytes
             };
@@ -168,18 +158,18 @@ internal unsafe class GraphicsDevice : IDisposable
                 SdlRuntime.Throw("Failed to upload GPU command buffer");
             }
 
-            Device.WaitIdle();
+            device.WaitIdle();
         }
         finally
         {
             if (vertexTransfer != null)
             {
-                SDL_ReleaseGPUTransferBuffer(Device.Handle, vertexTransfer);
+                SDL_ReleaseGPUTransferBuffer(device.Handle, vertexTransfer);
             }
 
             if (indexTransfer != null)
             {
-                SDL_ReleaseGPUTransferBuffer(Device.Handle, indexTransfer);
+                SDL_ReleaseGPUTransferBuffer(device.Handle, indexTransfer);
             }
         }
     }
@@ -191,11 +181,7 @@ internal unsafe class GraphicsDevice : IDisposable
             return;
         }
 
-        EnsureDepthTextureSize(
-            fCtx.Width,
-            fCtx.Height
-        );
-
+        depthBuffer.EnsureSize(fCtx.Width, fCtx.Height);
 
         Matrix4x4 mvp = BuildMvp(fCtx.Width, fCtx.Height);
 
@@ -225,7 +211,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUDepthStencilTargetInfo depthTarget = new()
         {
-            texture = depthTexture,
+            texture = depthBuffer.Handle,
 
             clear_depth = 1.0f,
             load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
@@ -248,7 +234,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUBufferBinding vertexBinding = new()
         {
-            buffer = VertexBuffer.Handle,
+            buffer = vertexBuffer.Handle,
             offset = 0
         };
 
@@ -256,7 +242,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUBufferBinding indexBinding = new()
         {
-            buffer = IndexBuffer.Handle,
+            buffer = indexBuffer.Handle,
             offset = 0
         };
 
@@ -287,7 +273,7 @@ internal unsafe class GraphicsDevice : IDisposable
     {
         context = default;
 
-        SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(Device.Handle);
+        SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device.Handle);
         if (cmd == null)
         {
             SdlRuntime.Throw("Failed to acquire command buffer");
@@ -299,7 +285,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         if (!SDL_AcquireGPUSwapchainTexture(
                 cmd,
-                Window.Handle,
+                window.Handle,
                 &swapchainTexture,
                 &swapchainWidth,
                 &swapchainHeight))
@@ -317,32 +303,6 @@ internal unsafe class GraphicsDevice : IDisposable
         context = new FrameContext(cmd, swapchainTexture, swapchainWidth, swapchainHeight);
 
         return true;
-    }
-
-    private void EnsureDepthTextureSize(
-        uint swapchainWidth,
-        uint swapchainHeight)
-    {
-        if (swapchainWidth == 0 || swapchainHeight == 0)
-            return;
-
-        if (depthTexture != null &&
-            width == swapchainWidth &&
-            height == swapchainHeight)
-        {
-            return;
-        }
-
-        Device.WaitIdle();
-
-        if (depthTexture != null)
-        {
-            Device.ReleaseTexture(depthTexture);
-        }
-
-        depthTexture = CreateDepthTexture(swapchainWidth, swapchainHeight);
-        width = swapchainWidth;
-        height = swapchainHeight;
     }
 
     private static Matrix4x4 BuildMvp(uint width, uint height)
@@ -370,30 +330,5 @@ internal unsafe class GraphicsDevice : IDisposable
         projection.M22 *= -1.0f;
 
         return world * view * projection;
-    }
-
-    private SDL_GPUTexture* CreateDepthTexture(
-        uint width,
-        uint height)
-    {
-        SDL_GPUTextureCreateInfo depthTextureInfo = new()
-        {
-            type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D,
-            format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D24_UNORM,
-            usage = SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-            width = width,
-            height = height,
-            layer_count_or_depth = 1,
-            num_levels = 1,
-            sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
-        };
-
-        SDL_GPUTexture* depthTexture = SDL_CreateGPUTexture(Device.Handle, &depthTextureInfo);
-        if (depthTexture == null)
-        {
-            SdlRuntime.Throw("Failed to create depth texture");
-        }
-
-        return depthTexture;
     }
 }
