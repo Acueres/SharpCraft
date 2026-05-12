@@ -17,7 +17,7 @@ internal unsafe class GraphicsDevice : IDisposable
     public IndexBuffer IndexBuffer { get; private set; }
 
     private readonly SdlRuntime runtime;
-    private readonly SDL_GPUGraphicsPipeline* pipeline;
+    private readonly GraphicsPipeline pipeline;
 
     private SDL_GPUTexture* depthTexture;
 
@@ -39,84 +39,7 @@ internal unsafe class GraphicsDevice : IDisposable
         FragmentShader = new Shader(Device, Path.Combine("Shaders", "cube.frag.spv"),
             SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, uniformBuffers: 0, "MainFS");
 
-        SDL_GPUVertexBufferDescription vertexBufferDescription = new()
-        {
-            slot = 0,
-            pitch = (uint)sizeof(Vertex),
-            input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_VERTEX,
-            instance_step_rate = 0
-        };
-
-        SDL_GPUVertexAttribute positionAttribute = new()
-        {
-            location = 0,
-            buffer_slot = 0,
-            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-            offset = 0
-        };
-
-        SDL_GPUColorTargetDescription colorTargetDescription = new()
-        {
-            format = Device.SwapchainFormat,
-            blend_state = new SDL_GPUColorTargetBlendState
-            {
-                color_write_mask =
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_R |
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_G |
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_B |
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_A
-            }
-        };
-
-        SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = new()
-        {
-            vertex_shader = VertexShader.Handle,
-            fragment_shader = FragmentShader.Handle,
-
-            primitive_type = SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-
-            vertex_input_state = new SDL_GPUVertexInputState
-            {
-                vertex_buffer_descriptions = &vertexBufferDescription,
-                num_vertex_buffers = 1,
-                vertex_attributes = &positionAttribute,
-                num_vertex_attributes = 1
-            },
-
-            rasterizer_state = new SDL_GPURasterizerState
-            {
-                fill_mode = SDL_GPUFillMode.SDL_GPU_FILLMODE_FILL,
-                cull_mode = SDL_GPUCullMode.SDL_GPU_CULLMODE_BACK,
-                front_face = SDL_GPUFrontFace.SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
-            },
-
-            multisample_state = new SDL_GPUMultisampleState
-            {
-                sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
-            },
-
-            depth_stencil_state = new SDL_GPUDepthStencilState
-            {
-                enable_depth_test = true,
-                enable_depth_write = true,
-                compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS
-            },
-
-            target_info = new SDL_GPUGraphicsPipelineTargetInfo
-            {
-                color_target_descriptions = &colorTargetDescription,
-                num_color_targets = 1,
-
-                has_depth_stencil_target = true,
-                depth_stencil_format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D24_UNORM
-            }
-        };
-
-        pipeline = SDL_CreateGPUGraphicsPipeline(Device.Handle, &pipelineInfo);
-        if (pipeline == null)
-        {
-            SdlRuntime.Throw("Failed to create graphics pipeline");
-        }
+        pipeline = new GraphicsPipeline(Device, VertexShader, FragmentShader);
 
         VertexBuffer = new VertexBuffer(Device);
         IndexBuffer = new IndexBuffer(Device);
@@ -131,7 +54,7 @@ internal unsafe class GraphicsDevice : IDisposable
     {
         Device.WaitIdle();
 
-        SDL_ReleaseGPUGraphicsPipeline(Device.Handle, pipeline);
+        pipeline.Dispose();
 
         VertexShader.Dispose();
         FragmentShader.Dispose();
@@ -321,7 +244,7 @@ internal unsafe class GraphicsDevice : IDisposable
             &depthTarget
         );
 
-        SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
+        SDL_BindGPUGraphicsPipeline(renderPass, pipeline.Handle);
 
         SDL_GPUBufferBinding vertexBinding = new()
         {
