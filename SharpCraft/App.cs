@@ -1,7 +1,10 @@
-﻿using SDL;
+﻿using System.Numerics;
+
+using SDL;
 
 using SharpCraft.Graphics;
 using SharpCraft.Input;
+using SharpCraft.Rendering;
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -13,11 +16,13 @@ internal unsafe class App : IDisposable
 
     private readonly GraphicsDevice graphics;
     private readonly InputHandler input;
+    private readonly Camera camera;
 
     public App()
     {
         graphics = new GraphicsDevice(width, height, "SharpCraft");
         input = new InputHandler();
+        camera = new Camera(new Vector3(0f, 0f, 4f), Vector3.Zero, width, height);
     }
 
     public void Run()
@@ -48,7 +53,23 @@ internal unsafe class App : IDisposable
                 running = false;
             }
 
-            graphics.Draw();
+            if (input.Keyboard.IsDown(Keys.E))
+            {
+                graphics.Window.SetRelativeMouseMode(true);
+            }
+
+            if (input.Keyboard.IsDown(Keys.R))
+            {
+                graphics.Window.SetRelativeMouseMode(false);
+            }
+
+            camera.Update(input);
+
+            if (graphics.TryBeginFrame(out var frame))
+            {
+                camera.SetViewport(frame.Width, frame.Height);
+                graphics.Draw(frame, camera);
+            }
             SDL_Delay(1);
         }
     }

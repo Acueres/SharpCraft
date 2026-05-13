@@ -11,6 +11,8 @@ namespace SharpCraft.Graphics;
 
 internal unsafe class GraphicsDevice : IDisposable
 {
+    public Window Window => window;
+
     private readonly Shader vertexShader;
     private readonly Shader fragmentShader;
 
@@ -31,6 +33,7 @@ internal unsafe class GraphicsDevice : IDisposable
         runtime = new SdlRuntime();
 
         window = new Window(title, (int)width, (int)height);
+
         device = new GpuDevice("vulkan", window, debugInfo: true);
 
         vertexShader = new Shader(device, Path.Combine("Shaders", "cube.vert.spv"),
@@ -76,23 +79,27 @@ internal unsafe class GraphicsDevice : IDisposable
         uploader.Upload(vertexBuffer, indexBuffer);
     }
 
-    public void Draw()
+    public bool TryBeginFrame(out FrameContext frame)
     {
-        if (!frameManager.TryBeginFrame(out var frame))
+        if (!frameManager.TryBeginFrame(out frame))
         {
-            return;
+            return false;
         }
 
         depthBuffer.EnsureSize(frame.Width, frame.Height);
 
-        DrawCube(frame);
+        return true;
+    }
 
+    public void Draw(FrameContext frame, Camera camera)
+    {
+        DrawCube(frame, camera);
         frameManager.SubmitFrame(frame);
     }
 
-    private void DrawCube(FrameContext frame)
+    private void DrawCube(FrameContext frame, Camera camera)
     {
-        Matrix4x4 mvp = BuildMvp(frame.Width, frame.Height);
+        Matrix4x4 mvp = BuildMvp(camera);
 
         SDL_PushGPUVertexUniformData(
             frame.CommandBuffer,
@@ -173,30 +180,20 @@ internal unsafe class GraphicsDevice : IDisposable
         SDL_EndGPURenderPass(renderPass);
     }
 
-    private static Matrix4x4 BuildMvp(uint width, uint height)
+    private static Matrix4x4 BuildMvp(Camera camera)
     {
-        float aspect = width / MathF.Max(1.0f, height);
+        Matrix4x4 world = Matrix4x4.Identity;
 
-        Matrix4x4 world =
-            Matrix4x4.CreateRotationY(SDL_GetTicks() / 1000.0f * 0.7f) *
-            Matrix4x4.CreateRotationX(-0.45f);
-
-        Matrix4x4 view = Matrix4x4.CreateLookAt(
-            new Vector3(0, 1.2f, 4.0f),
-            Vector3.Zero,
-            Vector3.UnitY
-        );
-
-        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(
-            MathF.PI / 4.0f,
-            aspect,
-            0.1f,
-            100.0f
-        );
+        Matrix4x4 projection = camera.Projection;
 
         // Vulkan-style framebuffer orientation correction
         projection.M22 *= -1.0f;
 
-        return world * view * projection;
+        // Keep this backend-specific correction near the renderer, not the Camera.
+        projection.M22 *= -1.0f;
+
+        Matrix4x4 mvp = world * camera.View * projection;
+
+        return mvp;
     }
 }

@@ -24,6 +24,14 @@ internal unsafe class Window : IDisposable
         }
     }
 
+    public void SetRelativeMouseMode(bool enabled)
+    {
+        if (!SDL_SetWindowRelativeMouseMode(Handle, enabled))
+        {
+            SdlRuntime.Throw("Failed to set relative mouse mode");
+        }
+    }
+
     private bool disposed;
     public void Dispose()
     {
