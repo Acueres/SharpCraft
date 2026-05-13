@@ -1,7 +1,7 @@
 ﻿using SDL;
 
 using SharpCraft.Graphics;
-
+using SharpCraft.Input;
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -12,10 +12,12 @@ internal unsafe class App : IDisposable
     private const uint height = 720;
 
     private readonly GraphicsDevice graphics;
+    private readonly InputHandler input;
 
     public App()
     {
         graphics = new GraphicsDevice(width, height, "SharpCraft");
+        input = new InputHandler();
     }
 
     public void Run()
@@ -26,18 +28,24 @@ internal unsafe class App : IDisposable
 
         while (running)
         {
+            input.Begin();
+
             SDL_Event e;
 
             while (SDL_PollEvent(&e))
             {
-                if (e.type == (uint)SDL_EventType.SDL_EVENT_QUIT)
-                    running = false;
+                input.ProcessEvent(e);
 
-                if (e.type == (uint)SDL_EventType.SDL_EVENT_KEY_DOWN &&
-                    e.key.key == SDL_Keycode.SDLK_ESCAPE)
+                if (e.type == (uint)SDL_EventType.SDL_EVENT_QUIT)
                 {
                     running = false;
+                    continue;
                 }
+            }
+
+            if (input.Keyboard.IsDown(Keys.Escape))
+            {
+                running = false;
             }
 
             graphics.Draw();
