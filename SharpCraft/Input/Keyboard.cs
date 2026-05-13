@@ -6,13 +6,13 @@ internal class Keyboard
     private readonly HashSet<Keys> pressed = [];
     private readonly HashSet<Keys> released = [];
 
-    public void Begin()
+    internal void Begin()
     {
         pressed.Clear();
         released.Clear();
     }
 
-    public void OnKeyDown(Keys key, bool isRepeat)
+    internal void OnKeyDown(Keys key, bool isRepeat)
     {
         if (key == Keys.None)
             return;
@@ -23,7 +23,7 @@ internal class Keyboard
         }
     }
 
-    public void OnKeyUp(Keys key)
+    internal void OnKeyUp(Keys key)
     {
         if (key == Keys.None)
             return;
