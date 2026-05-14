@@ -29,7 +29,12 @@ internal class AssetServer(GpuDevice device) : IDisposable
     private void LoadBlocks()
     {
         string blocksPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Textures", "Blocks");
-        string[] texturePaths = Directory.GetFiles(blocksPath, "*.*");
+        string[] texturePaths = Directory.GetFiles(blocksPath)
+            .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) 
+                        || f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) 
+                        || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+            .Order()
+            .ToArray();
 
         foreach (string texturePath in texturePaths)
         {
