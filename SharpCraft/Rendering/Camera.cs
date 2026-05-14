@@ -1,6 +1,8 @@
 ﻿using System.Numerics;
+
 using SharpCraft.Input;
 using SharpCraft.SharpMath;
+using SharpCraft.Time;
 
 namespace SharpCraft.Rendering;
 
@@ -30,7 +32,7 @@ internal class Camera
         HorizontalDirection = new Vector3(Direction.X, 0f, Direction.Z);
         HorizontalDirection = Vector3.Normalize(HorizontalDirection);
 
-        rotationSpeed = 2.5f;
+        rotationSpeed = 1.5f;
 
         View = Matrix4x4.CreateLookAt(position, target, MathUtilities.Vector3Up);
 
@@ -52,7 +54,7 @@ internal class Camera
         );
     }
 
-    public void Update(InputHandler input)
+    public void Update(InputHandler input, FrameTime time)
     {
         var ms = input.Mouse;
 
@@ -98,31 +100,23 @@ internal class Camera
         // Movement control
         var ks = input.Keyboard;
 
-        const float movementSpeed = 0.08f;
+        const float movementSpeed = 5f;
 
         Vector3 right = Vector3.Normalize(
             Vector3.Cross(Direction, MathUtilities.Vector3Up)
         );
 
         if (ks.IsDown(Keys.W))
-        {
-            Position += HorizontalDirection * movementSpeed;
-        }
+            Position += HorizontalDirection * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.S))
-        {
-            Position -= HorizontalDirection * movementSpeed;
-        }
+            Position -= HorizontalDirection * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.A))
-        {
-            Position -= right * movementSpeed;
-        }
+            Position -= right * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.D))
-        {
-            Position += right * movementSpeed;
-        }
+            Position += right * movementSpeed * time.DeltaSeconds;
 
         target = Direction + Position;
         View = Matrix4x4.CreateLookAt(Position, target, MathUtilities.Vector3Up);

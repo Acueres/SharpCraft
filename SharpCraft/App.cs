@@ -1,10 +1,11 @@
-﻿using System.Numerics;
-
-using SDL;
+﻿using SDL;
+using System.Numerics;
 
 using SharpCraft.Graphics;
 using SharpCraft.Input;
 using SharpCraft.Rendering;
+using SharpCraft.Time;
+
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -17,6 +18,7 @@ internal unsafe class App : IDisposable
     private readonly GraphicsDevice graphics;
     private readonly InputHandler input;
     private readonly Camera camera;
+    private readonly FrameClock clock = new();
 
     public App()
     {
@@ -33,6 +35,8 @@ internal unsafe class App : IDisposable
 
         while (running)
         {
+            FrameTime time = clock.Tick();
+
             input.Begin();
 
             SDL_Event e;
@@ -63,13 +67,14 @@ internal unsafe class App : IDisposable
                 graphics.Window.SetRelativeMouseMode(false);
             }
 
-            camera.Update(input);
+            camera.Update(input, time);
 
             if (graphics.TryBeginFrame(out var frame))
             {
                 camera.SetViewport(frame.Width, frame.Height);
                 graphics.Draw(frame, camera);
             }
+
             SDL_Delay(1);
         }
     }
