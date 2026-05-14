@@ -1,7 +1,8 @@
-﻿using SDL;
-
-using SharpCraft.Platform;
+﻿using SharpCraft.Platform;
 using SharpCraft.Rendering;
+
+using SDL;
+using System.Numerics;
 
 using static SDL.SDL3;
 
@@ -34,6 +35,14 @@ internal unsafe class GraphicsPipeline : IDisposable
             offset = 0
         };
 
+        SDL_GPUVertexAttribute texCoordAttribute = new()
+        {
+            location = 1,
+            buffer_slot = 0,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+            offset = (uint)sizeof(Vector3)
+        };
+
         SDL_GPUColorTargetDescription colorTargetDescription = new()
         {
             format = device.SwapchainFormat,
@@ -47,6 +56,10 @@ internal unsafe class GraphicsPipeline : IDisposable
             }
         };
 
+        SDL_GPUVertexAttribute* vertexAttributes = stackalloc SDL_GPUVertexAttribute[2];
+        vertexAttributes[0] = positionAttribute;
+        vertexAttributes[1] = texCoordAttribute;
+
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = new()
         {
             vertex_shader = vertexShader.Handle,
@@ -58,8 +71,8 @@ internal unsafe class GraphicsPipeline : IDisposable
             {
                 vertex_buffer_descriptions = &vertexBufferDescription,
                 num_vertex_buffers = 1,
-                vertex_attributes = &positionAttribute,
-                num_vertex_attributes = 1
+                vertex_attributes = vertexAttributes,
+                num_vertex_attributes = 2
             },
 
             rasterizer_state = new SDL_GPURasterizerState

@@ -1,4 +1,4 @@
-﻿using SharpCraft.Assets;
+﻿using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics;
 using SharpCraft.Input;
 using SharpCraft.Platform;

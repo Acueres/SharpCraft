@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using SDL;
 
-using SharpCraft.Assets;
+using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
@@ -19,7 +19,9 @@ internal unsafe class GraphicsDevice : IDisposable
 
     private readonly VertexBuffer vertexBuffer;
     private readonly IndexBuffer indexBuffer;
+    private readonly Texture texture;
 
+    private readonly Sampler sampler;
     private readonly GpuUploader uploader;
     private readonly GraphicsPipeline pipeline;
     private readonly FrameManager frameManager;
@@ -31,7 +33,9 @@ internal unsafe class GraphicsDevice : IDisposable
         this.device = device;
 
         var shader = assetServer.GetShader("cube");
+        texture = assetServer.GetBlockTexture(0);
 
+        sampler = new Sampler(device);
         uploader = new GpuUploader(this.device);
         pipeline = new GraphicsPipeline(this.device, shader.Vertex, shader.Fragment);
 
@@ -48,6 +52,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         device.WaitIdle();
 
+        sampler.Dispose();
         pipeline.Dispose();
 
         vertexBuffer.Dispose();
@@ -61,6 +66,7 @@ internal unsafe class GraphicsDevice : IDisposable
     public void UploadMesh()
     {
         uploader.Upload(vertexBuffer, indexBuffer);
+        uploader.Upload(texture);
     }
 
     public bool TryBeginFrame(out FrameContext frame)
@@ -150,6 +156,19 @@ internal unsafe class GraphicsDevice : IDisposable
             renderPass,
             &indexBinding,
             SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_16BIT
+        );
+
+        SDL_GPUTextureSamplerBinding textureBinding = new()
+        {
+            texture = texture.Handle,
+            sampler = sampler.Handle
+        };
+
+        SDL_BindGPUFragmentSamplers(
+            renderPass,
+            0,
+            &textureBinding,
+            1
         );
 
         SDL_DrawGPUIndexedPrimitives(

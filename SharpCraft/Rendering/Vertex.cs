@@ -7,9 +7,11 @@ namespace SharpCraft.Rendering;
 internal struct Vertex
 {
     public Vector3 Position;
+    public Vector2 TexCoord;
 
-    public Vertex(float x, float y, float z)
+    public Vertex(float x, float y, float z, float u, float v)
     {
         Position = new Vector3(x, y, z);
+        TexCoord = new Vector2(u, v);
     }
 }

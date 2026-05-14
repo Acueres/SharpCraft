@@ -124,4 +124,106 @@ internal unsafe class GpuUploader(GpuDevice device)
             }
         }
     }
+
+    public void Upload(Texture texture)
+    {
+        uint expectedByteCount = texture.Width * texture.Height * 4;
+
+        if ((uint)texture.Data.Length != expectedByteCount)
+        {
+            throw new ArgumentException(
+                $"Texture upload byte count mismatch. " +
+                $"Expected {expectedByteCount}, got {texture.Data.Length}."
+            );
+        }
+
+        SDL_GPUTransferBuffer* transferBuffer = null;
+
+        try
+        {
+            SDL_GPUTransferBufferCreateInfo transferInfo = new()
+            {
+                usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                size = expectedByteCount
+            };
+
+            transferBuffer = SDL_CreateGPUTransferBuffer(device.Handle, &transferInfo);
+            if (transferBuffer == null)
+            {
+                SdlRuntime.Throw("Failed to create texture transfer buffer");
+            }
+
+            nint destination = SDL_MapGPUTransferBuffer(device.Handle, transferBuffer, false);
+            if (destination == IntPtr.Zero)
+            {
+                SdlRuntime.Throw("Failed to map texture transfer buffer");
+            }
+
+            fixed (byte* source = texture.Data)
+            {
+                Buffer.MemoryCopy(
+                    source,
+                    (void*)destination,
+                    expectedByteCount,
+                    expectedByteCount
+                );
+            }
+
+            SDL_UnmapGPUTransferBuffer(device.Handle, transferBuffer);
+
+            SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(device.Handle);
+            if (commandBuffer == null)
+            {
+                SdlRuntime.Throw("Failed to acquire texture upload command buffer");
+            }
+
+            SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
+
+            SDL_GPUTextureTransferInfo sourceInfo = new()
+            {
+                transfer_buffer = transferBuffer,
+                offset = 0,
+                pixels_per_row = texture.Width,
+                rows_per_layer = texture.Height
+            };
+
+            SDL_GPUTextureRegion destinationRegion = new()
+            {
+                texture = texture.Handle,
+                mip_level = 0,
+                layer = 0,
+
+                x = 0,
+                y = 0,
+                z = 0,
+
+                w = texture.Width,
+                h = texture.Height,
+                d = 1
+            };
+
+            SDL_UploadToGPUTexture(
+                copyPass,
+                &sourceInfo,
+                &destinationRegion,
+                false
+            );
+
+            SDL_EndGPUCopyPass(copyPass);
+
+            if (!SDL_SubmitGPUCommandBuffer(commandBuffer))
+            {
+                SdlRuntime.Throw("Failed to submit texture upload command buffer");
+            }
+
+            device.WaitIdle();
+        }
+        finally
+        {
+            if (transferBuffer != null)
+            {
+                SDL_ReleaseGPUTransferBuffer(device.Handle, transferBuffer);
+            }
+        }
+    }
 }

@@ -9,7 +9,8 @@
   </PropertyGroup>
     
     <ItemGroup>
-    <PackageReference Include="ppy.SDL3-CS" Version="2026.429.0" />
+    <PackageReference Include="ppy.SDL3-CS" Version="2026.512.0" />
+    <PackageReference Include="StbiSharp" Version="1.2.1" />
     </ItemGroup>
     
     <ItemGroup>
@@ -17,7 +18,12 @@
     </ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Shaders\" />
+		<None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Include="AssetProcessing\AssetServer.cs" />
+	  <None Include="AssetProcessing\GraphicsShader.cs" />
 	</ItemGroup>
 
 	<Target Name="CompileShaders" BeforeTargets="Build">

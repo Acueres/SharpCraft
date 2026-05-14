@@ -1,6 +1,6 @@
 ﻿using SharpCraft.Graphics.Resources;
 
-namespace SharpCraft.Assets;
+namespace SharpCraft.AssetProcessing;
 
 internal class GraphicsShader(Shader vertex, Shader fragment) : IDisposable
 {

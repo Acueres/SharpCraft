@@ -8,6 +8,12 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
+internal enum ShaderType
+{
+    Vertex,
+    Fragment
+}
+
 internal unsafe class Shader : IDisposable
 {
     public SDL_GPUShader* Handle => shader;
@@ -20,6 +26,7 @@ internal unsafe class Shader : IDisposable
         byte[] code,
         SDL_GPUShaderStage stage,
         uint uniformBuffers,
+        uint samplers,
         string entrypoint)
     {
         this.device = device;
@@ -37,7 +44,7 @@ internal unsafe class Shader : IDisposable
                 format = SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_SPIRV,
                 stage = stage,
 
-                num_samplers = 0,
+                num_samplers = samplers,
                 num_storage_textures = 0,
                 num_storage_buffers = 0,
                 num_uniform_buffers = uniformBuffers
