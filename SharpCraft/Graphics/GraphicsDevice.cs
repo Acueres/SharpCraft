@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using SDL;
 
+using SharpCraft.Assets;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
@@ -13,41 +14,31 @@ internal unsafe class GraphicsDevice : IDisposable
 {
     public Window Window => window;
 
-    private readonly Shader vertexShader;
-    private readonly Shader fragmentShader;
-
     private readonly GpuDevice device;
     private readonly Window window;
 
     private readonly VertexBuffer vertexBuffer;
     private readonly IndexBuffer indexBuffer;
 
-    private readonly SdlRuntime runtime;
     private readonly GpuUploader uploader;
     private readonly GraphicsPipeline pipeline;
     private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
 
-    public GraphicsDevice(uint width, uint height, string title)
+    public GraphicsDevice(uint width, uint height, Window window, GpuDevice device, AssetServer assetServer)
     {
-        runtime = new SdlRuntime();
+        this.window = window;
+        this.device = device;
 
-        window = new Window(title, (int)width, (int)height);
+        var shader = assetServer.GetShader("cube");
 
-        device = new GpuDevice("vulkan", window, debugInfo: true);
+        uploader = new GpuUploader(this.device);
+        pipeline = new GraphicsPipeline(this.device, shader.Vertex, shader.Fragment);
 
-        vertexShader = new Shader(device, Path.Combine("Shaders", "cube.vert.spv"),
-            SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, uniformBuffers: 1, "MainVS");
-        fragmentShader = new Shader(device, Path.Combine("Shaders", "cube.frag.spv"),
-            SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, uniformBuffers: 0, "MainFS");
-
-        uploader = new GpuUploader(device);
-        pipeline = new GraphicsPipeline(device, vertexShader, fragmentShader);
-
-        vertexBuffer = new VertexBuffer(device);
-        indexBuffer = new IndexBuffer(device);
-        frameManager = new FrameManager(device, window);
-        depthBuffer = new DepthBuffer(device, width, height);
+        vertexBuffer = new VertexBuffer(this.device);
+        indexBuffer = new IndexBuffer(this.device);
+        frameManager = new FrameManager(this.device, window);
+        depthBuffer = new DepthBuffer(this.device, width, height);
     }
 
     private bool disposed;
@@ -59,17 +50,10 @@ internal unsafe class GraphicsDevice : IDisposable
 
         pipeline.Dispose();
 
-        vertexShader.Dispose();
-        fragmentShader.Dispose();
-
         vertexBuffer.Dispose();
         indexBuffer.Dispose();
 
         depthBuffer.Dispose();
-
-        device.Dispose();
-        window.Dispose();
-        runtime.Dispose();
 
         disposed = true;
     }
@@ -185,12 +169,6 @@ internal unsafe class GraphicsDevice : IDisposable
         Matrix4x4 world = Matrix4x4.Identity;
 
         Matrix4x4 projection = camera.Projection;
-
-        // Vulkan-style framebuffer orientation correction
-        projection.M22 *= -1.0f;
-
-        // Keep this backend-specific correction near the renderer, not the Camera.
-        projection.M22 *= -1.0f;
 
         Matrix4x4 mvp = world * camera.View * projection;
 

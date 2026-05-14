@@ -1,10 +1,12 @@
-﻿using SDL;
-using System.Numerics;
-
+﻿using SharpCraft.Assets;
 using SharpCraft.Graphics;
 using SharpCraft.Input;
+using SharpCraft.Platform;
 using SharpCraft.Rendering;
 using SharpCraft.Time;
+
+using SDL;
+using System.Numerics;
 
 using static SDL.SDL3;
 
@@ -15,14 +17,27 @@ internal unsafe class App : IDisposable
     private const uint width = 1280;
     private const uint height = 720;
 
+    private readonly AssetServer assetServer;
+
     private readonly GraphicsDevice graphics;
+    private readonly SdlRuntime sdlRuntime;
+    private readonly Window window;
+    private readonly GpuDevice device;
+
     private readonly InputHandler input;
     private readonly Camera camera;
     private readonly FrameClock clock = new();
 
     public App()
     {
-        graphics = new GraphicsDevice(width, height, "SharpCraft");
+        sdlRuntime = new SdlRuntime();
+        window = new Window("SharpCraft", (int)width, (int)height);
+        device = new GpuDevice("vulkan", window, debugInfo: true);
+
+        assetServer = new AssetServer(device);
+        assetServer.Load();
+
+        graphics = new GraphicsDevice(width, height, window, device, assetServer);
         input = new InputHandler();
         camera = new Camera(new Vector3(0f, 0f, 4f), Vector3.Zero, width, height);
     }
@@ -84,7 +99,15 @@ internal unsafe class App : IDisposable
     {
         if (disposed) return;
 
+        device.WaitIdle();
+
         graphics.Dispose();
+        assetServer.Dispose();
+
+        device.Dispose();
+        window.Dispose();
+        sdlRuntime.Dispose();
+
         disposed = true;
     }
 }

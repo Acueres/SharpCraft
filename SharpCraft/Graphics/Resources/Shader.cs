@@ -17,14 +17,13 @@ internal unsafe class Shader : IDisposable
 
     public Shader(
         GpuDevice device,
-        string path,
+        byte[] code,
         SDL_GPUShaderStage stage,
         uint uniformBuffers,
         string entrypoint)
     {
         this.device = device;
 
-        byte[] code = File.ReadAllBytes(path);
         byte[] entryBytes = Utf8Bytes(entrypoint);
 
         fixed (byte* codePtr = code)
