@@ -17,6 +17,7 @@ internal unsafe class GraphicsDevice : IDisposable
     private readonly GpuDevice device;
     private readonly Window window;
 
+    private readonly MeshData mesh;
     private readonly VertexBuffer vertexBuffer;
     private readonly IndexBuffer indexBuffer;
     private readonly Texture texture;
@@ -39,8 +40,9 @@ internal unsafe class GraphicsDevice : IDisposable
         uploader = new GpuUploader(this.device);
         pipeline = new GraphicsPipeline(this.device, shader.Vertex, shader.Fragment);
 
-        vertexBuffer = new VertexBuffer(this.device);
-        indexBuffer = new IndexBuffer(this.device);
+        mesh = new MeshData(64);
+        vertexBuffer = new VertexBuffer((uint)mesh.Vertices.Length, this.device);
+        indexBuffer = new IndexBuffer((uint)mesh.Indices.Length, this.device);
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
     }
@@ -65,7 +67,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
     public void UploadMesh()
     {
-        uploader.Upload(vertexBuffer, indexBuffer);
+        uploader.Upload(vertexBuffer, indexBuffer, mesh);
         uploader.Upload(texture);
     }
 
@@ -155,7 +157,7 @@ internal unsafe class GraphicsDevice : IDisposable
         SDL_BindGPUIndexBuffer(
             renderPass,
             &indexBinding,
-            SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_16BIT
+            SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT
         );
 
         SDL_GPUTextureSamplerBinding textureBinding = new()
@@ -173,7 +175,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_DrawGPUIndexedPrimitives(
             renderPass,
-            num_indices: (uint)Cube.Indices.Length,
+            num_indices: indexBuffer.Count,
             num_instances: 1,
             first_index: 0,
             vertex_offset: 0,

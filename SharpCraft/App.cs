@@ -39,7 +39,7 @@ internal unsafe class App : IDisposable
 
         graphics = new GraphicsDevice(width, height, window, device, assetServer);
         input = new InputHandler();
-        camera = new Camera(new Vector3(0f, 0f, 4f), Vector3.Zero, width, height);
+        camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, width, height);
     }
 
     public void Run()

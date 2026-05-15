@@ -118,6 +118,12 @@ internal class Camera
         if (ks.IsDown(Keys.D))
             Position += right * movementSpeed * time.DeltaSeconds;
 
+        if (ks.IsDown(Keys.Space))
+            Position += MathUtilities.Vector3Up * movementSpeed * time.DeltaSeconds;
+
+        if (ks.IsDown(Keys.LeftShift))
+            Position -= MathUtilities.Vector3Up * movementSpeed * time.DeltaSeconds;
+
         target = Direction + Position;
         View = Matrix4x4.CreateLookAt(Position, target, MathUtilities.Vector3Up);
 

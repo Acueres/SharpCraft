@@ -10,15 +10,15 @@ namespace SharpCraft.Graphics;
 
 internal unsafe class GpuUploader(GpuDevice device)
 {
-    public void Upload(VertexBuffer vertexBuffer, IndexBuffer indexBuffer)
+    public void Upload(VertexBuffer vertexBuffer, IndexBuffer indexBuffer, MeshData mesh)
     {
         SDL_GPUTransferBuffer* vertexTransfer = null;
         SDL_GPUTransferBuffer* indexTransfer = null;
 
         try
         {
-            uint vertexBytes = (uint)(Cube.Vertices.Length * sizeof(Vertex));
-            uint indexBytes = (uint)(Cube.Indices.Length * sizeof(ushort));
+            uint vertexBytes = (uint)(vertexBuffer.Count * sizeof(Vertex));
+            uint indexBytes = indexBuffer.Count * sizeof(uint);
 
             SDL_GPUTransferBufferCreateInfo vertexTransferInfo = new()
             {
@@ -46,7 +46,7 @@ internal unsafe class GpuUploader(GpuDevice device)
                 SdlRuntime.Throw("Failed to map transfer vertex buffer");
             }
 
-            fixed (Vertex* src = Cube.Vertices)
+            fixed (Vertex* src = mesh.Vertices)
             {
                 Buffer.MemoryCopy(src, (void*)vertexDst, vertexBytes, vertexBytes);
             }
@@ -59,7 +59,7 @@ internal unsafe class GpuUploader(GpuDevice device)
                 SdlRuntime.Throw("Failed to map transfer index buffer");
             }
 
-            fixed (ushort* src = Cube.Indices)
+            fixed (uint* src = mesh.Indices)
                 Buffer.MemoryCopy(src, (void*)indexDst, indexBytes, indexBytes);
 
             SDL_UnmapGPUTransferBuffer(device.Handle, indexTransfer);

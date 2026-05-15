@@ -10,18 +10,20 @@ namespace SharpCraft.Graphics.Resources;
 internal unsafe class IndexBuffer : IDisposable
 {
     public SDL_GPUBuffer* Handle => buffer;
+    public uint Count { get; }
 
     private readonly GpuDevice device;
     private readonly SDL_GPUBuffer* buffer;
 
-    public IndexBuffer(GpuDevice device)
+    public IndexBuffer(uint count, GpuDevice device)
     {
+        Count = count;
         this.device = device;
 
         SDL_GPUBufferCreateInfo indexBufferInfo = new()
         {
             usage = SDL_GPUBufferUsageFlags.SDL_GPU_BUFFERUSAGE_INDEX,
-            size = (uint)(Cube.Indices.Length * sizeof(ushort))
+            size = count * sizeof(uint)
         };
 
         buffer = SDL_CreateGPUBuffer(device.Handle, &indexBufferInfo);
