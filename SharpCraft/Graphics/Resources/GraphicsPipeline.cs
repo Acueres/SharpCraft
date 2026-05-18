@@ -55,10 +55,19 @@ internal unsafe class GraphicsPipeline : IDisposable
                     SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_A
             }
         };
+        
+        SDL_GPUVertexAttribute textureLayerAttribute = new()
+        {
+            location = 2,
+            buffer_slot = 0,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
+            offset = (uint)(sizeof(Vector3) + sizeof(Vector2))
+        };
 
-        SDL_GPUVertexAttribute* vertexAttributes = stackalloc SDL_GPUVertexAttribute[2];
+        SDL_GPUVertexAttribute* vertexAttributes = stackalloc SDL_GPUVertexAttribute[3];
         vertexAttributes[0] = positionAttribute;
         vertexAttributes[1] = texCoordAttribute;
+        vertexAttributes[2] = textureLayerAttribute;
 
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = new()
         {
@@ -72,7 +81,7 @@ internal unsafe class GraphicsPipeline : IDisposable
                 vertex_buffer_descriptions = &vertexBufferDescription,
                 num_vertex_buffers = 1,
                 vertex_attributes = vertexAttributes,
-                num_vertex_attributes = 2
+                num_vertex_attributes = 3
             },
 
             rasterizer_state = new SDL_GPURasterizerState

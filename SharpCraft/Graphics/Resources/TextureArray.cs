@@ -1,13 +1,14 @@
-﻿using SharpCraft.Platform;
+using SharpCraft.Platform;
 using SDL;
 using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal unsafe class Texture : IDisposable
+internal unsafe class TextureArray : IDisposable
 {
     public SDL_GPUTexture* Handle => texture;
-    public byte[] Data { get; }
+    public byte[,] Data { get; }
+    public uint LayerCount => (uint)Data.GetLength(0);
 
     public uint Width { get; }
     public uint Height { get; }
@@ -15,7 +16,7 @@ internal unsafe class Texture : IDisposable
     private readonly GpuDevice device;
     private readonly SDL_GPUTexture* texture;
 
-    public Texture(GpuDevice device, uint width, uint height, byte[] data)
+    public TextureArray(GpuDevice device, uint width, uint height, byte[,] data)
     {
         this.device = device;
 
@@ -26,7 +27,7 @@ internal unsafe class Texture : IDisposable
 
         SDL_GPUTextureCreateInfo createInfo = new()
         {
-            type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D,
+            type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D_ARRAY,
 
             // RGBA8 pixel data from StbImageSharp
             format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
@@ -36,7 +37,7 @@ internal unsafe class Texture : IDisposable
 
             width = width,
             height = height,
-            layer_count_or_depth = 1,
+            layer_count_or_depth = (uint)data.GetLength(0),
             num_levels = 1,
             sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
         };
@@ -47,7 +48,7 @@ internal unsafe class Texture : IDisposable
             SdlRuntime.Throw("Failed to create GPU texture");
         }   
     }
-
+    
     private bool disposed;
     public void Dispose()
     {

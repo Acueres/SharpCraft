@@ -9,13 +9,16 @@ internal class MeshData
     {
         List<Vertex> verts = [];
         List<uint> inds = [];
-
+        
+        Random random = new Random();
+        
         for (int x = -size; x < size; x++)
         {
             for (int z = -size; z < size; z++)
             {
                 uint vertexOffset = (uint)verts.Count;
 
+                uint layer = (uint)random.Next(0, 20);
                 foreach (var vertex in Cube.Vertices)
                 {
                     float xComp = vertex.Position.X + 2 * x;
@@ -26,7 +29,8 @@ internal class MeshData
                         vertex.Position.Y,
                         zComp,
                         vertex.TexCoord.X,
-                        vertex.TexCoord.Y
+                        vertex.TexCoord.Y,
+                        layer
                     ));
                 }
 

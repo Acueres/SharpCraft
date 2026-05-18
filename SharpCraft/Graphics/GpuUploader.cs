@@ -125,15 +125,16 @@ internal unsafe class GpuUploader(GpuDevice device)
         }
     }
 
-    public void Upload(Texture texture)
+    public void Upload(TextureArray textureArray)
     {
-        uint expectedByteCount = texture.Width * texture.Height * 4;
+        uint bytesPerLayer = textureArray.Width * textureArray.Height * 4;
+        uint expectedByteCount = textureArray.Width * textureArray.Height * 4 * textureArray.LayerCount;
 
-        if ((uint)texture.Data.Length != expectedByteCount)
+        if ((uint)textureArray.Data.Length != expectedByteCount)
         {
             throw new ArgumentException(
                 $"Texture upload byte count mismatch. " +
-                $"Expected {expectedByteCount}, got {texture.Data.Length}."
+                $"Expected {expectedByteCount}, got {textureArray.Data.Length}."
             );
         }
 
@@ -159,7 +160,7 @@ internal unsafe class GpuUploader(GpuDevice device)
                 SdlRuntime.Throw("Failed to map texture transfer buffer");
             }
 
-            fixed (byte* source = texture.Data)
+            fixed (byte* source = textureArray.Data)
             {
                 Buffer.MemoryCopy(
                     source,
@@ -179,35 +180,38 @@ internal unsafe class GpuUploader(GpuDevice device)
 
             SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(commandBuffer);
 
-            SDL_GPUTextureTransferInfo sourceInfo = new()
+            for (uint layer = 0; layer < textureArray.LayerCount; layer++)
             {
-                transfer_buffer = transferBuffer,
-                offset = 0,
-                pixels_per_row = texture.Width,
-                rows_per_layer = texture.Height
-            };
+                SDL_GPUTextureTransferInfo sourceInfo = new()
+                {
+                    transfer_buffer = transferBuffer,
+                    offset = layer * bytesPerLayer,
+                    pixels_per_row = textureArray.Width,
+                    rows_per_layer = textureArray.Height
+                };
 
-            SDL_GPUTextureRegion destinationRegion = new()
-            {
-                texture = texture.Handle,
-                mip_level = 0,
-                layer = 0,
+                SDL_GPUTextureRegion destinationRegion = new()
+                {
+                    texture = textureArray.Handle,
+                    mip_level = 0,
+                    layer = layer,
 
-                x = 0,
-                y = 0,
-                z = 0,
+                    x = 0,
+                    y = 0,
+                    z = 0,
 
-                w = texture.Width,
-                h = texture.Height,
-                d = 1
-            };
+                    w = textureArray.Width,
+                    h = textureArray.Height,
+                    d = 1
+                };
 
-            SDL_UploadToGPUTexture(
-                copyPass,
-                &sourceInfo,
-                &destinationRegion,
-                false
-            );
+                SDL_UploadToGPUTexture(
+                    copyPass,
+                    &sourceInfo,
+                    &destinationRegion,
+                    false
+                );
+            }
 
             SDL_EndGPUCopyPass(copyPass);
 

@@ -8,16 +8,21 @@ namespace SharpCraft.AssetProcessing;
 
 internal class AssetServer(GpuDevice device) : IDisposable
 {
-    readonly List<Texture> blockTextures = [];
+    private const int TextureSize = 64;
+    
+    private TextureArray textureArray;
+    private readonly List<Texture> blockTextures = [];
     private readonly Dictionary<string, GraphicsShader> shaders = [];
 
     public void Load()
     {
         LoadBlocks();
+        CreateTextureArray();
         LoadShaders();
     }
 
     public Texture GetBlockTexture(ushort index) => blockTextures[index];
+    public TextureArray TextureArray => textureArray;
 
     public GraphicsShader GetShader(string name)
     {
@@ -35,11 +40,33 @@ internal class AssetServer(GpuDevice device) : IDisposable
                         || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
             .Order()
             .ToArray();
-
+        
         foreach (string texturePath in texturePaths)
         {
-            blockTextures.Add(LoadTexture(texturePath));
+            Texture blockTexture = LoadTexture(texturePath);
+            blockTextures.Add(blockTexture);
         }
+    }
+
+    private void CreateTextureArray()
+    {
+        const int bytesPerPixel = 4;
+        
+        byte[] bytes = new byte[TextureSize * TextureSize * bytesPerPixel * blockTextures.Count];
+        int index = 0;
+        foreach (var texture in blockTextures)
+        {
+            for (int i = 0; i < texture.Data.Length; i++)
+            {
+                bytes[index++] = texture.Data[i];
+            }
+        }
+        
+        byte[,] textureArrayData = new byte[blockTextures.Count, TextureSize * TextureSize * bytesPerPixel];
+        
+        Buffer.BlockCopy(bytes, 0, textureArrayData, 0, bytes.Length * sizeof(byte));
+        
+        textureArray = new TextureArray(device, TextureSize, TextureSize, textureArrayData);
     }
 
     private Texture LoadTexture(string path)
@@ -97,6 +124,8 @@ internal class AssetServer(GpuDevice device) : IDisposable
         {
             texture.Dispose();
         }
+        
+        textureArray.Dispose();
 
         disposed = true;
     }

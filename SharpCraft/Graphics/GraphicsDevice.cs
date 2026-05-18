@@ -20,7 +20,7 @@ internal unsafe class GraphicsDevice : IDisposable
     private readonly MeshData mesh;
     private readonly VertexBuffer vertexBuffer;
     private readonly IndexBuffer indexBuffer;
-    private readonly Texture texture;
+    private readonly TextureArray textureArray;
 
     private readonly Sampler sampler;
     private readonly GpuUploader uploader;
@@ -34,7 +34,7 @@ internal unsafe class GraphicsDevice : IDisposable
         this.device = device;
 
         var shader = assetServer.GetShader("cube");
-        texture = assetServer.GetBlockTexture(0);
+        textureArray = assetServer.TextureArray;
 
         sampler = new Sampler(device);
         uploader = new GpuUploader(this.device);
@@ -68,7 +68,7 @@ internal unsafe class GraphicsDevice : IDisposable
     public void UploadMesh()
     {
         uploader.Upload(vertexBuffer, indexBuffer, mesh);
-        uploader.Upload(texture);
+        uploader.Upload(textureArray);
     }
 
     public bool TryBeginFrame(out FrameContext frame)
@@ -162,7 +162,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUTextureSamplerBinding textureBinding = new()
         {
-            texture = texture.Handle,
+            texture = textureArray.Handle,
             sampler = sampler.Handle
         };
 
