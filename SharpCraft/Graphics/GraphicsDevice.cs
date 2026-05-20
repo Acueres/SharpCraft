@@ -18,9 +18,8 @@ internal unsafe class GraphicsDevice : IDisposable
     private readonly Window window;
 
     private readonly MeshData mesh;
-    private readonly VertexBuffer vertexBuffer;
-    private readonly IndexBuffer indexBuffer;
     private readonly TextureArray textureArray;
+    private readonly BlockFaceBuffer blockFaceBuffer;
 
     private readonly Sampler sampler;
     private readonly GpuUploader uploader;
@@ -41,8 +40,7 @@ internal unsafe class GraphicsDevice : IDisposable
         pipeline = new GraphicsPipeline(this.device, shader.Vertex, shader.Fragment);
 
         mesh = new MeshData(64);
-        vertexBuffer = new VertexBuffer((uint)mesh.Vertices.Length, this.device);
-        indexBuffer = new IndexBuffer((uint)mesh.Indices.Length, this.device);
+        blockFaceBuffer = new BlockFaceBuffer((uint)mesh.Faces.Length, device);
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
     }
@@ -56,9 +54,8 @@ internal unsafe class GraphicsDevice : IDisposable
 
         sampler.Dispose();
         pipeline.Dispose();
-
-        vertexBuffer.Dispose();
-        indexBuffer.Dispose();
+        
+        blockFaceBuffer.Dispose();
 
         depthBuffer.Dispose();
 
@@ -67,7 +64,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
     public void UploadMesh()
     {
-        uploader.Upload(vertexBuffer, indexBuffer, mesh);
+        uploader.Upload(blockFaceBuffer, mesh);
         uploader.Upload(textureArray);
     }
 
@@ -85,11 +82,11 @@ internal unsafe class GraphicsDevice : IDisposable
 
     public void Draw(FrameContext frame, Camera camera)
     {
-        DrawCube(frame, camera);
+        DrawBlockFaces(frame, camera);
         frameManager.SubmitFrame(frame);
     }
 
-    private void DrawCube(FrameContext frame, Camera camera)
+    private void DrawBlockFaces(FrameContext frame, Camera camera)
     {
         Matrix4x4 mvp = BuildMvp(camera);
 
@@ -142,23 +139,11 @@ internal unsafe class GraphicsDevice : IDisposable
 
         SDL_GPUBufferBinding vertexBinding = new()
         {
-            buffer = vertexBuffer.Handle,
+            buffer = blockFaceBuffer.Handle,
             offset = 0
         };
 
         SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
-
-        SDL_GPUBufferBinding indexBinding = new()
-        {
-            buffer = indexBuffer.Handle,
-            offset = 0
-        };
-
-        SDL_BindGPUIndexBuffer(
-            renderPass,
-            &indexBinding,
-            SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT
-        );
 
         SDL_GPUTextureSamplerBinding textureBinding = new()
         {
@@ -172,13 +157,12 @@ internal unsafe class GraphicsDevice : IDisposable
             &textureBinding,
             1
         );
-
-        SDL_DrawGPUIndexedPrimitives(
+        
+        SDL_DrawGPUPrimitives(
             renderPass,
-            num_indices: indexBuffer.Count,
-            num_instances: 1,
-            first_index: 0,
-            vertex_offset: 0,
+            num_vertices: 6,
+            num_instances: blockFaceBuffer.Count,
+            first_vertex: 0,
             first_instance: 0
         );
 

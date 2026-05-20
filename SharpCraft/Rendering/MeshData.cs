@@ -2,13 +2,11 @@
 
 internal class MeshData
 {
-    public Vertex[] Vertices { get; }
-    public uint[] Indices { get; }
+    public BlockFace[] Faces { get; }
 
     public MeshData(int size)
     {
-        List<Vertex> verts = [];
-        List<uint> inds = [];
+        List<BlockFace> faces = [];
         
         Random random = new Random();
         
@@ -16,32 +14,21 @@ internal class MeshData
         {
             for (int z = -size; z < size; z++)
             {
-                uint vertexOffset = (uint)verts.Count;
-
                 uint layer = (uint)random.Next(0, 20);
-                foreach (var vertex in Cube.Vertices)
-                {
-                    float xComp = vertex.Position.X + 2 * x;
-                    float zComp = vertex.Position.Z + 2 * z;
 
-                    verts.Add(new Vertex(
-                        xComp,
-                        vertex.Position.Y,
-                        zComp,
-                        vertex.TexCoord.X,
-                        vertex.TexCoord.Y,
+                for (int face = 0; face < (int)FaceDirection.Count; face++)
+                {
+                    faces.Add(new BlockFace(
+                        2 * x,
+                        0,
+                        2 * z,
+                        (uint)face,
                         layer
                     ));
                 }
-
-                foreach (var index in Cube.Indices)
-                {
-                    inds.Add(vertexOffset + index);
-                }
             }
         }
-
-        Vertices = verts.ToArray();
-        Indices = inds.ToArray();
+        
+        Faces = faces.ToArray();
     }
 }

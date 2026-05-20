@@ -20,28 +20,12 @@ internal unsafe class GraphicsPipeline : IDisposable
     {
         this.device = device;
 
-        SDL_GPUVertexBufferDescription vertexBufferDescription = new()
+        SDL_GPUVertexBufferDescription faceBufferDescription = new()
         {
             slot = 0,
-            pitch = (uint)sizeof(Vertex),
-            input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_VERTEX,
+            pitch = (uint)sizeof(BlockFace),
+            input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_INSTANCE,
             instance_step_rate = 0
-        };
-
-        SDL_GPUVertexAttribute positionAttribute = new()
-        {
-            location = 0,
-            buffer_slot = 0,
-            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-            offset = 0
-        };
-
-        SDL_GPUVertexAttribute texCoordAttribute = new()
-        {
-            location = 1,
-            buffer_slot = 0,
-            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
-            offset = (uint)sizeof(Vector3)
         };
 
         SDL_GPUColorTargetDescription colorTargetDescription = new()
@@ -68,18 +52,34 @@ internal unsafe class GraphicsPipeline : IDisposable
             }
         };
         
+        SDL_GPUVertexAttribute centerAttribute = new()
+        {
+            location = 0,
+            buffer_slot = 0,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+            offset = 0
+        };
+
+        SDL_GPUVertexAttribute directionAttribute = new()
+        {
+            location = 1,
+            buffer_slot = 0,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
+            offset = (uint)sizeof(Vector3)
+        };
+
         SDL_GPUVertexAttribute textureLayerAttribute = new()
         {
             location = 2,
             buffer_slot = 0,
             format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
-            offset = (uint)(sizeof(Vector3) + sizeof(Vector2))
+            offset = (uint)(sizeof(Vector3) + sizeof(uint))
         };
-
-        SDL_GPUVertexAttribute* vertexAttributes = stackalloc SDL_GPUVertexAttribute[3];
-        vertexAttributes[0] = positionAttribute;
-        vertexAttributes[1] = texCoordAttribute;
-        vertexAttributes[2] = textureLayerAttribute;
+        
+        SDL_GPUVertexAttribute* faceAttributes = stackalloc SDL_GPUVertexAttribute[3];
+        faceAttributes[0] = centerAttribute;
+        faceAttributes[1] = directionAttribute;
+        faceAttributes[2] = textureLayerAttribute;
 
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = new()
         {
@@ -90,9 +90,9 @@ internal unsafe class GraphicsPipeline : IDisposable
 
             vertex_input_state = new SDL_GPUVertexInputState
             {
-                vertex_buffer_descriptions = &vertexBufferDescription,
+                vertex_buffer_descriptions = &faceBufferDescription,
                 num_vertex_buffers = 1,
-                vertex_attributes = vertexAttributes,
+                vertex_attributes = faceAttributes,
                 num_vertex_attributes = 3
             },
 

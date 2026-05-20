@@ -10,15 +10,12 @@ namespace SharpCraft.Graphics;
 
 internal unsafe class GpuUploader(GpuDevice device)
 {
-    public void Upload(VertexBuffer vertexBuffer, IndexBuffer indexBuffer, MeshData mesh)
+    public void Upload(BlockFaceBuffer blockFaceBuffer, MeshData mesh)
     {
         SDL_GPUTransferBuffer* vertexTransfer = null;
-        SDL_GPUTransferBuffer* indexTransfer = null;
-
         try
         {
-            uint vertexBytes = (uint)(vertexBuffer.Count * sizeof(Vertex));
-            uint indexBytes = indexBuffer.Count * sizeof(uint);
+            uint vertexBytes = (uint)(blockFaceBuffer.Count * sizeof(BlockFace));
 
             SDL_GPUTransferBufferCreateInfo vertexTransferInfo = new()
             {
@@ -26,16 +23,9 @@ internal unsafe class GpuUploader(GpuDevice device)
                 size = vertexBytes
             };
 
-            SDL_GPUTransferBufferCreateInfo indexTransferInfo = new()
-            {
-                usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-                size = indexBytes
-            };
-
             vertexTransfer = SDL_CreateGPUTransferBuffer(device.Handle, &vertexTransferInfo);
-            indexTransfer = SDL_CreateGPUTransferBuffer(device.Handle, &indexTransferInfo);
-
-            if (vertexTransfer == null || indexTransfer == null)
+            
+            if (vertexTransfer == null)
             {
                 SdlRuntime.Throw("Failed to create transfer buffer");
             }
@@ -46,23 +36,12 @@ internal unsafe class GpuUploader(GpuDevice device)
                 SdlRuntime.Throw("Failed to map transfer vertex buffer");
             }
 
-            fixed (Vertex* src = mesh.Vertices)
+            fixed (BlockFace* src = mesh.Faces)
             {
                 Buffer.MemoryCopy(src, (void*)vertexDst, vertexBytes, vertexBytes);
             }
 
             SDL_UnmapGPUTransferBuffer(device.Handle, vertexTransfer);
-
-            nint indexDst = SDL_MapGPUTransferBuffer(device.Handle, indexTransfer, false);
-            if (indexDst == IntPtr.Zero)
-            {
-                SdlRuntime.Throw("Failed to map transfer index buffer");
-            }
-
-            fixed (uint* src = mesh.Indices)
-                Buffer.MemoryCopy(src, (void*)indexDst, indexBytes, indexBytes);
-
-            SDL_UnmapGPUTransferBuffer(device.Handle, indexTransfer);
 
             SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device.Handle);
             if (cmd == null)
@@ -80,27 +59,12 @@ internal unsafe class GpuUploader(GpuDevice device)
 
             SDL_GPUBufferRegion vertexDestination = new()
             {
-                buffer = vertexBuffer.Handle,
+                buffer = blockFaceBuffer.Handle,
                 offset = 0,
                 size = vertexBytes
             };
 
             SDL_UploadToGPUBuffer(copyPass, &vertexSource, &vertexDestination, false);
-
-            SDL_GPUTransferBufferLocation indexSource = new()
-            {
-                transfer_buffer = indexTransfer,
-                offset = 0
-            };
-
-            SDL_GPUBufferRegion indexDestination = new()
-            {
-                buffer = indexBuffer.Handle,
-                offset = 0,
-                size = indexBytes
-            };
-
-            SDL_UploadToGPUBuffer(copyPass, &indexSource, &indexDestination, false);
 
             SDL_EndGPUCopyPass(copyPass);
 
@@ -116,11 +80,6 @@ internal unsafe class GpuUploader(GpuDevice device)
             if (vertexTransfer != null)
             {
                 SDL_ReleaseGPUTransferBuffer(device.Handle, vertexTransfer);
-            }
-
-            if (indexTransfer != null)
-            {
-                SDL_ReleaseGPUTransferBuffer(device.Handle, indexTransfer);
             }
         }
     }

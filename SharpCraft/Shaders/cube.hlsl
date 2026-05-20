@@ -11,16 +11,32 @@ ConstantBuffer<Camera> camera : register(b0, space1);
 Texture2DArray cubeTextures : register(t0, space2);
 SamplerState cubeSampler : register(s0, space2);
 
+static const uint QuadCornerIndices[6] =
+{
+    0, 1, 2,
+    2, 3, 0
+};
+
+static const float2 FaceUvs[4] =
+{
+    float2(0, 1),
+    float2(1, 1),
+    float2(1, 0),
+    float2(0, 0)
+};
+
 struct VSInput
 {
     [[vk::location(0)]]
-    float3 Position : POSITION;
+    float3 Center : TEXCOORD0;
 
     [[vk::location(1)]]
-    float2 TexCoord : TEXCOORD0;
+    uint Direction : TEXCOORD1;
     
     [[vk::location(2)]]
-    uint TextureLayer : TEXCOORD1;
+    uint TextureLayer : TEXCOORD2;
+    
+    uint VertexId : SV_VertexID;
 };
 
 struct VSOutput
@@ -30,12 +46,64 @@ struct VSOutput
     nointerpolation uint TextureLayer : TEXCOORD1;
 };
 
+static const float3 FaceCorners[24] =
+{
+    // ZPos
+    float3(-1, -1,  1),
+    float3( 1, -1,  1),
+    float3( 1,  1,  1),
+    float3(-1,  1,  1),
+
+    // ZNeg
+    float3( 1, -1, -1),
+    float3(-1, -1, -1),
+    float3(-1,  1, -1),
+    float3( 1,  1, -1),
+
+    // XPos
+    float3( 1, -1,  1),
+    float3( 1, -1, -1),
+    float3( 1,  1, -1),
+    float3( 1,  1,  1),
+
+    // XNeg
+    float3(-1, -1, -1),
+    float3(-1, -1,  1),
+    float3(-1,  1,  1),
+    float3(-1,  1, -1),
+
+    // YPos
+    float3(-1,  1,  1),
+    float3( 1,  1,  1),
+    float3( 1,  1, -1),
+    float3(-1,  1, -1),
+
+    // YNeg
+    float3(-1, -1, -1),
+    float3( 1, -1, -1),
+    float3( 1, -1,  1),
+    float3(-1, -1,  1)
+};
+
+float3 GetFaceCorner(uint direction, uint corner)
+{
+    if (direction > 5)
+    {
+        return float3(0, 0, 0);
+    }
+
+    return FaceCorners[direction * 4 + corner];
+}
+
 VSOutput MainVS(VSInput input)
 {
     VSOutput output;
+    
+    uint corner = QuadCornerIndices[input.VertexId];
+    float3 worldPosition = input.Center + GetFaceCorner(input.Direction, corner);
 
-    output.Position = mul(float4(input.Position, 1.0), camera.Mvp);
-    output.TexCoord = input.TexCoord;
+    output.Position = mul(float4(worldPosition, 1.0), camera.Mvp);
+    output.TexCoord = FaceUvs[corner];
     output.TextureLayer = input.TextureLayer;
 
     return output;
