@@ -15,6 +15,7 @@ internal unsafe class GraphicsPipeline : IDisposable
     private readonly GpuDevice device;
     private readonly SDL_GPUGraphicsPipeline* pipeline;
 
+    // TODO: Add transparent pipeline
     public GraphicsPipeline(GpuDevice device, Shader vertexShader, Shader fragmentShader)
     {
         this.device = device;
@@ -48,6 +49,17 @@ internal unsafe class GraphicsPipeline : IDisposable
             format = device.SwapchainFormat,
             blend_state = new SDL_GPUColorTargetBlendState
             {
+                enable_blend = true,
+
+                src_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+                dst_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                color_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
+
+                src_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE,
+                dst_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                alpha_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
+
+                enable_color_write_mask = true,
                 color_write_mask =
                     SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_R |
                     SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_G |

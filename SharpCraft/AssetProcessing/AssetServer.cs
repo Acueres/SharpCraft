@@ -41,6 +41,9 @@ internal class AssetServer(GpuDevice device) : IDisposable
             .Order()
             .ToArray();
         
+        var emptyTexture = new Texture(device, TextureSize, TextureSize, Colors.Transparent);
+        blockTextures.Add(emptyTexture);
+        
         foreach (string texturePath in texturePaths)
         {
             Texture blockTexture = LoadTexture(texturePath);
@@ -51,9 +54,11 @@ internal class AssetServer(GpuDevice device) : IDisposable
     private void CreateTextureArray()
     {
         const int bytesPerPixel = 4;
+        int textureCount = blockTextures.Count;
         
-        byte[] bytes = new byte[TextureSize * TextureSize * bytesPerPixel * blockTextures.Count];
+        byte[] bytes = new byte[TextureSize * TextureSize * bytesPerPixel * textureCount];
         int index = 0;
+        
         foreach (var texture in blockTextures)
         {
             for (int i = 0; i < texture.Data.Length; i++)
@@ -62,7 +67,7 @@ internal class AssetServer(GpuDevice device) : IDisposable
             }
         }
         
-        byte[,] textureArrayData = new byte[blockTextures.Count, TextureSize * TextureSize * bytesPerPixel];
+        byte[,] textureArrayData = new byte[textureCount, TextureSize * TextureSize * bytesPerPixel];
         
         Buffer.BlockCopy(bytes, 0, textureArrayData, 0, bytes.Length * sizeof(byte));
         
