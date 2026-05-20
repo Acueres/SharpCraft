@@ -36,6 +36,9 @@ struct VSInput
     [[vk::location(2)]]
     uint TextureLayer : TEXCOORD2;
     
+    [[vk::location(3)]]
+    uint PackedLight : TEXCOORD3;
+    
     uint VertexId : SV_VertexID;
 };
 
@@ -44,6 +47,7 @@ struct VSOutput
     float4 Position : SV_Position;
     float2 TexCoord : TEXCOORD0;
     nointerpolation uint TextureLayer : TEXCOORD1;
+    float Light : TEXCOORD2;
 };
 
 static const float3 FaceCorners[24] =
@@ -95,6 +99,20 @@ float3 GetFaceCorner(uint direction, uint corner)
     return FaceCorners[direction * 4 + corner];
 }
 
+float ComputeLight(uint packedLight)
+{
+    uint skylightLevel = packedLight & 0xF;
+    uint blockLightLevel = (packedLight >> 4) & 0xF;
+
+    float skylight =
+        pow((float)skylightLevel / 15.0f, 1.4f);
+
+    float blockLight =
+        pow((float)blockLightLevel / 15.0f, 1.4f);
+
+    return max(skylight, blockLight);
+}
+
 VSOutput MainVS(VSInput input)
 {
     VSOutput output;
@@ -105,14 +123,19 @@ VSOutput MainVS(VSInput input)
     output.Position = mul(float4(worldPosition, 1.0), camera.Mvp);
     output.TexCoord = FaceUvs[corner];
     output.TextureLayer = input.TextureLayer;
+    output.Light = ComputeLight(input.PackedLight);
 
     return output;
 }
 
 float4 MainFS(VSOutput input) : SV_Target0
 {
-    return cubeTextures.Sample(
+    float4 color = cubeTextures.Sample(
         cubeSampler,
         float3(input.TexCoord, (float)input.TextureLayer)
     );
+
+    color.rgb *= input.Light;
+
+    return color;
 }

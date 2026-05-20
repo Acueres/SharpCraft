@@ -23,12 +23,20 @@ internal class MeshData
                         0,
                         2 * z,
                         (uint)face,
-                        layer
+                        layer,
+                        PackLight(15, 0)
                     ));
                 }
             }
         }
         
         Faces = faces.ToArray();
+    }
+    
+    private static uint PackLight(byte skylight, byte blockLight)
+    {
+        return
+            ((uint)skylight & 0xF) |
+            (((uint)blockLight & 0xF) << 4);
     }
 }

@@ -76,10 +76,23 @@ internal unsafe class GraphicsPipeline : IDisposable
             offset = (uint)(sizeof(Vector3) + sizeof(uint))
         };
         
-        SDL_GPUVertexAttribute* faceAttributes = stackalloc SDL_GPUVertexAttribute[3];
+        SDL_GPUVertexAttribute packedLightAttribute = new()
+        {
+            location = 3,
+            buffer_slot = 0,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
+            offset = (uint)(
+                sizeof(Vector3) +
+                sizeof(uint) +
+                sizeof(uint)
+            )
+        };
+        
+        SDL_GPUVertexAttribute* faceAttributes = stackalloc SDL_GPUVertexAttribute[4];
         faceAttributes[0] = centerAttribute;
         faceAttributes[1] = directionAttribute;
         faceAttributes[2] = textureLayerAttribute;
+        faceAttributes[3] = packedLightAttribute;
 
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = new()
         {
@@ -93,7 +106,7 @@ internal unsafe class GraphicsPipeline : IDisposable
                 vertex_buffer_descriptions = &faceBufferDescription,
                 num_vertex_buffers = 1,
                 vertex_attributes = faceAttributes,
-                num_vertex_attributes = 3
+                num_vertex_attributes = 4
             },
 
             rasterizer_state = new SDL_GPURasterizerState

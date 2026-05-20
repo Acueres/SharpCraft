@@ -13,6 +13,7 @@ internal unsafe class GpuUploader(GpuDevice device)
     public void Upload(BlockFaceBuffer blockFaceBuffer, MeshData mesh)
     {
         SDL_GPUTransferBuffer* vertexTransfer = null;
+        
         try
         {
             uint vertexBytes = (uint)(blockFaceBuffer.Count * sizeof(BlockFace));
