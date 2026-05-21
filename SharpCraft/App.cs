@@ -19,7 +19,7 @@ internal unsafe class App : IDisposable
 
     private readonly AssetServer assetServer;
 
-    private readonly GraphicsDevice graphics;
+    private readonly Renderer renderer;
     private readonly SdlRuntime sdlRuntime;
     private readonly Window window;
     private readonly GpuDevice device;
@@ -37,14 +37,14 @@ internal unsafe class App : IDisposable
         assetServer = new AssetServer(device);
         assetServer.Load();
 
-        graphics = new GraphicsDevice(width, height, window, device, assetServer);
+        renderer = new Renderer(width, height, window, device, assetServer);
         input = new InputHandler();
         camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, width, height);
     }
 
     public void Run()
     {
-        graphics.UploadTextureArray();
+        renderer.LoadGpuResources();
 
         bool running = true;
 
@@ -73,23 +73,17 @@ internal unsafe class App : IDisposable
 
             if (input.Keyboard.IsDown(Keys.E))
             {
-                graphics.Window.SetRelativeMouseMode(true);
+                window.SetRelativeMouseMode(true);
             }
 
             if (input.Keyboard.IsDown(Keys.R))
             {
-                graphics.Window.SetRelativeMouseMode(false);
+                window.SetRelativeMouseMode(false);
             }
 
             camera.Update(input, time);
-            
-            graphics.UpdateMesh(time);
-
-            if (graphics.TryBeginFrame(out var frame))
-            {
-                camera.SetViewport(frame.Width, frame.Height);
-                graphics.Draw(frame, camera);
-            }
+            renderer.Update(time);
+            renderer.Render(camera);
 
             SDL_Delay(1);
         }
@@ -102,7 +96,7 @@ internal unsafe class App : IDisposable
 
         device.WaitIdle();
 
-        graphics.Dispose();
+        renderer.Dispose();
         assetServer.Dispose();
 
         device.Dispose();

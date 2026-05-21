@@ -1,82 +1,72 @@
-﻿using System.Numerics;
-using SDL;
-
-using SharpCraft.AssetProcessing;
+﻿using SharpCraft.AssetProcessing;
+using SharpCraft.Graphics;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
-using SharpCraft.Rendering;
 using SharpCraft.Time;
+
+using System.Numerics;
+using SDL;
+
 using static SDL.SDL3;
 
-namespace SharpCraft.Graphics;
+namespace SharpCraft.Rendering;
 
-internal unsafe class GraphicsDevice : IDisposable
+internal unsafe class Renderer : IDisposable
 {
-    public Window Window => window;
-
     private readonly GpuDevice device;
-    private readonly Window window;
+    private readonly BlockFaceRenderer blockFaceRenderer;
 
     private readonly MeshData mesh;
     private readonly TextureArray textureArray;
-    private readonly BlockFaceBuffer blockFaceBuffer;
 
-    private readonly Sampler sampler;
     private readonly GpuUploader uploader;
-    private readonly GraphicsPipeline pipeline;
+
     private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
 
-    public GraphicsDevice(uint width, uint height, Window window, GpuDevice device, AssetServer assetServer)
+    public Renderer(uint width, uint height, Window window, GpuDevice device, AssetServer assetServer)
     {
-        this.window = window;
         this.device = device;
 
         var shader = assetServer.GetShader("cube");
         textureArray = assetServer.TextureArray;
-
-        sampler = new Sampler(device);
+        
         uploader = new GpuUploader(this.device);
-        pipeline = new GraphicsPipeline(this.device, shader.Vertex, shader.Fragment);
-
+        
         mesh = new MeshData(64);
-        blockFaceBuffer = new BlockFaceBuffer((uint)mesh.Faces.Length, device);
+
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
+
+        blockFaceRenderer = new BlockFaceRenderer(device, uploader, textureArray, shader);
     }
+    
 
-    private bool disposed;
-
-    public void Dispose()
-    {
-        if (disposed) return;
-
-        device.WaitIdle();
-
-        sampler.Dispose();
-        pipeline.Dispose();
-
-        blockFaceBuffer.Dispose();
-
-        depthBuffer.Dispose();
-
-        disposed = true;
-    }
-
-    public void UpdateMesh(FrameTime time)
+    public void Update(FrameTime time)
     {
         if (mesh.Update(time))
         {
-            uploader.Upload(blockFaceBuffer, mesh);
+            blockFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
         }
     }
 
-    public void UploadTextureArray()
+    public void LoadGpuResources()
     {
         uploader.Upload(textureArray);
     }
+    
+    public void Render(Camera camera)
+    {
+        if (!TryBeginFrame(out var frame))
+        {
+            return;
+        }
 
-    public bool TryBeginFrame(out FrameContext frame)
+        camera.SetViewport(frame.Width, frame.Height);
+        Draw(frame, camera);
+    }
+
+    private bool TryBeginFrame(out FrameContext frame)
     {
         if (!frameManager.TryBeginFrame(out frame))
         {
@@ -88,7 +78,7 @@ internal unsafe class GraphicsDevice : IDisposable
         return true;
     }
 
-    public void Draw(FrameContext frame, Camera camera)
+    private void Draw(FrameContext frame, Camera camera)
     {
         DrawBlockFaces(frame, camera);
         frameManager.SubmitFrame(frame);
@@ -97,13 +87,6 @@ internal unsafe class GraphicsDevice : IDisposable
     private void DrawBlockFaces(FrameContext frame, Camera camera)
     {
         Matrix4x4 mvp = BuildMvp(camera);
-
-        SDL_PushGPUVertexUniformData(
-            frame.CommandBuffer,
-            0,
-            (nint)(&mvp),
-            (uint)sizeof(Matrix4x4)
-        );
 
         SDL_GPUColorTargetInfo colorTarget = new()
         {
@@ -142,38 +125,9 @@ internal unsafe class GraphicsDevice : IDisposable
             1,
             &depthTarget
         );
-
-        SDL_BindGPUGraphicsPipeline(renderPass, pipeline.Handle);
-
-        SDL_GPUBufferBinding vertexBinding = new()
-        {
-            buffer = blockFaceBuffer.Handle,
-            offset = 0
-        };
-
-        SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBinding, 1);
-
-        SDL_GPUTextureSamplerBinding textureBinding = new()
-        {
-            texture = textureArray.Handle,
-            sampler = sampler.Handle
-        };
-
-        SDL_BindGPUFragmentSamplers(
-            renderPass,
-            0,
-            &textureBinding,
-            1
-        );
-
-        SDL_DrawGPUPrimitives(
-            renderPass,
-            num_vertices: 6,
-            num_instances: blockFaceBuffer.Count,
-            first_vertex: 0,
-            first_instance: 0
-        );
-
+        
+        blockFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
+        
         SDL_EndGPURenderPass(renderPass);
     }
 
@@ -186,5 +140,19 @@ internal unsafe class GraphicsDevice : IDisposable
         Matrix4x4 mvp = world * camera.View * projection;
 
         return mvp;
+    }
+    
+    private bool disposed;
+
+    public void Dispose()
+    {
+        if (disposed) return;
+
+        device.WaitIdle();
+        
+        blockFaceRenderer.Dispose();
+        depthBuffer.Dispose();
+
+        disposed = true;
     }
 }

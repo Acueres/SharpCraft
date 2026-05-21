@@ -5,9 +5,11 @@ namespace SharpCraft.Rendering;
 internal class MeshData
 {
     public BlockFace[] Faces { get; private set; }
+    public BlockFace[] TransparentFaces { get; private set; }
 
     private readonly int apothem;
     private readonly List<BlockFace> faces = [];
+    private readonly List<BlockFace> transparentFaces = [];
     private readonly List<(int X, int Z)> spiralPositions = [];
     private readonly Random random = new();
 
@@ -24,6 +26,7 @@ internal class MeshData
         nextPositionIndex = 1;
 
         Faces = faces.ToArray();
+        TransparentFaces = transparentFaces.ToArray();
         
         nextGrowthTime = 1.0;
     }
@@ -53,6 +56,7 @@ internal class MeshData
         }
 
         Faces = faces.ToArray();
+        TransparentFaces = transparentFaces.ToArray();
         return true;
     }
 
@@ -62,14 +66,23 @@ internal class MeshData
 
         for (int face = 0; face < (int)FaceDirection.Count; face++)
         {
-            faces.Add(new BlockFace(
+            var blockFace = new BlockFace(
                 2 * x,
                 0,
                 2 * z,
                 (uint)face,
                 layer,
                 PackLight(15, 0)
-            ));
+            );
+            
+            if (layer == 0)
+            {
+                transparentFaces.Add(blockFace);
+            }
+            else
+            {
+                faces.Add(blockFace);
+            }
         }
     }
 

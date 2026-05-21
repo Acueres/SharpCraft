@@ -7,26 +7,16 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal unsafe class BlockFaceBuffer : IDisposable
+internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
 {
     public SDL_GPUBuffer* Handle => buffer;
     
     public uint BytesCount => (uint)(Count * sizeof(BlockFace));
-    public uint Count { get; private set; }
+    public uint Count { get; private set; } = 1;
 
-    private uint capacity;
+    private uint capacity = 1;
 
-    private readonly GpuDevice device;
-    private SDL_GPUBuffer* buffer;
-
-    public BlockFaceBuffer(uint count, GpuDevice device)
-    {
-        Count = count;
-        capacity = count;
-        this.device = device;
-
-        buffer = CreateBuffer(count, device);
-    }
+    private SDL_GPUBuffer* buffer = CreateBuffer(1, device);
 
     public void EnsureSize(uint count)
     {

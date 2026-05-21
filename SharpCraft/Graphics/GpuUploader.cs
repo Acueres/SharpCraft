@@ -10,13 +10,13 @@ namespace SharpCraft.Graphics;
 
 internal unsafe class GpuUploader(GpuDevice device)
 {
-    public void Upload(BlockFaceBuffer blockFaceBuffer, MeshData mesh)
+    public void Upload(BlockFaceBuffer blockFaceBuffer, BlockFace[] data)
     {
         SDL_GPUTransferBuffer* vertexTransfer = null;
         
         try
         {
-            uint faceCount = (uint)mesh.Faces.Length;
+            uint faceCount = (uint)data.Length;
             
             blockFaceBuffer.EnsureSize(faceCount);
             
@@ -46,7 +46,7 @@ internal unsafe class GpuUploader(GpuDevice device)
                 SdlRuntime.Throw("Failed to map transfer vertex buffer");
             }
 
-            fixed (BlockFace* src = mesh.Faces)
+            fixed (BlockFace* src = data)
             {
                 Buffer.MemoryCopy(src, (void*)vertexDst, vertexBytes, vertexBytes);
             }

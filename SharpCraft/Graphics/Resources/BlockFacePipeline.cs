@@ -8,15 +8,73 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal unsafe class GraphicsPipeline : IDisposable
+internal unsafe class BlockFacePipeline : IDisposable
 {
     public SDL_GPUGraphicsPipeline* Handle => pipeline;
 
     private readonly GpuDevice device;
     private readonly SDL_GPUGraphicsPipeline* pipeline;
 
-    // TODO: Add transparent pipeline
-    public GraphicsPipeline(GpuDevice device, Shader vertexShader, Shader fragmentShader)
+    public static BlockFacePipeline CreateOpaque(GpuDevice device, Shader vertexShader, Shader fragmentShader)
+    {
+        var blendState = new SDL_GPUColorTargetBlendState
+        {
+            enable_blend = false,
+
+            enable_color_write_mask = true,
+            color_write_mask =
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_R |
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_G |
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_B |
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_A
+        };
+
+        var depthStencilState = new SDL_GPUDepthStencilState
+        {
+            enable_depth_test = true,
+            enable_depth_write = true,
+            compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS
+        };
+
+        var pipeline = new BlockFacePipeline(device, vertexShader, fragmentShader, &blendState, &depthStencilState);
+        return pipeline;
+    }
+    
+    public static BlockFacePipeline CreateTransparent(GpuDevice device, Shader vertexShader, Shader fragmentShader)
+    {
+        var blendState = new SDL_GPUColorTargetBlendState
+        {
+            enable_blend = true,
+
+            src_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_SRC_ALPHA,
+            dst_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+            color_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
+
+            src_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE,
+            dst_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+            alpha_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
+
+            enable_color_write_mask = true,
+            color_write_mask =
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_R |
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_G |
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_B |
+                SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_A
+        };
+
+        var depthStencilState = new SDL_GPUDepthStencilState
+        {
+            enable_depth_test = true,
+            enable_depth_write = false,
+            compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS
+        };
+
+        var pipeline = new BlockFacePipeline(device, vertexShader, fragmentShader, &blendState, &depthStencilState);
+        return pipeline;
+    }
+    
+    private BlockFacePipeline(GpuDevice device, Shader vertexShader, Shader fragmentShader,
+        SDL_GPUColorTargetBlendState* blendState, SDL_GPUDepthStencilState* depthStencilState)
     {
         this.device = device;
 
@@ -31,25 +89,7 @@ internal unsafe class GraphicsPipeline : IDisposable
         SDL_GPUColorTargetDescription colorTargetDescription = new()
         {
             format = device.SwapchainFormat,
-            blend_state = new SDL_GPUColorTargetBlendState
-            {
-                enable_blend = true,
-
-                src_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-                dst_color_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                color_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
-
-                src_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE,
-                dst_alpha_blendfactor = SDL_GPUBlendFactor.SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                alpha_blend_op = SDL_GPUBlendOp.SDL_GPU_BLENDOP_ADD,
-
-                enable_color_write_mask = true,
-                color_write_mask =
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_R |
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_G |
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_B |
-                    SDL_GPUColorComponentFlags.SDL_GPU_COLORCOMPONENT_A
-            }
+            blend_state = *blendState
         };
         
         SDL_GPUVertexAttribute centerAttribute = new()
@@ -121,12 +161,7 @@ internal unsafe class GraphicsPipeline : IDisposable
                 sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
             },
 
-            depth_stencil_state = new SDL_GPUDepthStencilState
-            {
-                enable_depth_test = true,
-                enable_depth_write = true,
-                compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS
-            },
+            depth_stencil_state = *depthStencilState,
 
             target_info = new SDL_GPUGraphicsPipelineTargetInfo
             {
