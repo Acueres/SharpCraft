@@ -22,7 +22,7 @@ internal unsafe class DepthBuffer : IDisposable
         this.width = width;
         this.height = height;
 
-        depthTexture = CreateDepthTexture(width, height);
+        depthTexture = CreateDepthTexture(width, height, device);
     }
 
     public void EnsureSize(uint newWidth, uint newHeight)
@@ -37,10 +37,8 @@ internal unsafe class DepthBuffer : IDisposable
             return;
         }
 
-        SDL_GPUTexture* newDepthTexture = CreateDepthTexture(newWidth, newHeight);
-
-        device.WaitIdle();
-
+        SDL_GPUTexture* newDepthTexture = CreateDepthTexture(newWidth, newHeight, device);
+        
         if (depthTexture != null)
         {
             device.ReleaseTexture(depthTexture);
@@ -51,7 +49,7 @@ internal unsafe class DepthBuffer : IDisposable
         height = newHeight;
     }
 
-    private SDL_GPUTexture* CreateDepthTexture(uint width, uint height)
+    private static SDL_GPUTexture* CreateDepthTexture(uint width, uint height, GpuDevice device)
     {
         SDL_GPUTextureCreateInfo depthTextureInfo = new()
         {

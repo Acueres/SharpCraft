@@ -5,7 +5,7 @@ using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
-
+using SharpCraft.Time;
 using static SDL.SDL3;
 
 namespace SharpCraft.Graphics;
@@ -46,6 +46,7 @@ internal unsafe class GraphicsDevice : IDisposable
     }
 
     private bool disposed;
+
     public void Dispose()
     {
         if (disposed) return;
@@ -54,7 +55,7 @@ internal unsafe class GraphicsDevice : IDisposable
 
         sampler.Dispose();
         pipeline.Dispose();
-        
+
         blockFaceBuffer.Dispose();
 
         depthBuffer.Dispose();
@@ -62,9 +63,16 @@ internal unsafe class GraphicsDevice : IDisposable
         disposed = true;
     }
 
-    public void UploadMesh()
+    public void UpdateMesh(FrameTime time)
     {
-        uploader.Upload(blockFaceBuffer, mesh);
+        if (mesh.Update(time))
+        {
+            uploader.Upload(blockFaceBuffer, mesh);
+        }
+    }
+
+    public void UploadTextureArray()
+    {
         uploader.Upload(textureArray);
     }
 
@@ -157,7 +165,7 @@ internal unsafe class GraphicsDevice : IDisposable
             &textureBinding,
             1
         );
-        
+
         SDL_DrawGPUPrimitives(
             renderPass,
             num_vertices: 6,

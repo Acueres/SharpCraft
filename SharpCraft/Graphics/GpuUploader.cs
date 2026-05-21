@@ -16,7 +16,16 @@ internal unsafe class GpuUploader(GpuDevice device)
         
         try
         {
-            uint vertexBytes = (uint)(blockFaceBuffer.Count * sizeof(BlockFace));
+            uint faceCount = (uint)mesh.Faces.Length;
+            
+            blockFaceBuffer.EnsureSize(faceCount);
+            
+            if (faceCount == 0)
+            {
+                return;
+            }
+            
+            uint vertexBytes = blockFaceBuffer.BytesCount;
 
             SDL_GPUTransferBufferCreateInfo vertexTransferInfo = new()
             {
@@ -65,7 +74,7 @@ internal unsafe class GpuUploader(GpuDevice device)
                 size = vertexBytes
             };
 
-            SDL_UploadToGPUBuffer(copyPass, &vertexSource, &vertexDestination, false);
+            SDL_UploadToGPUBuffer(copyPass, &vertexSource, &vertexDestination, true);
 
             SDL_EndGPUCopyPass(copyPass);
 
@@ -73,8 +82,6 @@ internal unsafe class GpuUploader(GpuDevice device)
             {
                 SdlRuntime.Throw("Failed to upload GPU command buffer");
             }
-
-            device.WaitIdle();
         }
         finally
         {
@@ -179,8 +186,6 @@ internal unsafe class GpuUploader(GpuDevice device)
             {
                 SdlRuntime.Throw("Failed to submit texture upload command buffer");
             }
-
-            device.WaitIdle();
         }
         finally
         {

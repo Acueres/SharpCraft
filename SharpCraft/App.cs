@@ -44,7 +44,7 @@ internal unsafe class App : IDisposable
 
     public void Run()
     {
-        graphics.UploadMesh();
+        graphics.UploadTextureArray();
 
         bool running = true;
 
@@ -63,7 +63,6 @@ internal unsafe class App : IDisposable
                 if (e.type == (uint)SDL_EventType.SDL_EVENT_QUIT)
                 {
                     running = false;
-                    continue;
                 }
             }
 
@@ -83,6 +82,8 @@ internal unsafe class App : IDisposable
             }
 
             camera.Update(input, time);
+            
+            graphics.UpdateMesh(time);
 
             if (graphics.TryBeginFrame(out var frame))
             {
