@@ -1,137 +1,136 @@
 ﻿using SharpCraft.Time;
 
+using System.Numerics;
+using SharpCraft.SharpMath;
+
 namespace SharpCraft.Rendering;
 
 internal class MeshData
 {
-    public BlockFace[] Faces { get; private set; }
-    public BlockFace[] TransparentFaces { get; private set; }
+    private const uint TerrainTextureLayer = 1;
+    private const byte Skylight = 15;
+    private const byte BlockLight = 0;
 
-    private readonly int apothem;
-    private readonly List<BlockFace> faces = [];
-    private readonly List<BlockFace> transparentFaces = [];
-    private readonly List<(int X, int Z)> spiralPositions = [];
-    private readonly Random random = new();
+    public BlockFace[] Faces { get; private set; } = [];
+    public BlockFace[] TransparentFaces { get; private set; } = [];
 
-    private int nextPositionIndex;
-    private double nextGrowthTime;
+    private readonly TerrainBlock[] blocks;
+    private bool needsInitialBuild = true;
 
-    public MeshData(int apothem)
+    public MeshData(int size)
     {
-        this.apothem = apothem;
+        if (size <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(size),
+                "Terrain size must be positive."
+            );
+        }
 
-        BuildSpiralPositions();
-        
-        AddBlock(0, 0);
-        nextPositionIndex = 1;
+        List<TerrainBlock> generatedBlocks = [];
 
-        Faces = faces.ToArray();
-        TransparentFaces = transparentFaces.ToArray();
-        
-        nextGrowthTime = 1.0;
+        int start = -(size / 2);
+        int end = start + size;
+
+        for (int x = start; x < end; x++)
+        {
+            for (int z = start; z < end; z++)
+            {
+                int y = GetTerrainHeight(x, z);
+
+                Vector3 center = new(
+                    2 * x,
+                    2 * y,
+                    2 * z
+                );
+
+                generatedBlocks.Add(new TerrainBlock(
+                    x,
+                    y,
+                    z,
+                    new CubeBound(center, 1.0f)
+                ));
+            }
+        }
+
+        blocks = generatedBlocks.ToArray();
+        BuildAllFaces();
     }
 
-    public bool Update(FrameTime time)
+    public bool Update(FrameTime time, Camera camera)
     {
-        if (nextPositionIndex >= spiralPositions.Count)
+        if (!needsInitialBuild && !camera.UpdateOccurred)
         {
             return false;
         }
 
-        if (time.TotalSeconds < nextGrowthTime)
-        {
-            return false;
-        }
+        needsInitialBuild = false;
 
-        while (
-            nextPositionIndex < spiralPositions.Count &&
-            time.TotalSeconds >= nextGrowthTime)
-        {
-            (int x, int z) = spiralPositions[nextPositionIndex];
+        RebuildVisibleFaces(camera.Frustum);
 
-            AddBlock(x, z);
-
-            nextPositionIndex++;
-            nextGrowthTime += 1.0;
-        }
-
-        Faces = faces.ToArray();
-        TransparentFaces = transparentFaces.ToArray();
         return true;
     }
 
-    private void AddBlock(int x, int z)
+    private void RebuildVisibleFaces(in Frustum frustum)
     {
-        uint layer = (uint)random.Next(0, 20);
+        List<BlockFace> faces = [];
 
-        for (int face = 0; face < (int)FaceDirection.Count; face++)
+        foreach (TerrainBlock block in blocks)
         {
-            var blockFace = new BlockFace(
-                2 * x,
-                0,
-                2 * z,
-                (uint)face,
-                layer,
-                PackLight(15, 0)
-            );
-            
-            if (layer == 0)
+            if (!frustum.Intersects(block.Bound))
             {
-                transparentFaces.Add(blockFace);
+                continue;
             }
-            else
-            {
-                faces.Add(blockFace);
-            }
+
+            AddBlock(faces, block.X, block.Y, block.Z);
         }
+
+        Faces = faces.ToArray();
+        TransparentFaces = [];
     }
 
-    private void BuildSpiralPositions()
+    private void BuildAllFaces()
     {
-        int totalBlocks = (2 * apothem + 1) * (2 * apothem + 1);
+        List<BlockFace> faces = [];
 
-        spiralPositions.Add((0, 0));
-
-        if (totalBlocks == 1)
+        foreach (TerrainBlock block in blocks)
         {
-            return;
+            AddBlock(faces, block.X, block.Y, block.Z);
         }
 
-        int x = 0;
-        int z = 0;
+        Faces = faces.ToArray();
+        TransparentFaces = [];
+    }
 
-        int dx = 1;
-        int dz = 0;
+    private static int GetTerrainHeight(int x, int z)
+    {
+        const float amplitude = 5.0f;
+        const float frequency = 0.12f;
 
-        int segmentLength = 1;
+        float waveA = MathF.Sin(x * frequency);
+        float waveB = MathF.Sin(z * frequency);
+        float waveC = MathF.Sin((x + z) * frequency * 0.65f);
 
-        while (spiralPositions.Count < totalBlocks)
+        float height =
+            waveA * amplitude +
+            waveB * amplitude * 0.75f +
+            waveC * amplitude * 0.5f;
+
+        return (int)MathF.Round(height);
+    }
+
+    private static void AddBlock(List<BlockFace> faces, int x, int y, int z)
+    {
+        for (int face = 0; face < (int)FaceDirection.Count; face++)
         {
-            for (int segment = 0; segment < 2; segment++)
-            {
-                for (int step = 0; step < segmentLength; step++)
-                {
-                    x += dx;
-                    z += dz;
-
-                    if (Math.Abs(x) <= apothem && Math.Abs(z) <= apothem)
-                    {
-                        spiralPositions.Add((x, z));
-
-                        if (spiralPositions.Count >= totalBlocks)
-                        {
-                            return;
-                        }
-                    }
-                }
-
-                // Rotate direction 90 degrees counter-clockwise.
-                int oldDx = dx;
-                dx = -dz;
-                dz = oldDx;
-            }
-
-            segmentLength++;
+            faces.Add(new BlockFace(
+                2 * x,
+                2 * y,
+                2 * z,
+                (uint)face,
+                TerrainTextureLayer,
+                PackLight(Skylight, BlockLight)
+            ));
         }
     }
 
@@ -141,4 +140,11 @@ internal class MeshData
             ((uint)skylight & 0xF) |
             (((uint)blockLight & 0xF) << 4);
     }
+
+    private readonly record struct TerrainBlock(
+        int X,
+        int Y,
+        int Z,
+        CubeBound Bound
+    );
 }

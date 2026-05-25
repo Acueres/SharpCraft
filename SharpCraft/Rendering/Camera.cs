@@ -1,50 +1,57 @@
-﻿using System.Numerics;
-
-using SharpCraft.Input;
+﻿using SharpCraft.Input;
 using SharpCraft.SharpMath;
 using SharpCraft.Time;
+
+using System.Numerics;
 
 namespace SharpCraft.Rendering;
 
 internal class Camera
 {
-    public Matrix4x4 View { get; set; }
-    public Matrix4x4 Projection { get; set; }
+    public bool UpdateOccurred { get; private set; }
+    
+    public Matrix4x4 View { get; private set; }
+    public Matrix4x4 Projection { get; private set; }
+    public Frustum Frustum { get; private set; }
 
-    public Vector3 Direction { get; set; }
-    public Vector3 Position { get; set; }
-    public Vector3 HorizontalDirection { get; set; }
-
-    //public BoundingFrustum Frustum { get; set; }
-
-    Vector3 target;
-
-    readonly float rotationSpeed;
-
+    private Vector3 direction;
+    private Vector3 position;
+    private Vector3 horizontalDirection;
+    private Vector3 target;
+    private Vector2 cameraDelta;
+    
+    private uint viewportWidth;
+    private uint viewportHeight;
+    
+    private readonly float rotationSpeed;
 
     public Camera(Vector3 position, Vector3 target, uint viewportWidth, uint viewportHeight)
     {
         this.target = target;
+        this.position = position;
+        
+        direction = Vector3.Normalize(target - position);
 
-        Position = position;
-        Direction = Vector3.Normalize(target - position);
-
-        HorizontalDirection = new Vector3(Direction.X, 0f, Direction.Z);
-        HorizontalDirection = Vector3.Normalize(HorizontalDirection);
+        horizontalDirection = new Vector3(direction.X, 0f, direction.Z);
+        horizontalDirection = Vector3.Normalize(horizontalDirection);
 
         rotationSpeed = 1.5f;
 
         View = Matrix4x4.CreateLookAt(position, target, MathUtilities.Vector3Up);
 
         SetViewport(viewportWidth, viewportHeight);
-
-        //Frustum = new BoundingFrustum(View * Projection);
     }
 
     public void SetViewport(uint width, uint height)
     {
         if (width == 0 || height == 0)
             return;
+        
+        if (width == viewportWidth && height == viewportHeight)
+            return;
+        
+        viewportWidth = width;
+        viewportHeight = height;
 
         Projection = Matrix4x4.CreatePerspectiveFieldOfView(
             float.DegreesToRadians(70),
@@ -52,38 +59,46 @@ internal class Camera
             0.1f,
             200f
         );
+        
+        Frustum = new Frustum(View * Projection);
+        UpdateOccurred = true;
     }
 
     public void Update(InputHandler input, FrameTime time)
     {
+        UpdateOccurred = false;
+        
+        Vector3 previousPosition = position;
+        Vector3 previousDirection = direction;
+        
         var ms = input.Mouse;
 
-        Vector2 cameraDelta = new(ms.DeltaX, ms.DeltaY);
-        cameraDelta = Vector2.Clamp(cameraDelta, new(-20, -20), new(20, 20));
+        cameraDelta = new Vector2(ms.DeltaX, ms.DeltaY);
+        cameraDelta = Vector2.Clamp(cameraDelta, new Vector2(-20, -20), new Vector2(20, 20));
         cameraDelta *= rotationSpeed;
 
-        if (Math.Abs(Direction.Y) > 0.99f &&
-            Math.Sign(cameraDelta.Y) != Math.Sign(Direction.Y))
+        if (Math.Abs(direction.Y) > 0.99f &&
+            Math.Sign(cameraDelta.Y) != Math.Sign(direction.Y))
         {
             cameraDelta.Y = 0;
         }
 
-        Direction = Vector3.Transform(
-            Direction,
+        direction = Vector3.Transform(
+            direction,
             Matrix4x4.CreateFromAxisAngle(
                 MathUtilities.Vector3Up,
                 (-MathUtilities.PiOver4 / 150) * cameraDelta.X
             )
         );
 
-        Vector3 pitchAxis = Vector3.Cross(MathUtilities.Vector3Up, Direction);
+        Vector3 pitchAxis = Vector3.Cross(MathUtilities.Vector3Up, direction);
 
         if (pitchAxis != Vector3.Zero)
         {
             pitchAxis = Vector3.Normalize(pitchAxis);
 
-            Direction = Vector3.Transform(
-                Direction,
+            direction = Vector3.Transform(
+                direction,
                 Matrix4x4.CreateFromAxisAngle(
                     pitchAxis,
                     (MathUtilities.PiOver4 / 100) * cameraDelta.Y
@@ -91,11 +106,11 @@ internal class Camera
             );
         }
 
-        Direction = Vector3.Normalize(Direction);
+        direction = Vector3.Normalize(direction);
 
-        HorizontalDirection = new Vector3(Direction.X, 0f, Direction.Z);
-        if (HorizontalDirection != Vector3.Zero)
-            HorizontalDirection = Vector3.Normalize(HorizontalDirection);
+        horizontalDirection = new Vector3(direction.X, 0f, direction.Z);
+        if (horizontalDirection != Vector3.Zero)
+            horizontalDirection = Vector3.Normalize(horizontalDirection);
 
         // Movement control
         var ks = input.Keyboard;
@@ -103,30 +118,40 @@ internal class Camera
         const float movementSpeed = 5f;
 
         Vector3 right = Vector3.Normalize(
-            Vector3.Cross(Direction, MathUtilities.Vector3Up)
+            Vector3.Cross(direction, MathUtilities.Vector3Up)
         );
 
         if (ks.IsDown(Keys.W))
-            Position += HorizontalDirection * movementSpeed * time.DeltaSeconds;
+            position += horizontalDirection * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.S))
-            Position -= HorizontalDirection * movementSpeed * time.DeltaSeconds;
+            position -= horizontalDirection * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.A))
-            Position -= right * movementSpeed * time.DeltaSeconds;
+            position -= right * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.D))
-            Position += right * movementSpeed * time.DeltaSeconds;
+            position += right * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.Space))
-            Position += MathUtilities.Vector3Up * movementSpeed * time.DeltaSeconds;
+            position += MathUtilities.Vector3Up * movementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.LeftShift))
-            Position -= MathUtilities.Vector3Up * movementSpeed * time.DeltaSeconds;
+            position -= MathUtilities.Vector3Up * movementSpeed * time.DeltaSeconds;
+        
+        bool moved = position != previousPosition;
+        bool directionChanged = direction != previousDirection;
 
-        target = Direction + Position;
-        View = Matrix4x4.CreateLookAt(Position, target, MathUtilities.Vector3Up);
+        if (!moved && !directionChanged)
+        {
+            return;
+        }
 
-        //Frustum.Matrix = View * Projection;
+        target = direction + position;
+        View = Matrix4x4.CreateLookAt(position, target, MathUtilities.Vector3Up);
+        
+        Frustum = new Frustum(View * Projection);
+        
+        UpdateOccurred = true;
     }
 }

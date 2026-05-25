@@ -82,7 +82,7 @@ internal unsafe class App : IDisposable
             }
 
             camera.Update(input, time);
-            renderer.Update(time);
+            renderer.Update(time, camera);
             renderer.Render(camera);
 
             SDL_Delay(1);

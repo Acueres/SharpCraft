@@ -42,9 +42,9 @@ internal unsafe class Renderer : IDisposable
     }
     
 
-    public void Update(FrameTime time)
+    public void Update(FrameTime time, Camera camera)
     {
-        if (mesh.Update(time))
+        if (mesh.Update(time, camera))
         {
             blockFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
         }
