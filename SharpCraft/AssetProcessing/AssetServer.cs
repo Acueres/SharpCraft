@@ -8,16 +8,23 @@ namespace SharpCraft.AssetProcessing;
 
 internal class AssetServer(GpuDevice device) : IDisposable
 {
+    public Texture CrosshairTexture => crosshairTexture;
+
     private const int TextureSize = 64;
     
     private TextureArray textureArray;
     private readonly List<Texture> blockTextures = [];
     private readonly Dictionary<string, GraphicsShader> shaders = [];
 
+    private Texture crosshairTexture;
+
     public void Load()
     {
         LoadBlocks();
         CreateTextureArray();
+
+        CreateCrosshairTexture();
+
         LoadShaders();
     }
 
@@ -91,14 +98,20 @@ internal class AssetServer(GpuDevice device) : IDisposable
 
     private void LoadShaders()
     {
-        var vertexShader = LoadShader(Path.Combine("Shaders", "cube.vert.spv"), ShaderType.Vertex);
-        var fragmentShader = LoadShader(Path.Combine("Shaders", "cube.frag.spv"), ShaderType.Fragment);
-
-        var cubeShader = new GraphicsShader(vertexShader, fragmentShader);
-        shaders.Add("cube", cubeShader);
+        LoadShader("cube");
+        LoadShader("sprite");
     }
 
-    private Shader LoadShader(string path, ShaderType shaderType)
+    private void LoadShader(string name)
+    {
+        var vertexShader = LoadShaderPart(Path.Combine("Shaders", $"{name}.vert.spv"), ShaderType.Vertex);
+        var fragmentShader = LoadShaderPart(Path.Combine("Shaders", $"{name}.frag.spv"), ShaderType.Fragment);
+        var shader = new GraphicsShader(vertexShader, fragmentShader);
+
+        shaders.Add(name, shader);
+    }
+
+    private Shader LoadShaderPart(string path, ShaderType shaderType)
     {
         byte[] code = File.ReadAllBytes(path);
         Shader shader;
@@ -113,6 +126,69 @@ internal class AssetServer(GpuDevice device) : IDisposable
         }
 
         return shader;
+    }
+
+    private void CreateCrosshairTexture()
+    {
+        const int CrosshairTextureSize = 32;
+        const int CrosshairThickness = 2;
+
+        byte[] data = CreateCrosshairTextureData(
+            CrosshairTextureSize,
+            CrosshairThickness
+        );
+
+        crosshairTexture = new Texture(
+            device,
+            CrosshairTextureSize,
+            CrosshairTextureSize,
+            data
+        );
+    }
+
+    private static byte[] CreateCrosshairTextureData(int size, int thickness)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(thickness);
+
+        byte[] data = new byte[size * size * 4];
+
+        int center = size / 2;
+        int halfThickness = thickness / 2;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                bool vertical =
+                    Math.Abs(x - center) <= halfThickness;
+
+                bool horizontal =
+                    Math.Abs(y - center) <= halfThickness;
+
+                bool isCrosshair = vertical || horizontal;
+
+                int index = (y * size + x) * 4;
+
+                if (isCrosshair)
+                {
+                    data[index + 0] = 255; // R
+                    data[index + 1] = 255; // G
+                    data[index + 2] = 255; // B
+                    data[index + 3] = 255; // A
+                }
+                else
+                {
+                    data[index + 0] = 0;
+                    data[index + 1] = 0;
+                    data[index + 2] = 0;
+                    data[index + 3] = 0;
+                }
+            }
+        }
+
+        return data;
     }
 
     bool disposed;
@@ -130,6 +206,7 @@ internal class AssetServer(GpuDevice device) : IDisposable
             texture.Dispose();
         }
         
+        crosshairTexture.Dispose();
         textureArray.Dispose();
 
         disposed = true;

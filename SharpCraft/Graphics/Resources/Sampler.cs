@@ -11,10 +11,8 @@ internal unsafe sealed class Sampler : IDisposable
     private readonly GpuDevice device;
     private readonly SDL_GPUSampler* sampler;
 
-    public Sampler(GpuDevice device)
+    public static Sampler CreateNearestRepeat(GpuDevice device)
     {
-        this.device = device;
-
         SDL_GPUSamplerCreateInfo createInfo = new()
         {
             min_filter = SDL_GPUFilter.SDL_GPU_FILTER_NEAREST,
@@ -26,7 +24,30 @@ internal unsafe sealed class Sampler : IDisposable
             address_mode_w = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_REPEAT
         };
 
-        sampler = SDL_CreateGPUSampler(device.Handle, &createInfo);
+        return new Sampler(device, &createInfo);
+    }
+
+    public static Sampler CreateNearestClamp(GpuDevice device)
+    {
+        SDL_GPUSamplerCreateInfo createInfo = new()
+        {
+            min_filter = SDL_GPUFilter.SDL_GPU_FILTER_NEAREST,
+            mag_filter = SDL_GPUFilter.SDL_GPU_FILTER_NEAREST,
+            mipmap_mode = SDL_GPUSamplerMipmapMode.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+
+            address_mode_u = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            address_mode_v = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            address_mode_w = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+        };
+
+        return new Sampler(device, &createInfo);
+    }
+
+    private Sampler(GpuDevice device, SDL_GPUSamplerCreateInfo* createInfo)
+    {
+        this.device = device;
+
+        sampler = SDL_CreateGPUSampler(device.Handle, createInfo);
 
         if (sampler == null)
         {

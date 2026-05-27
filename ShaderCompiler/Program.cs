@@ -28,6 +28,20 @@ CompileShader(
     output: Path.Combine(shaderOutputDir, "cube.frag.spv")
 );
 
+CompileShader(
+    source: Path.Combine(shaderSourceDir, "sprite.hlsl"),
+    entryPoint: "MainVS",
+    targetProfile: "vs_6_0",
+    output: Path.Combine(shaderOutputDir, "sprite.vert.spv")
+);
+
+CompileShader(
+    source: Path.Combine(shaderSourceDir, "sprite.hlsl"),
+    entryPoint: "MainFS",
+    targetProfile: "ps_6_0",
+    output: Path.Combine(shaderOutputDir, "sprite.frag.spv")
+);
+
 return 0;
 
 static void CompileShader(

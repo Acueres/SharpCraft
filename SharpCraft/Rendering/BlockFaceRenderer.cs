@@ -12,7 +12,7 @@ namespace SharpCraft.Rendering;
 internal unsafe class BlockFaceRenderer(GpuDevice device, GpuUploader uploader,
     TextureArray textureArray, GraphicsShader shader) : IDisposable
 {
-    private readonly Sampler sampler = new(device);
+    private readonly Sampler sampler = Sampler.CreateNearestRepeat(device);
     
     private readonly BlockFacePipeline opaquePipeline = BlockFacePipeline.CreateOpaque(device, shader.Vertex, shader.Fragment);
     private readonly BlockFaceBuffer opaqueBuffer = new(device);

@@ -15,9 +15,11 @@ internal unsafe class Renderer : IDisposable
 {
     private readonly GpuDevice device;
     private readonly BlockFaceRenderer blockFaceRenderer;
+    private readonly SpriteRenderer spriteRenderer;
 
     private readonly MeshData mesh;
     private readonly TextureArray textureArray;
+    private readonly Texture crosshairTexture;
 
     private readonly GpuUploader uploader;
 
@@ -28,8 +30,10 @@ internal unsafe class Renderer : IDisposable
     {
         this.device = device;
 
-        var shader = assetServer.GetShader("cube");
+        var cubeShader = assetServer.GetShader("cube");
+        var spriteShader = assetServer.GetShader("sprite");
         textureArray = assetServer.TextureArray;
+        crosshairTexture = assetServer.CrosshairTexture;
         
         uploader = new GpuUploader(this.device);
         
@@ -38,7 +42,8 @@ internal unsafe class Renderer : IDisposable
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
 
-        blockFaceRenderer = new BlockFaceRenderer(device, uploader, textureArray, shader);
+        blockFaceRenderer = new BlockFaceRenderer(device, uploader, textureArray, cubeShader);
+        spriteRenderer = new SpriteRenderer(device, uploader, crosshairTexture, spriteShader);
     }
     
 
@@ -53,6 +58,9 @@ internal unsafe class Renderer : IDisposable
     public void LoadGpuResources()
     {
         uploader.Upload(textureArray);
+        uploader.Upload(crosshairTexture);
+
+        blockFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
     }
     
     public void Render(Camera camera)
@@ -80,11 +88,12 @@ internal unsafe class Renderer : IDisposable
 
     private void Draw(FrameContext frame, Camera camera)
     {
-        DrawBlockFaces(frame, camera);
+        spriteRenderer.BuildCrosshair(frame.Width, frame.Height);
+        DrawScene(frame, camera);
         frameManager.SubmitFrame(frame);
     }
 
-    private void DrawBlockFaces(FrameContext frame, Camera camera)
+    private void DrawScene(FrameContext frame, Camera camera)
     {
         Matrix4x4 mvp = BuildMvp(camera);
 
@@ -127,7 +136,8 @@ internal unsafe class Renderer : IDisposable
         );
         
         blockFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
-        
+        spriteRenderer.Draw(frame.CommandBuffer, renderPass, frame.Width, frame.Height);
+
         SDL_EndGPURenderPass(renderPass);
     }
 
@@ -151,6 +161,7 @@ internal unsafe class Renderer : IDisposable
         device.WaitIdle();
         
         blockFaceRenderer.Dispose();
+        spriteRenderer.Dispose();
         depthBuffer.Dispose();
 
         disposed = true;
