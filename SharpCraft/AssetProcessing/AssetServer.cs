@@ -1,30 +1,36 @@
 ﻿using SharpCraft.Graphics;
 using SharpCraft.Graphics.Resources;
+using SharpCraft.Rendering.Text;
 
 using SDL;
 using StbiSharp;
 
 namespace SharpCraft.AssetProcessing;
 
-internal class AssetServer(GpuDevice device) : IDisposable
+internal class AssetServer : IDisposable
 {
     public Texture CrosshairTexture => crosshairTexture;
 
     private const int TextureSize = 64;
     
-    private TextureArray textureArray;
+    private readonly GpuDevice device;
+    private readonly TextureArray textureArray;
     private readonly List<Texture> blockTextures = [];
     private readonly Dictionary<string, GraphicsShader> shaders = [];
 
-    private Texture crosshairTexture;
+    private readonly Texture crosshairTexture;
+    
+    private readonly FontLibrary fonts = new();
 
-    public void Load()
+    public AssetServer(GpuDevice device)
     {
+        this.device = device;
+        
         LoadBlocks();
-        CreateTextureArray();
-
-        CreateCrosshairTexture();
-
+        textureArray = CreateTextureArray(device, blockTextures);
+        
+        crosshairTexture = CreateCrosshairTexture(device);
+        
         LoadShaders();
     }
 
@@ -38,9 +44,20 @@ internal class AssetServer(GpuDevice device) : IDisposable
         throw new Exception($"Shader {name} not loaded.");
     }
 
+    public Font GetDebugFont(float size)
+    {
+        string path = GetAssetPath(
+            "Fonts",
+            "JetBrainsMono",
+            "JetBrainsMono-Regular.ttf"
+        );
+
+        return fonts.Get(path, size);
+    }
+
     private void LoadBlocks()
     {
-        string blocksPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Textures", "Blocks");
+        string blocksPath = GetAssetPath("Textures", "Blocks");
         string[] texturePaths = Directory.GetFiles(blocksPath)
             .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) 
                         || f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) 
@@ -58,27 +75,41 @@ internal class AssetServer(GpuDevice device) : IDisposable
         }
     }
 
-    private void CreateTextureArray()
+    private static TextureArray CreateTextureArray(GpuDevice device, IReadOnlyList<Texture> textures)
     {
         const int bytesPerPixel = 4;
-        int textureCount = blockTextures.Count;
-        
-        byte[] bytes = new byte[TextureSize * TextureSize * bytesPerPixel * textureCount];
-        int index = 0;
-        
-        foreach (var texture in blockTextures)
+
+        int textureCount = textures.Count;
+        int layerSize = TextureSize * TextureSize * bytesPerPixel;
+
+        byte[,] data = new byte[textureCount, layerSize];
+
+        for (int layer = 0; layer < textureCount; layer++)
         {
-            for (int i = 0; i < texture.Data.Length; i++)
+            Texture texture = textures[layer];
+
+            if (texture.Width != TextureSize || texture.Height != TextureSize)
             {
-                bytes[index++] = texture.Data[i];
+                throw new InvalidOperationException(
+                    $"Block texture at index {layer} has size {texture.Width}x{texture.Height}, expected {TextureSize}x{TextureSize}."
+                );
             }
+
+            Buffer.BlockCopy(
+                texture.Data,
+                0,
+                data,
+                layer * layerSize,
+                layerSize
+            );
         }
-        
-        byte[,] textureArrayData = new byte[textureCount, TextureSize * TextureSize * bytesPerPixel];
-        
-        Buffer.BlockCopy(bytes, 0, textureArrayData, 0, bytes.Length * sizeof(byte));
-        
-        textureArray = new TextureArray(device, TextureSize, TextureSize, textureArrayData);
+
+        return new TextureArray(
+            device,
+            TextureSize,
+            TextureSize,
+            data
+        );
     }
 
     private Texture LoadTexture(string path)
@@ -104,8 +135,8 @@ internal class AssetServer(GpuDevice device) : IDisposable
 
     private void LoadShader(string name)
     {
-        var vertexShader = LoadShaderPart(Path.Combine("Shaders", $"{name}.vert.spv"), ShaderType.Vertex);
-        var fragmentShader = LoadShaderPart(Path.Combine("Shaders", $"{name}.frag.spv"), ShaderType.Fragment);
+        var vertexShader = LoadShaderPart(GetShaderPath($"{name}.vert.spv"), ShaderType.Vertex);
+        var fragmentShader = LoadShaderPart(GetShaderPath($"{name}.frag.spv"), ShaderType.Fragment);
         var shader = new GraphicsShader(vertexShader, fragmentShader);
 
         shaders.Add(name, shader);
@@ -128,7 +159,7 @@ internal class AssetServer(GpuDevice device) : IDisposable
         return shader;
     }
 
-    private void CreateCrosshairTexture()
+    private static Texture CreateCrosshairTexture(GpuDevice device)
     {
         const int CrosshairTextureSize = 32;
         const int CrosshairThickness = 2;
@@ -138,12 +169,14 @@ internal class AssetServer(GpuDevice device) : IDisposable
             CrosshairThickness
         );
 
-        crosshairTexture = new Texture(
+        var crosshairTexture = new Texture(
             device,
             CrosshairTextureSize,
             CrosshairTextureSize,
             data
         );
+        
+        return crosshairTexture;
     }
 
     private static byte[] CreateCrosshairTextureData(int size, int thickness)
@@ -190,6 +223,16 @@ internal class AssetServer(GpuDevice device) : IDisposable
 
         return data;
     }
+    
+    private string GetAssetPath(params string[] segments)
+    {
+        return Path.Combine([AppContext.BaseDirectory, "Assets", ..segments]);
+    }
+    
+    private string GetShaderPath(params string[] segments)
+    {
+        return Path.Combine([AppContext.BaseDirectory, "Shaders", ..segments]);
+    }
 
     bool disposed;
     public void Dispose()
@@ -200,14 +243,18 @@ internal class AssetServer(GpuDevice device) : IDisposable
         {
             shader.Dispose();
         }
+        shaders.Clear();
 
         foreach (var texture in blockTextures)
         {
             texture.Dispose();
         }
+        blockTextures.Clear();
         
         crosshairTexture.Dispose();
         textureArray.Dispose();
+        
+        fonts.Dispose();
 
         disposed = true;
     }

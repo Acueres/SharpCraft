@@ -7,7 +7,7 @@ using SharpCraft.Time;
 
 using SDL;
 using System.Numerics;
-
+using SharpCraft.Rendering.Text;
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -23,6 +23,7 @@ internal unsafe class App : IDisposable
     private readonly SdlRuntime sdlRuntime;
     private readonly Window window;
     private readonly GpuDevice device;
+    private readonly FontSystem fontSystem;
 
     private readonly InputHandler input;
     private readonly Camera camera;
@@ -33,9 +34,9 @@ internal unsafe class App : IDisposable
         sdlRuntime = new SdlRuntime();
         window = new Window("SharpCraft", (int)width, (int)height);
         device = new GpuDevice("vulkan", window, debugInfo: true);
+        fontSystem = new FontSystem();
 
         assetServer = new AssetServer(device);
-        assetServer.Load();
 
         renderer = new Renderer(width, height, window, device, assetServer);
         input = new InputHandler();
@@ -102,6 +103,7 @@ internal unsafe class App : IDisposable
         device.Dispose();
         window.Dispose();
         sdlRuntime.Dispose();
+        fontSystem.Dispose();
 
         disposed = true;
     }

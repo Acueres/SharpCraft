@@ -5,30 +5,30 @@ using SharpCraft.SharpMath;
 
 using SDL;
 using System.Numerics;
-
+using System.Runtime.InteropServices;
 using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
 
-internal unsafe sealed class SpriteRenderer : IDisposable
+internal sealed unsafe class SpriteRenderer : IDisposable
 {
     private readonly GpuUploader uploader;
     private readonly SpritePipeline pipeline;
     private readonly SpriteBuffer buffer;
     private readonly Sampler sampler;
-    private readonly Texture crosshairTexture;
 
-    private SpriteVertex[] vertices = [];
-    private uint[] indices = [];
+    private readonly List<SpriteVertex> vertices = [];
+    private readonly List<uint> indices = [];
+    private readonly List<SpriteBatch> batches = [];
+
+    private bool disposed;
 
     public SpriteRenderer(
         GpuDevice device,
         GpuUploader uploader,
-        Texture crosshairTexture,
         GraphicsShader shader)
     {
         this.uploader = uploader;
-        this.crosshairTexture = crosshairTexture;
 
         pipeline = new SpritePipeline(
             device,
@@ -40,56 +40,96 @@ internal unsafe sealed class SpriteRenderer : IDisposable
         sampler = Sampler.CreateNearestClamp(device);
     }
 
-    public void BuildCrosshair(uint screenWidth, uint screenHeight)
+    public void Begin()
     {
-        const float size = 32f;
-
-        Rect destination = new(
-            screenWidth * 0.5f - size * 0.5f,
-            screenHeight * 0.5f - size * 0.5f,
-            size,
-            size
-        );
-
-        Vector4 color = Vector4.One;
-
-        vertices =
-        [
-            new SpriteVertex(
-                new Vector2(destination.Left, destination.Top),
-                new Vector2(0f, 0f),
-                color
-            ),
-
-            new SpriteVertex(
-                new Vector2(destination.Right, destination.Top),
-                new Vector2(1f, 0f),
-                color
-            ),
-
-            new SpriteVertex(
-                new Vector2(destination.Right, destination.Bottom),
-                new Vector2(1f, 1f),
-                color
-            ),
-
-            new SpriteVertex(
-                new Vector2(destination.Left, destination.Bottom),
-                new Vector2(0f, 1f),
-                color
-            )
-        ];
-
-        indices =
-        [
-            0, 1, 2,
-            2, 3, 0
-        ];
-
-        uploader.Upload(buffer, vertices, indices);
+        vertices.Clear();
+        indices.Clear();
+        batches.Clear();
     }
 
-    public void Draw(
+    public void Draw(Texture texture, Rect destination)
+    {
+        Draw(
+            texture,
+            destination,
+            source: new Rect(0f, 0f, texture.Width, texture.Height),
+            color: Vector4.One
+        );
+    }
+
+    public void Draw(Texture texture, Rect destination, Vector4 color)
+    {
+        Draw(
+            texture,
+            destination,
+            source: new Rect(0f, 0f, texture.Width, texture.Height),
+            color
+        );
+    }
+
+    private void Draw(
+        Texture texture,
+        Rect destination,
+        Rect source,
+        Vector4 color)
+    {
+        AddBatch(texture);
+
+        uint baseVertex = (uint)vertices.Count;
+
+        float invWidth = 1f / texture.Width;
+        float invHeight = 1f / texture.Height;
+
+        float u0 = source.Left * invWidth;
+        float v0 = source.Top * invHeight;
+        float u1 = source.Right * invWidth;
+        float v1 = source.Bottom * invHeight;
+
+        vertices.Add(new SpriteVertex(
+            new Vector2(destination.Left, destination.Top),
+            new Vector2(u0, v0),
+            color
+        ));
+
+        vertices.Add(new SpriteVertex(
+            new Vector2(destination.Right, destination.Top),
+            new Vector2(u1, v0),
+            color
+        ));
+
+        vertices.Add(new SpriteVertex(
+            new Vector2(destination.Right, destination.Bottom),
+            new Vector2(u1, v1),
+            color
+        ));
+
+        vertices.Add(new SpriteVertex(
+            new Vector2(destination.Left, destination.Bottom),
+            new Vector2(u0, v1),
+            color
+        ));
+
+        indices.Add(baseVertex + 0);
+        indices.Add(baseVertex + 1);
+        indices.Add(baseVertex + 2);
+
+        indices.Add(baseVertex + 2);
+        indices.Add(baseVertex + 3);
+        indices.Add(baseVertex + 0);
+
+        GrowCurrentBatch(6);
+    }
+
+    public void Upload()
+    {
+        uploader.Upload(
+            buffer,
+            CollectionsMarshal.AsSpan(vertices),
+            CollectionsMarshal.AsSpan(indices)
+        );
+    }
+
+    public void Render(
         SDL_GPUCommandBuffer* commandBuffer,
         SDL_GPURenderPass* renderPass,
         uint screenWidth,
@@ -136,30 +176,58 @@ internal unsafe sealed class SpriteRenderer : IDisposable
             SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT
         );
 
-        SDL_GPUTextureSamplerBinding textureBinding = new()
+        foreach (SpriteBatch batch in batches)
         {
-            texture = crosshairTexture.Handle,
-            sampler = sampler.Handle
-        };
+            SDL_GPUTextureSamplerBinding textureBinding = new()
+            {
+                texture = batch.Texture.Handle,
+                sampler = sampler.Handle
+            };
 
-        SDL_BindGPUFragmentSamplers(
-            renderPass,
-            0,
-            &textureBinding,
-            1
-        );
+            SDL_BindGPUFragmentSamplers(
+                renderPass,
+                0,
+                &textureBinding,
+                1
+            );
 
-        SDL_DrawGPUIndexedPrimitives(
-            renderPass,
-            num_indices: buffer.IndexCount,
-            num_instances: 1,
-            first_index: 0,
-            vertex_offset: 0,
-            first_instance: 0
-        );
+            SDL_DrawGPUIndexedPrimitives(
+                renderPass,
+                num_indices: batch.IndexCount,
+                num_instances: 1,
+                first_index: batch.FirstIndex,
+                vertex_offset: 0,
+                first_instance: 0
+            );
+        }
     }
 
-    private bool disposed;
+    private void AddBatch(Texture texture)
+    {
+        if (batches.Count > 0)
+        {
+            SpriteBatch last = batches[^1];
+
+            if (ReferenceEquals(last.Texture, texture))
+            {
+                return;
+            }
+        }
+
+        batches.Add(new SpriteBatch(
+            texture,
+            firstIndex: (uint)indices.Count,
+            indexCount: 0
+        ));
+    }
+
+    private void GrowCurrentBatch(uint indexCount)
+    {
+        int index = batches.Count - 1;
+
+        SpriteBatch batch = batches[index];
+        batches[index] = batch.WithAdditionalIndices(indexCount);
+    }
 
     public void Dispose()
     {

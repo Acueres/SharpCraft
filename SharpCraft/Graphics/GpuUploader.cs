@@ -92,7 +92,7 @@ internal unsafe class GpuUploader(GpuDevice device)
         }
     }
 
-    public void Upload(SpriteBuffer spriteBuffer, SpriteVertex[] vertices, uint[] indices)
+    public void Upload(SpriteBuffer spriteBuffer, ReadOnlySpan<SpriteVertex> vertices, ReadOnlySpan<uint> indices)
     {
         if (vertices.Length % 4 != 0)
         {

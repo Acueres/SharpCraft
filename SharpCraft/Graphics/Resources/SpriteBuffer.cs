@@ -7,7 +7,7 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal unsafe sealed class SpriteBuffer : IDisposable
+internal sealed unsafe class SpriteBuffer : IDisposable
 {
     public SDL_GPUBuffer* VertexHandle => vertexBuffer;
     public SDL_GPUBuffer* IndexHandle => indexBuffer;

@@ -2,7 +2,7 @@
 
 namespace SharpCraft.Graphics;
 
-internal unsafe readonly struct FrameContext(SDL_GPUCommandBuffer* commandBuffer,
+internal readonly unsafe struct FrameContext(SDL_GPUCommandBuffer* commandBuffer,
     SDL_GPUTexture* swapchainTexture, uint width, uint height)
 {
     public readonly SDL_GPUCommandBuffer* CommandBuffer { get; } = commandBuffer;

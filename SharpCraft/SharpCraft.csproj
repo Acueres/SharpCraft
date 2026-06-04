@@ -9,7 +9,8 @@
   </PropertyGroup>
     
     <ItemGroup>
-    <PackageReference Include="ppy.SDL3-CS" Version="2026.512.0" />
+    <PackageReference Include="ppy.SDL3-CS" Version="2026.520.0" />
+    <PackageReference Include="ppy.SDL3_ttf-CS" Version="2026.520.0" />
     <PackageReference Include="StbiSharp" Version="1.2.1" />
     </ItemGroup>
 

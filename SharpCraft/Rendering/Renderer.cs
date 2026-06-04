@@ -3,10 +3,11 @@ using SharpCraft.Graphics;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.Time;
+using SharpCraft.SharpMath;
 
 using System.Numerics;
 using SDL;
-
+using SharpCraft.Rendering.Text;
 using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
@@ -20,6 +21,9 @@ internal unsafe class Renderer : IDisposable
     private readonly MeshData mesh;
     private readonly TextureArray textureArray;
     private readonly Texture crosshairTexture;
+    
+    private readonly TextTextureCache textTextureCache;
+    private readonly Font debugFont;
 
     private readonly GpuUploader uploader;
 
@@ -34,8 +38,11 @@ internal unsafe class Renderer : IDisposable
         var spriteShader = assetServer.GetShader("sprite");
         textureArray = assetServer.TextureArray;
         crosshairTexture = assetServer.CrosshairTexture;
+        debugFont = assetServer.GetDebugFont(16);
         
         uploader = new GpuUploader(this.device);
+        
+        textTextureCache = new TextTextureCache(device, uploader);
         
         mesh = new MeshData(64);
 
@@ -43,7 +50,7 @@ internal unsafe class Renderer : IDisposable
         depthBuffer = new DepthBuffer(this.device, width, height);
 
         blockFaceRenderer = new BlockFaceRenderer(device, uploader, textureArray, cubeShader);
-        spriteRenderer = new SpriteRenderer(device, uploader, crosshairTexture, spriteShader);
+        spriteRenderer = new SpriteRenderer(device, uploader, spriteShader);
     }
     
 
@@ -88,7 +95,6 @@ internal unsafe class Renderer : IDisposable
 
     private void Draw(FrameContext frame, Camera camera)
     {
-        spriteRenderer.BuildCrosshair(frame.Width, frame.Height);
         DrawScene(frame, camera);
         frameManager.SubmitFrame(frame);
     }
@@ -136,7 +142,38 @@ internal unsafe class Renderer : IDisposable
         );
         
         blockFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
-        spriteRenderer.Draw(frame.CommandBuffer, renderPass, frame.Width, frame.Height);
+        
+        spriteRenderer.Begin();
+        
+        const float size = 32f;
+
+        Rect crosshairRect = new(
+            frame.Width * 0.5f - size * 0.5f,
+            frame.Height * 0.5f - size * 0.5f,
+            size,
+            size
+        );
+        
+        spriteRenderer.Draw(crosshairTexture, crosshairRect);
+        
+        Texture fpsTexture = textTextureCache.GetOrCreate(
+            debugFont,
+            "Debug menu"
+        );
+        
+        spriteRenderer.Draw(
+            fpsTexture,
+            new Rect(12f, 12f, fpsTexture.Width, fpsTexture.Height)
+        );
+        
+        spriteRenderer.Upload();
+        
+        spriteRenderer.Render(
+            frame.CommandBuffer,
+            renderPass,
+            frame.Width,
+            frame.Height
+        );
 
         SDL_EndGPURenderPass(renderPass);
     }
@@ -160,6 +197,7 @@ internal unsafe class Renderer : IDisposable
 
         device.WaitIdle();
         
+        textTextureCache.Dispose();
         blockFaceRenderer.Dispose();
         spriteRenderer.Dispose();
         depthBuffer.Dispose();
