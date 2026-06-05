@@ -4,7 +4,7 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal unsafe sealed class Sampler : IDisposable
+internal sealed unsafe class Sampler : IDisposable
 {
     public SDL_GPUSampler* Handle => sampler;
 
@@ -33,6 +33,22 @@ internal unsafe sealed class Sampler : IDisposable
         {
             min_filter = SDL_GPUFilter.SDL_GPU_FILTER_NEAREST,
             mag_filter = SDL_GPUFilter.SDL_GPU_FILTER_NEAREST,
+            mipmap_mode = SDL_GPUSamplerMipmapMode.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+
+            address_mode_u = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            address_mode_v = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            address_mode_w = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
+        };
+
+        return new Sampler(device, &createInfo);
+    }
+    
+    public static Sampler CreateLinearClamp(GpuDevice device)
+    {
+        SDL_GPUSamplerCreateInfo createInfo = new()
+        {
+            min_filter = SDL_GPUFilter.SDL_GPU_FILTER_LINEAR,
+            mag_filter = SDL_GPUFilter.SDL_GPU_FILTER_LINEAR,
             mipmap_mode = SDL_GPUSamplerMipmapMode.SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
 
             address_mode_u = SDL_GPUSamplerAddressMode.SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,

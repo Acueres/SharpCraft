@@ -154,7 +154,7 @@ internal unsafe class Renderer : IDisposable
             size
         );
         
-        spriteRenderer.Draw(crosshairTexture, crosshairRect);
+        spriteRenderer.Draw(crosshairTexture, crosshairRect, SamplerType.NearestClamp);
         
         Texture fpsTexture = textTextureCache.GetOrCreate(
             debugFont,
@@ -163,7 +163,8 @@ internal unsafe class Renderer : IDisposable
         
         spriteRenderer.Draw(
             fpsTexture,
-            new Rect(12f, 12f, fpsTexture.Width, fpsTexture.Height)
+            new Rect(12f, 12f, fpsTexture.Width, fpsTexture.Height),
+            SamplerType.LinearClamp
         );
         
         spriteRenderer.Upload();

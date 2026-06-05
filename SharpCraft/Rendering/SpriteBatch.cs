@@ -5,18 +5,20 @@ namespace SharpCraft.Rendering;
 internal readonly struct SpriteBatch
 {
     public readonly Texture Texture;
+    public readonly Sampler Sampler;
     public readonly uint FirstIndex;
     public readonly uint IndexCount;
 
-    public SpriteBatch(Texture texture, uint firstIndex, uint indexCount)
+    public SpriteBatch(Texture texture, Sampler sampler, uint firstIndex, uint indexCount)
     {
         Texture = texture;
+        Sampler = sampler;
         FirstIndex = firstIndex;
         IndexCount = indexCount;
     }
 
     public SpriteBatch WithAdditionalIndices(uint count)
     {
-        return new SpriteBatch(Texture, FirstIndex, IndexCount + count);
+        return new SpriteBatch(Texture, Sampler, FirstIndex, IndexCount + count);
     }
 }

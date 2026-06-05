@@ -10,12 +10,19 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
 
+internal enum SamplerType
+{
+    NearestClamp,
+    LinearClamp
+}
+
 internal sealed unsafe class SpriteRenderer : IDisposable
 {
     private readonly GpuUploader uploader;
     private readonly SpritePipeline pipeline;
     private readonly SpriteBuffer buffer;
-    private readonly Sampler sampler;
+    private readonly Sampler nearestSampler;
+    private readonly Sampler linearSampler;
 
     private readonly List<SpriteVertex> vertices = [];
     private readonly List<uint> indices = [];
@@ -37,7 +44,8 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         );
 
         buffer = new SpriteBuffer(device);
-        sampler = Sampler.CreateNearestClamp(device);
+        nearestSampler = Sampler.CreateNearestClamp(device);
+        linearSampler = Sampler.CreateLinearClamp(device);
     }
 
     public void Begin()
@@ -47,23 +55,25 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         batches.Clear();
     }
 
-    public void Draw(Texture texture, Rect destination)
+    public void Draw(Texture texture, Rect destination, SamplerType samplerType)
     {
         Draw(
             texture,
             destination,
             source: new Rect(0f, 0f, texture.Width, texture.Height),
-            color: Vector4.One
+            color: Vector4.One,
+            samplerType
         );
     }
 
-    public void Draw(Texture texture, Rect destination, Vector4 color)
+    public void Draw(Texture texture, Rect destination, Vector4 color, SamplerType samplerType)
     {
         Draw(
             texture,
             destination,
             source: new Rect(0f, 0f, texture.Width, texture.Height),
-            color
+            color,
+            samplerType
         );
     }
 
@@ -71,9 +81,10 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         Texture texture,
         Rect destination,
         Rect source,
-        Vector4 color)
+        Vector4 color,
+        SamplerType samplerType)
     {
-        AddBatch(texture);
+        AddBatch(texture, samplerType);
 
         uint baseVertex = (uint)vertices.Count;
 
@@ -181,7 +192,7 @@ internal sealed unsafe class SpriteRenderer : IDisposable
             SDL_GPUTextureSamplerBinding textureBinding = new()
             {
                 texture = batch.Texture.Handle,
-                sampler = sampler.Handle
+                sampler = batch.Sampler.Handle
             };
 
             SDL_BindGPUFragmentSamplers(
@@ -202,7 +213,7 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         }
     }
 
-    private void AddBatch(Texture texture)
+    private void AddBatch(Texture texture, SamplerType samplerType)
     {
         if (batches.Count > 0)
         {
@@ -214,8 +225,16 @@ internal sealed unsafe class SpriteRenderer : IDisposable
             }
         }
 
+        Sampler sampler = samplerType switch
+        {
+            SamplerType.LinearClamp => linearSampler,
+            SamplerType.NearestClamp => nearestSampler,
+            _ => throw new Exception("Unknown samplerType: " + samplerType)
+        };
+
         batches.Add(new SpriteBatch(
             texture,
+            sampler,
             firstIndex: (uint)indices.Count,
             indexCount: 0
         ));
@@ -235,7 +254,8 @@ internal sealed unsafe class SpriteRenderer : IDisposable
 
         buffer.Dispose();
         pipeline.Dispose();
-        sampler.Dispose();
+        nearestSampler.Dispose();
+        linearSampler.Dispose();
 
         disposed = true;
     }
