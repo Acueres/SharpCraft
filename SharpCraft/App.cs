@@ -14,8 +14,8 @@ namespace SharpCraft;
 
 internal unsafe class App : IDisposable
 {
-    private const uint width = 1280;
-    private const uint height = 720;
+    private const uint defaultWidth = 1280;
+    private const uint defaultHeight = 720;
 
     private readonly AssetServer assetServer;
 
@@ -32,15 +32,15 @@ internal unsafe class App : IDisposable
     public App()
     {
         sdlRuntime = new SdlRuntime();
-        window = new Window("SharpCraft", (int)width, (int)height);
+        window = new Window("SharpCraft", (int)defaultWidth, (int)defaultHeight);
         device = new GpuDevice("vulkan", window, debugInfo: true);
         fontSystem = new FontSystem();
 
         assetServer = new AssetServer(device);
 
-        renderer = new Renderer(width, height, window, device, assetServer);
+        renderer = new Renderer(defaultWidth, defaultHeight, window, device, assetServer);
         input = new InputHandler();
-        camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, width, height);
+        camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, defaultWidth, defaultHeight);
     }
 
     public void Run()

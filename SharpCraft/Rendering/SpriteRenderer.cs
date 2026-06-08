@@ -55,25 +55,46 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         batches.Clear();
     }
 
-    public void Draw(Texture texture, Rect destination, SamplerType samplerType)
+    public void Draw(Texture texture, Rect destination)
     {
         Draw(
             texture,
             destination,
             source: new Rect(0f, 0f, texture.Width, texture.Height),
             color: Vector4.One,
-            samplerType
+            SamplerType.NearestClamp
         );
     }
 
-    public void Draw(Texture texture, Rect destination, Vector4 color, SamplerType samplerType)
+    public void Draw(Texture texture, Rect destination, Vector4 color)
     {
         Draw(
             texture,
             destination,
             source: new Rect(0f, 0f, texture.Width, texture.Height),
             color,
-            samplerType
+            SamplerType.NearestClamp
+        );
+    }
+    public void DrawText(Texture texture, Rect destination)
+    {
+        Draw(
+            texture,
+            destination,
+            source: new Rect(0f, 0f, texture.Width, texture.Height),
+            color: Vector4.One,
+            SamplerType.LinearClamp
+        );
+    }
+
+    public void DrawText(Texture texture, Rect destination, Vector4 color)
+    {
+        Draw(
+            texture,
+            destination,
+            source: new Rect(0f, 0f, texture.Width, texture.Height),
+            color,
+            SamplerType.LinearClamp
         );
     }
 

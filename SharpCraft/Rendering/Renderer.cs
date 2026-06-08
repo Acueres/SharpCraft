@@ -4,10 +4,10 @@ using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.Time;
 using SharpCraft.SharpMath;
+using SharpCraft.Rendering.Text;
 
 using System.Numerics;
 using SDL;
-using SharpCraft.Rendering.Text;
 using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
@@ -18,27 +18,47 @@ internal unsafe class Renderer : IDisposable
     private readonly BlockFaceRenderer blockFaceRenderer;
     private readonly SpriteRenderer spriteRenderer;
 
+    private readonly AssetServer assetServer;
     private readonly MeshData mesh;
     private readonly TextureArray textureArray;
     private readonly Texture crosshairTexture;
     
     private readonly TextTextureCache textTextureCache;
-    private readonly Font debugFont;
+    private Font debugFont;
 
     private readonly GpuUploader uploader;
 
     private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
 
+    private float uiScale;
+    private float fontSize;
+    private float padding;
+    private float crosshairSize;
+    private float scaledUiWidth;
+    private float scaledUiHeight;
+
+    private uint currentWidth;
+    private uint currentHeight;
+
+    private readonly uint defaultWidth;
+    private readonly uint defaultHeight;
+    private const uint defaultFontSize = 16;
+    private const uint defaultPadding = 8;
+    private const uint defaultCrosshairSize = 32;
+
     public Renderer(uint width, uint height, Window window, GpuDevice device, AssetServer assetServer)
     {
         this.device = device;
+        this.assetServer = assetServer;
+        defaultWidth = width;
+        defaultHeight = height;
 
         var cubeShader = assetServer.GetShader("cube");
         var spriteShader = assetServer.GetShader("sprite");
         textureArray = assetServer.TextureArray;
         crosshairTexture = assetServer.CrosshairTexture;
-        debugFont = assetServer.GetDebugFont(16);
+        debugFont = assetServer.GetDebugFont(defaultFontSize);
         
         uploader = new GpuUploader(this.device);
         
@@ -51,6 +71,8 @@ internal unsafe class Renderer : IDisposable
 
         blockFaceRenderer = new BlockFaceRenderer(device, uploader, textureArray, cubeShader);
         spriteRenderer = new SpriteRenderer(device, uploader, spriteShader);
+
+        RescaleUi(width, height);
     }
     
 
@@ -78,6 +100,7 @@ internal unsafe class Renderer : IDisposable
         }
 
         camera.SetViewport(frame.Width, frame.Height);
+        RescaleUi(frame.Width, frame.Height);
         Draw(frame, camera);
     }
 
@@ -144,27 +167,25 @@ internal unsafe class Renderer : IDisposable
         blockFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
         
         spriteRenderer.Begin();
-        
-        const float size = 32f;
 
         Rect crosshairRect = new(
-            frame.Width * 0.5f - size * 0.5f,
-            frame.Height * 0.5f - size * 0.5f,
-            size,
-            size
+            frame.Width * 0.5f - crosshairSize * 0.5f,
+            frame.Height * 0.5f - crosshairSize * 0.5f,
+            crosshairSize,
+            crosshairSize
         );
         
-        spriteRenderer.Draw(crosshairTexture, crosshairRect, SamplerType.NearestClamp);
+        spriteRenderer.Draw(crosshairTexture, crosshairRect);
         
         Texture fpsTexture = textTextureCache.GetOrCreate(
             debugFont,
             "Debug menu"
         );
         
-        spriteRenderer.Draw(
+        spriteRenderer.DrawText(
             fpsTexture,
-            new Rect(12f, 12f, fpsTexture.Width, fpsTexture.Height),
-            SamplerType.LinearClamp
+            new Rect(padding, padding, fpsTexture.Width, fpsTexture.Height),
+            Colors.LimeGreen.ToVector4()
         );
         
         spriteRenderer.Upload();
@@ -177,6 +198,29 @@ internal unsafe class Renderer : IDisposable
         );
 
         SDL_EndGPURenderPass(renderPass);
+    }
+
+    private void RescaleUi(uint newWidth, uint newHeight)
+    {
+        if (newWidth == 0 || newHeight == 0)
+            return;
+
+        if (newWidth == currentWidth && newHeight == currentHeight)
+            return;
+
+        float rawScale = Math.Min((float)newWidth / defaultWidth, (float)newHeight / defaultHeight);
+        uiScale = Math.Max(0.75f, rawScale);
+        scaledUiHeight = defaultHeight * uiScale;
+        scaledUiWidth = defaultWidth * uiScale;
+
+        fontSize = MathF.Round(defaultFontSize * uiScale);
+        debugFont = assetServer.GetDebugFont(fontSize);
+
+        padding = MathF.Round(defaultPadding * uiScale);
+        crosshairSize = MathF.Round(defaultCrosshairSize * uiScale);
+
+        currentWidth = newWidth;
+        currentHeight = newHeight;
     }
 
     private static Matrix4x4 BuildMvp(Camera camera)
