@@ -22,9 +22,9 @@ internal unsafe class Renderer : IDisposable
     private readonly MeshData mesh;
     private readonly TextureArray textureArray;
     private readonly Texture crosshairTexture;
-    
+
+    private readonly DebugOverlay debugOverlay;
     private readonly TextTextureCache textTextureCache;
-    private Font debugFont;
 
     private readonly GpuUploader uploader;
 
@@ -34,6 +34,7 @@ internal unsafe class Renderer : IDisposable
     private float uiScale;
     private float fontSize;
     private float padding;
+    private float lineHeight;
     private float crosshairSize;
 
     private uint currentWidth;
@@ -43,6 +44,7 @@ internal unsafe class Renderer : IDisposable
     private readonly uint defaultHeight;
     private const uint defaultFontSize = 16;
     private const uint defaultPadding = 8;
+    private const uint defaultLineHeight = 18;
     private const uint defaultCrosshairSize = 32;
 
     public Renderer(uint width, uint height, Window window, GpuDevice device, AssetServer assetServer)
@@ -56,12 +58,14 @@ internal unsafe class Renderer : IDisposable
         var spriteShader = assetServer.GetShader("sprite");
         textureArray = assetServer.TextureArray;
         crosshairTexture = assetServer.CrosshairTexture;
-        debugFont = assetServer.GetDebugFont(defaultFontSize);
+        var debugFont = assetServer.GetDebugFont(defaultFontSize);
         
         uploader = new GpuUploader(this.device);
         
         textTextureCache = new TextTextureCache(device, uploader);
-        
+
+        debugOverlay = new DebugOverlay(textTextureCache, debugFont);
+
         mesh = new MeshData(64);
 
         frameManager = new FrameManager(this.device, window);
@@ -161,9 +165,9 @@ internal unsafe class Renderer : IDisposable
             1,
             &depthTarget
         );
-        
+
         blockFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
-        
+
         spriteRenderer.Begin();
 
         Rect crosshairRect = new(
@@ -172,22 +176,21 @@ internal unsafe class Renderer : IDisposable
             crosshairSize,
             crosshairSize
         );
-        
+
         spriteRenderer.Draw(crosshairTexture, crosshairRect);
-        
-        Texture fpsTexture = textTextureCache.GetOrCreate(
-            debugFont,
-            $"FPS: {time.Fps}"
+
+        debugOverlay.Draw(
+            spriteRenderer,
+            time,
+            device,
+            frame.Width,
+            frame.Height,
+            padding,
+            lineHeight
         );
-        
-        spriteRenderer.DrawText(
-            fpsTexture,
-            new Rect(padding, padding, fpsTexture.Width, fpsTexture.Height),
-            Colors.LimeGreen.ToVector4()
-        );
-        
+
         spriteRenderer.Upload();
-        
+
         spriteRenderer.Render(
             frame.CommandBuffer,
             renderPass,
@@ -212,9 +215,10 @@ internal unsafe class Renderer : IDisposable
         uiScale = Math.Max(0.75f, rawScale);
 
         fontSize = MathF.Round(defaultFontSize * uiScale);
-        debugFont = assetServer.GetDebugFont(fontSize);
+        debugOverlay.Font = assetServer.GetDebugFont(fontSize);
 
         padding = MathF.Round(defaultPadding * uiScale);
+        lineHeight = MathF.Round(defaultLineHeight * uiScale);
         crosshairSize = MathF.Round(defaultCrosshairSize * uiScale);
 
         currentWidth = newWidth;

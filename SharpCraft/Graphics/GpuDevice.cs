@@ -11,6 +11,9 @@ internal unsafe class GpuDevice : IDisposable
     public SDL_GPUDevice* Handle => device;
     public SDL_GPUTextureFormat SwapchainFormat { get; private set; }
 
+    public string DriverName { get; }
+    public string DeviceName { get; }
+
     private readonly SDL_GPUDevice* device;
 
     private readonly Window window;
@@ -37,12 +40,15 @@ internal unsafe class GpuDevice : IDisposable
 
         SwapchainFormat = SDL_GetGPUSwapchainTextureFormat(device, window.Handle);
 
+        DriverName = SDL_GetGPUDeviceDriver(device)!;
+
+        var gpuProperties = SDL_GetGPUDeviceProperties(device);
+        DeviceName = SDL_GetStringProperty(gpuProperties, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown device")!;
+
         if (debugInfo)
         {
-            Console.WriteLine($"Driver: {SDL_GetGPUDeviceDriver(device)}");
-            var gpuProperties = SDL_GetGPUDeviceProperties(device);
-            var gpuName = SDL_GetStringProperty(gpuProperties, SDL_PROP_GPU_DEVICE_NAME_STRING, "unknown device");
-            Console.WriteLine($"Device: {gpuName}");
+            Console.WriteLine($"Driver: {DriverName}");
+            Console.WriteLine($"Device: {DeviceName}");
         }
     }
 
