@@ -57,7 +57,7 @@ internal class MeshData
         BuildAllFaces();
     }
 
-    public bool Update(FrameTime time, Camera camera)
+    public bool Update(in FrameTime time, Camera camera)
     {
         if (!needsInitialBuild && !camera.UpdateOccurred)
         {

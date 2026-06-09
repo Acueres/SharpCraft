@@ -2,5 +2,6 @@
 
 internal readonly record struct FrameTime(
     double TotalSeconds,
-    float DeltaSeconds
+    float DeltaSeconds,
+    int Fps
 );

@@ -35,8 +35,6 @@ internal unsafe class Renderer : IDisposable
     private float fontSize;
     private float padding;
     private float crosshairSize;
-    private float scaledUiWidth;
-    private float scaledUiHeight;
 
     private uint currentWidth;
     private uint currentHeight;
@@ -76,7 +74,7 @@ internal unsafe class Renderer : IDisposable
     }
     
 
-    public void Update(FrameTime time, Camera camera)
+    public void Update(in FrameTime time, Camera camera)
     {
         if (mesh.Update(time, camera))
         {
@@ -92,7 +90,7 @@ internal unsafe class Renderer : IDisposable
         blockFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
     }
     
-    public void Render(Camera camera)
+    public void Render(in FrameTime time, Camera camera)
     {
         if (!TryBeginFrame(out var frame))
         {
@@ -101,7 +99,7 @@ internal unsafe class Renderer : IDisposable
 
         camera.SetViewport(frame.Width, frame.Height);
         RescaleUi(frame.Width, frame.Height);
-        Draw(frame, camera);
+        Draw(frame, time, camera);
     }
 
     private bool TryBeginFrame(out FrameContext frame)
@@ -116,13 +114,13 @@ internal unsafe class Renderer : IDisposable
         return true;
     }
 
-    private void Draw(FrameContext frame, Camera camera)
+    private void Draw(in FrameContext frame, in FrameTime time, Camera camera)
     {
-        DrawScene(frame, camera);
+        DrawScene(frame, time, camera);
         frameManager.SubmitFrame(frame);
     }
 
-    private void DrawScene(FrameContext frame, Camera camera)
+    private void DrawScene(in FrameContext frame, in FrameTime time, Camera camera)
     {
         Matrix4x4 mvp = BuildMvp(camera);
 
@@ -179,7 +177,7 @@ internal unsafe class Renderer : IDisposable
         
         Texture fpsTexture = textTextureCache.GetOrCreate(
             debugFont,
-            "Debug menu"
+            $"FPS: {time.Fps}"
         );
         
         spriteRenderer.DrawText(
@@ -198,6 +196,8 @@ internal unsafe class Renderer : IDisposable
         );
 
         SDL_EndGPURenderPass(renderPass);
+
+        textTextureCache.Clear();
     }
 
     private void RescaleUi(uint newWidth, uint newHeight)
@@ -210,8 +210,6 @@ internal unsafe class Renderer : IDisposable
 
         float rawScale = Math.Min((float)newWidth / defaultWidth, (float)newHeight / defaultHeight);
         uiScale = Math.Max(0.75f, rawScale);
-        scaledUiHeight = defaultHeight * uiScale;
-        scaledUiWidth = defaultWidth * uiScale;
 
         fontSize = MathF.Round(defaultFontSize * uiScale);
         debugFont = assetServer.GetDebugFont(fontSize);
