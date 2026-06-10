@@ -9,17 +9,54 @@ using System.Numerics;
 
 namespace SharpCraft.Rendering;
 
-internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
+internal class DebugOverlay : IDisposable
 {
-    private static readonly Vector4 TitleColor = Colors.CornflowerBlue.ToVector4();
+    private Font font;
+
     private static readonly Vector4 NormalColor = Colors.WhiteSmoke.ToVector4();
     private static readonly Vector4 GoodColor = Colors.LightGreen.ToVector4();
     private static readonly Vector4 BadColor = Colors.Red.ToVector4();
-    private static readonly Vector4 MutedColor = Colors.DarkGray.ToVector4();
 
-    private readonly TextTextureCache textTextureCache = textTextureCache;
+    private readonly TextTextureManager textTextureManager;
+    private readonly DynamicTextSlot fpsText;
+    private readonly DynamicTextSlot managedMemoryText;
+    private readonly DynamicTextSlot nativeMemoryText;
 
-    public Font Font { get; set; } = font;
+    private readonly DynamicTextSlot[] dynamicTexts;
+
+    private float secondsElapsedSinceMemoryMeasurement;
+    private double managedMemoryMb;
+    private double nativeMemoryMb;
+
+    public DebugOverlay(TextTextureManager textTextureManager, Font font)
+    {
+        this.font = font;
+
+        this.textTextureManager = textTextureManager;
+        fpsText = textTextureManager.CreateDynamic(font, "0");
+        managedMemoryText = textTextureManager.CreateDynamic(font, "0.0");
+        nativeMemoryText = textTextureManager.CreateDynamic(font, "0.0");
+
+        dynamicTexts = [fpsText, managedMemoryText, nativeMemoryText];
+    }
+
+    public void Update(in FrameTime time)
+    {
+        secondsElapsedSinceMemoryMeasurement += time.DeltaSeconds;
+
+        if (secondsElapsedSinceMemoryMeasurement >= 1)
+        {
+            managedMemoryMb = GetManagedMemoryMb();
+            textTextureManager.UpdateDynamic(font, $"{managedMemoryMb:0.0} MB", managedMemoryText);
+
+            nativeMemoryMb = GetNativeMemoryMb(managedMemoryMb);
+            textTextureManager.UpdateDynamic(font, $"{nativeMemoryMb:0.0} MB", nativeMemoryText);
+
+            secondsElapsedSinceMemoryMeasurement = 0;
+        }
+
+        textTextureManager.UpdateDynamic(font, time.Fps.ToString(), fpsText);
+    }
 
     public void Draw(
         SpriteRenderer spriteRenderer,
@@ -59,15 +96,17 @@ internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
         DrawLeft(
             spriteRenderer,
             "Debug",
+            null,
             x,
             ref y,
             lineHeight,
-            TitleColor
+            NormalColor
         );
 
         DrawLeft(
             spriteRenderer,
-            $"FPS: {time.Fps}",
+            "FPS: ",
+            fpsText,
             x,
             ref y,
             lineHeight,
@@ -76,32 +115,33 @@ internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
 
         DrawLeft(
             spriteRenderer,
-            $"Frame: {time.DeltaSeconds * 1000f:0.00} ms",
+            "Managed memory: ",
+            managedMemoryText,
             x,
             ref y,
             lineHeight,
             NormalColor
         );
 
-        double managedMemory = GetManagedMemoryMb();
         DrawLeft(
             spriteRenderer,
-            $"Managed memory: {managedMemory:0.0} MB",
+            "Native memory: ",
+            nativeMemoryText,
             x,
             ref y,
             lineHeight,
             NormalColor
         );
+    }
 
-        double nativememory = GetNativeMemoryMb(managedMemory);
-        DrawLeft(
-            spriteRenderer,
-            $"Native memory: {nativememory:0.0}",
-            x,
-            ref y,
-            lineHeight,
-            MutedColor
-        );
+    public void Rescale(Font font)
+    {
+        this.font = font;
+
+        foreach (var dynamicText in dynamicTexts)
+        {
+            textTextureManager.UpdateDynamic(font, dynamicText.Text, dynamicText);
+        }
     }
 
     private void DrawGpuColumn(
@@ -121,7 +161,7 @@ internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
             padding,
             ref y,
             lineHeight,
-            TitleColor
+            NormalColor
         );
 
         DrawRight(
@@ -151,7 +191,7 @@ internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
             padding,
             ref y,
             lineHeight,
-            MutedColor
+            NormalColor
         );
 
         DrawRight(
@@ -161,32 +201,49 @@ internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
             padding,
             ref y,
             lineHeight,
-            MutedColor
+            NormalColor
         );
     }
 
     private void DrawLeft(
         SpriteRenderer spriteRenderer,
-        string text,
+        string staticText,
+        DynamicTextSlot dynamicText,
         float x,
         ref float y,
         float lineHeight,
         Vector4 color)
     {
-        Texture texture = textTextureCache.GetOrCreate(Font, text);
+        Texture staticTexture = textTextureManager.GetOrCreateStatic(font, staticText);
 
-        Rect destination = new(
+        Rect staticDestination = new(
             x,
             y,
-            texture.Width,
-            texture.Height
+            staticTexture.Width,
+            staticTexture.Height
         );
 
         spriteRenderer.DrawText(
-            texture,
-            destination,
+            staticTexture,
+            staticDestination,
             color
         );
+
+        if (dynamicText != null)
+        {
+            Rect dynamicDestination = new(
+                x + staticTexture.Width,
+                y,
+                dynamicText.Texture.Width,
+                dynamicText.Texture.Height
+            );
+
+            spriteRenderer.DrawText(
+                dynamicText.Texture,
+                dynamicDestination,
+                color
+            );
+        }
 
         y += lineHeight;
     }
@@ -200,7 +257,7 @@ internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
         float lineHeight,
         Vector4 color)
     {
-        Texture texture = textTextureCache.GetOrCreate(Font, text);
+        Texture texture = textTextureManager.GetOrCreateStatic(font, text);
 
         float x = screenWidth - padding - texture.Width;
 
@@ -242,7 +299,21 @@ internal class DebugOverlay(TextTextureCache textTextureCache, Font font)
 
     private static double GetNativeMemoryMb(double managedMemory)
     {
-        double processMemory = Process.GetCurrentProcess().PrivateMemorySize64 / 1024.0 / 1024.0;
+        using var process = Process.GetCurrentProcess();
+        double processMemory = process.PrivateMemorySize64 / 1024.0 / 1024.0;
         return processMemory - managedMemory;
+    }
+
+    private bool disposed;
+    public void Dispose()
+    {
+        if (disposed) return;
+
+        foreach (var dynamicText in dynamicTexts)
+        {
+            dynamicText.Texture.Dispose();
+        }
+
+        disposed = true;
     }
 }

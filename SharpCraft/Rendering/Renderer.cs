@@ -24,12 +24,14 @@ internal unsafe class Renderer : IDisposable
     private readonly Texture crosshairTexture;
 
     private readonly DebugOverlay debugOverlay;
-    private readonly TextTextureCache textTextureCache;
+    private readonly TextTextureManager textTextureManager;
 
     private readonly GpuUploader uploader;
 
     private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
+
+    private readonly Vector4 clearColor = Colors.CornflowerBlue.ToVector4();
 
     private float uiScale;
     private float fontSize;
@@ -62,9 +64,9 @@ internal unsafe class Renderer : IDisposable
         
         uploader = new GpuUploader(this.device);
         
-        textTextureCache = new TextTextureCache(device, uploader);
+        textTextureManager = new TextTextureManager(device, uploader);
 
-        debugOverlay = new DebugOverlay(textTextureCache, debugFont);
+        debugOverlay = new DebugOverlay(textTextureManager, debugFont);
 
         mesh = new MeshData(64);
 
@@ -84,6 +86,8 @@ internal unsafe class Renderer : IDisposable
         {
             blockFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
         }
+
+        debugOverlay.Update(time);
     }
 
     public void LoadGpuResources()
@@ -104,6 +108,8 @@ internal unsafe class Renderer : IDisposable
         camera.SetViewport(frame.Width, frame.Height);
         RescaleUi(frame.Width, frame.Height);
         Draw(frame, time, camera);
+
+        textTextureManager.FlushDynamic();
     }
 
     private bool TryBeginFrame(out FrameContext frame)
@@ -134,10 +140,10 @@ internal unsafe class Renderer : IDisposable
 
             clear_color = new SDL_FColor
             {
-                r = 0.08f,
-                g = 0.12f,
-                b = 0.22f,
-                a = 1.0f
+                r = clearColor.X,
+                g = clearColor.Y,
+                b = clearColor.Z,
+                a = clearColor.W
             },
 
             load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
@@ -199,8 +205,6 @@ internal unsafe class Renderer : IDisposable
         );
 
         SDL_EndGPURenderPass(renderPass);
-
-        textTextureCache.Clear();
     }
 
     private void RescaleUi(uint newWidth, uint newHeight)
@@ -215,7 +219,8 @@ internal unsafe class Renderer : IDisposable
         uiScale = Math.Max(0.75f, rawScale);
 
         fontSize = MathF.Round(defaultFontSize * uiScale);
-        debugOverlay.Font = assetServer.GetDebugFont(fontSize);
+        var font = assetServer.GetDebugFont(fontSize);
+        debugOverlay.Rescale(font);
 
         padding = MathF.Round(defaultPadding * uiScale);
         lineHeight = MathF.Round(defaultLineHeight * uiScale);
@@ -223,6 +228,8 @@ internal unsafe class Renderer : IDisposable
 
         currentWidth = newWidth;
         currentHeight = newHeight;
+
+        textTextureManager.ClearStatic();
     }
 
     private static Matrix4x4 BuildMvp(Camera camera)
@@ -244,7 +251,8 @@ internal unsafe class Renderer : IDisposable
 
         device.WaitIdle();
         
-        textTextureCache.Dispose();
+        debugOverlay.Dispose();
+        textTextureManager.Dispose();
         blockFaceRenderer.Dispose();
         spriteRenderer.Dispose();
         depthBuffer.Dispose();
