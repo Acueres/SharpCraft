@@ -3,11 +3,12 @@ using SharpCraft.Graphics;
 using SharpCraft.Input;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
+using SharpCraft.Rendering.Text;
 using SharpCraft.Time;
 
 using SDL;
 using System.Numerics;
-using SharpCraft.Rendering.Text;
+
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -28,6 +29,7 @@ internal unsafe class App : IDisposable
     private readonly InputHandler input;
     private readonly Camera camera;
     private readonly FrameClock clock = new();
+    private readonly FrameLimiter frameLimiter;
 
     public App()
     {
@@ -41,6 +43,8 @@ internal unsafe class App : IDisposable
         renderer = new Renderer(defaultWidth, defaultHeight, window, device, assetServer);
         input = new InputHandler();
         camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, defaultWidth, defaultHeight);
+
+        frameLimiter = new FrameLimiter(60);
     }
 
     public void Run()
@@ -86,7 +90,7 @@ internal unsafe class App : IDisposable
             renderer.Update(time, camera);
             renderer.Render(time, camera);
 
-            SDL_Delay(1);
+            frameLimiter.Wait();
         }
     }
 
