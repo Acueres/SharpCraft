@@ -1,7 +1,8 @@
 ﻿using SharpCraft.Time;
+using SharpCraft.SharpMath;
+using SharpCraft.World.Blocks;
 
 using System.Numerics;
-using SharpCraft.SharpMath;
 
 namespace SharpCraft.Rendering;
 
@@ -11,8 +12,8 @@ internal class MeshData
     private const byte Skylight = 15;
     private const byte BlockLight = 0;
 
-    public BlockFace[] Faces { get; private set; } = [];
-    public BlockFace[] TransparentFaces { get; private set; } = [];
+    public VoxelFace[] Faces { get; private set; } = [];
+    public VoxelFace[] TransparentFaces { get; private set; } = [];
 
     private readonly TerrainBlock[] blocks;
     private bool needsInitialBuild = true;
@@ -73,7 +74,7 @@ internal class MeshData
 
     private void RebuildVisibleFaces(in Frustum frustum)
     {
-        List<BlockFace> faces = [];
+        List<VoxelFace> faces = [];
 
         foreach (TerrainBlock block in blocks)
         {
@@ -91,7 +92,7 @@ internal class MeshData
 
     private void BuildAllFaces()
     {
-        List<BlockFace> faces = [];
+        List<VoxelFace> faces = [];
 
         foreach (TerrainBlock block in blocks)
         {
@@ -119,11 +120,11 @@ internal class MeshData
         return (int)MathF.Round(height);
     }
 
-    private static void AddBlock(List<BlockFace> faces, int x, int y, int z)
+    private static void AddBlock(List<VoxelFace> faces, int x, int y, int z)
     {
         for (int face = 0; face < (int)FaceDirection.Count; face++)
         {
-            faces.Add(new BlockFace(
+            faces.Add(new VoxelFace(
                 2 * x,
                 2 * y,
                 2 * z,

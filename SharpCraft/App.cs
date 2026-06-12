@@ -8,15 +8,15 @@ using SharpCraft.Time;
 
 using SDL;
 using System.Numerics;
-
+using SharpCraft.World.Blocks;
 using static SDL.SDL3;
 
 namespace SharpCraft;
 
 internal unsafe class App : IDisposable
 {
-    private const uint defaultWidth = 1280;
-    private const uint defaultHeight = 720;
+    private const uint DefaultWidth = 1280;
+    private const uint DefaultHeight = 720;
 
     private readonly AssetServer assetServer;
 
@@ -34,15 +34,16 @@ internal unsafe class App : IDisposable
     public App()
     {
         sdlRuntime = new SdlRuntime();
-        window = new Window("SharpCraft", (int)defaultWidth, (int)defaultHeight);
+        window = new Window("SharpCraft", (int)DefaultWidth, (int)DefaultHeight);
         device = new GpuDevice("vulkan", window, debugInfo: true);
         fontSystem = new FontSystem();
 
         assetServer = new AssetServer(device);
+        var blockRegistry = new BlockRegistry();
 
-        renderer = new Renderer(defaultWidth, defaultHeight, window, device, assetServer);
+        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer);
         input = new InputHandler();
-        camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, defaultWidth, defaultHeight);
+        camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, DefaultWidth, DefaultHeight);
 
         frameLimiter = new FrameLimiter(60);
     }

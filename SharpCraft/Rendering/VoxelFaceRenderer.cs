@@ -9,7 +9,7 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
 
-internal unsafe class BlockFaceRenderer(GpuDevice device, GpuUploader uploader,
+internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     TextureArray textureArray, GraphicsShader shader) : IDisposable
 {
     private readonly Sampler sampler = Sampler.CreateNearestRepeat(device);
@@ -20,7 +20,7 @@ internal unsafe class BlockFaceRenderer(GpuDevice device, GpuUploader uploader,
     private readonly BlockFacePipeline transparentPipeline = BlockFacePipeline.CreateTransparent(device, shader.Vertex, shader.Fragment);
     private readonly BlockFaceBuffer transparentBuffer = new(device);
 
-    public void Upload(BlockFace[] data, BlockFace[] transparentData)
+    public void Upload(VoxelFace[] data, VoxelFace[] transparentData)
     {
         uploader.Upload(opaqueBuffer, data);
         uploader.Upload(transparentBuffer, transparentData);

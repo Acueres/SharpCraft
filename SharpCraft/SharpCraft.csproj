@@ -15,7 +15,7 @@
     </ItemGroup>
 
 	<ItemGroup>
-		<None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+		<None Update="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<Target Name="CompileShaders" BeforeTargets="BeforeBuild">

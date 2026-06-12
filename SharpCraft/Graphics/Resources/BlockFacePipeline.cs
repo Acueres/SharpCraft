@@ -81,7 +81,7 @@ internal unsafe class BlockFacePipeline : IDisposable
         SDL_GPUVertexBufferDescription faceBufferDescription = new()
         {
             slot = 0,
-            pitch = (uint)sizeof(BlockFace),
+            pitch = (uint)sizeof(VoxelFace),
             input_rate = SDL_GPUVertexInputRate.SDL_GPU_VERTEXINPUTRATE_INSTANCE,
             instance_step_rate = 0
         };

@@ -15,7 +15,7 @@ namespace SharpCraft.Rendering;
 internal unsafe class Renderer : IDisposable
 {
     private readonly GpuDevice device;
-    private readonly BlockFaceRenderer blockFaceRenderer;
+    private readonly VoxelFaceRenderer voxelFaceRenderer;
     private readonly SpriteRenderer spriteRenderer;
 
     private readonly AssetServer assetServer;
@@ -73,7 +73,7 @@ internal unsafe class Renderer : IDisposable
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
 
-        blockFaceRenderer = new BlockFaceRenderer(device, uploader, textureArray, cubeShader);
+        voxelFaceRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader);
         spriteRenderer = new SpriteRenderer(device, uploader, spriteShader);
 
         RescaleUi(width, height);
@@ -84,7 +84,7 @@ internal unsafe class Renderer : IDisposable
     {
         if (mesh.Update(time, camera))
         {
-            blockFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
+            voxelFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
         }
 
         debugOverlay.Update(time);
@@ -95,7 +95,7 @@ internal unsafe class Renderer : IDisposable
         uploader.Upload(textureArray);
         uploader.Upload(crosshairTexture);
 
-        blockFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
+        voxelFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
     }
     
     public void Render(in FrameTime time, Camera camera)
@@ -172,7 +172,7 @@ internal unsafe class Renderer : IDisposable
             &depthTarget
         );
 
-        blockFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
+        voxelFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
 
         spriteRenderer.Begin();
 
@@ -253,7 +253,7 @@ internal unsafe class Renderer : IDisposable
         
         debugOverlay.Dispose();
         textTextureManager.Dispose();
-        blockFaceRenderer.Dispose();
+        voxelFaceRenderer.Dispose();
         spriteRenderer.Dispose();
         depthBuffer.Dispose();
 

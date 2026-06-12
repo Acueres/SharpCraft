@@ -1,6 +1,6 @@
-namespace SharpCraft;
+namespace SharpCraft.World.Blocks;
 
-public enum FaceDirection : uint
+internal enum FaceDirection : byte
 {
     ZPos,
     ZNeg,

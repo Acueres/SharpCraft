@@ -4,14 +4,14 @@ using System.Runtime.InteropServices;
 namespace SharpCraft.Rendering;
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct BlockFace
+internal struct VoxelFace
 {
     public Vector3 Center;
     public uint Direction;
     public uint TextureLayer;
     public uint PackedLight;
 
-    public BlockFace(
+    public VoxelFace(
         float x,
         float y,
         float z,

@@ -11,7 +11,7 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
 {
     public SDL_GPUBuffer* Handle => buffer;
     
-    public uint BytesCount => (uint)(Count * sizeof(BlockFace));
+    public uint BytesCount => (uint)(Count * sizeof(VoxelFace));
     public uint Count { get; private set; } = 1;
 
     private uint capacity = 1;
@@ -44,7 +44,7 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
         SDL_GPUBufferCreateInfo vertexBufferInfo = new()
         {
             usage = SDL_GPUBufferUsageFlags.SDL_GPU_BUFFERUSAGE_VERTEX,
-            size = capacity * (uint)sizeof(BlockFace)
+            size = capacity * (uint)sizeof(VoxelFace)
         };
 
         var buffer = SDL_CreateGPUBuffer(device.Handle, &vertexBufferInfo);

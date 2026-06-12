@@ -161,18 +161,18 @@ internal class AssetServer : IDisposable
 
     private static Texture CreateCrosshairTexture(GpuDevice device)
     {
-        const int CrosshairTextureSize = 32;
-        const int CrosshairThickness = 2;
+        const int crosshairTextureSize = 32;
+        const int crosshairThickness = 2;
 
         byte[] data = CreateCrosshairTextureData(
-            CrosshairTextureSize,
-            CrosshairThickness
+            crosshairTextureSize,
+            crosshairThickness
         );
 
         var crosshairTexture = new Texture(
             device,
-            CrosshairTextureSize,
-            CrosshairTextureSize,
+            crosshairTextureSize,
+            crosshairTextureSize,
             data
         );
         
@@ -224,12 +224,12 @@ internal class AssetServer : IDisposable
         return data;
     }
     
-    private string GetAssetPath(params string[] segments)
+    public static string GetAssetPath(params string[] segments)
     {
         return Path.Combine([AppContext.BaseDirectory, "Assets", ..segments]);
     }
     
-    private string GetShaderPath(params string[] segments)
+    private static string GetShaderPath(params string[] segments)
     {
         return Path.Combine([AppContext.BaseDirectory, "Shaders", ..segments]);
     }
