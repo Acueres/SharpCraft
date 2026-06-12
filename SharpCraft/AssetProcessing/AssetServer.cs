@@ -12,29 +12,31 @@ internal class AssetServer : IDisposable
     public Texture CrosshairTexture => crosshairTexture;
 
     private const int TextureSize = 64;
-    
+
     private readonly GpuDevice device;
     private readonly TextureArray textureArray;
     private readonly List<Texture> blockTextures = [];
+    private readonly Dictionary<string, uint> textureLayers = [];
     private readonly Dictionary<string, GraphicsShader> shaders = [];
 
     private readonly Texture crosshairTexture;
-    
+
     private readonly FontLibrary fonts = new();
 
     public AssetServer(GpuDevice device)
     {
         this.device = device;
-        
+
         LoadBlocks();
         textureArray = CreateTextureArray(device, blockTextures);
-        
+
         crosshairTexture = CreateCrosshairTexture(device);
-        
+
         LoadShaders();
     }
 
     public Texture GetBlockTexture(ushort index) => blockTextures[index];
+    public uint GetTextureLayer(string name) => textureLayers[name];
     public TextureArray TextureArray => textureArray;
 
     public GraphicsShader GetShader(string name)
@@ -59,23 +61,27 @@ internal class AssetServer : IDisposable
     {
         string blocksPath = GetAssetPath("Textures", "Blocks");
         string[] texturePaths = Directory.GetFiles(blocksPath)
-            .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) 
-                        || f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) 
+            .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        || f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
                         || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
-            .Order()
             .ToArray();
-        
+
         var emptyTexture = new Texture(device, TextureSize, TextureSize, Colors.Transparent);
         blockTextures.Add(emptyTexture);
-        
-        foreach (string texturePath in texturePaths)
+
+        for (uint i = 0; i < texturePaths.Length; i++)
         {
+            string texturePath = texturePaths[i];
+
             Texture blockTexture = LoadTexture(texturePath);
             blockTextures.Add(blockTexture);
+
+            string textureName = Path.GetFileNameWithoutExtension(texturePath);
+            textureLayers[textureName] = i;
         }
     }
 
-    private static TextureArray CreateTextureArray(GpuDevice device, IReadOnlyList<Texture> textures)
+private static TextureArray CreateTextureArray(GpuDevice device, IReadOnlyList<Texture> textures)
     {
         const int bytesPerPixel = 4;
 

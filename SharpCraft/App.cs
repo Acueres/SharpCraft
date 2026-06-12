@@ -5,10 +5,11 @@ using SharpCraft.Platform;
 using SharpCraft.Rendering;
 using SharpCraft.Rendering.Text;
 using SharpCraft.Time;
+using SharpCraft.World.Blocks;
 
 using SDL;
 using System.Numerics;
-using SharpCraft.World.Blocks;
+
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -39,7 +40,7 @@ internal unsafe class App : IDisposable
         fontSystem = new FontSystem();
 
         assetServer = new AssetServer(device);
-        var blockRegistry = new BlockRegistry();
+        var blockRegistry = new BlockRegistry(assetServer);
 
         renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer);
         input = new InputHandler();

@@ -1,166 +1,100 @@
-using SharpCraft.World.Blocks.Serialization;
+using SharpCraft.AssetProcessing;
 using SharpCraft.Extensions;
+using SharpCraft.World.Blocks.Serialization;
 
 using System.Text.Json;
-using SharpCraft.AssetProcessing;
 
 namespace SharpCraft.World.Blocks;
 
-internal class BlockRegistry
+internal sealed class BlockRegistry
+{
+    private readonly string[] names;
+    private readonly uint[] faceTextureLayers;
+    private readonly bool[] transparent;
+    private readonly byte[] lightLevel;
+
+    private readonly Dictionary<string, uint> idToNumeric;
+
+    public int BlockCount => names.Length;
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        private readonly Dictionary<uint, string> textureIdToName;
-        private readonly Dictionary<string, uint> textureNameToId;
-        private readonly Dictionary<uint, uint[]> multifaceTextures;
-        private readonly HashSet<uint> transparentTextures;
-        private readonly HashSet<uint> lightSources;
-        private readonly Dictionary<uint, byte> lightValues;
+        PropertyNameCaseInsensitive = true
+    };
 
-        public int BlockCount => textureNameToId.Count;
-        public uint[] GetBlockIds => [.. textureIdToName.Keys];
-        public uint GetBlockId(string name) => textureNameToId[name];
-        public string GetBlockName(uint index) => textureIdToName[index];
-        public bool IsBlockTransparent(Block block) => transparentTextures.Contains(block.Value);
-        public bool IsBlockMultiface(Block block) => multifaceTextures.ContainsKey(block.Value);
-        public uint GetMultifaceBlockFace(Block block, FaceDirection faceDirection) => multifaceTextures[block.Value][(byte)faceDirection];
-        public byte GetLightSourceValue(Block block) => lightValues[block.Value];
-        public bool IsLightSource(Block block) => lightSources.Contains(block.Value);
+    public BlockRegistry(AssetServer assets)
+    {
+        List<BlockDto> defs = LoadJson<List<BlockDto>>("blocks.json");
+
+        int count = defs.Count + 1;
+        names = new string[count];
+        faceTextureLayers = new uint[count * 6];
+        transparent = new bool[count];
+        lightLevel = new byte[count];
+        idToNumeric = new Dictionary<string, uint>(count) { ["empty"] = 0 };
         
-        private static readonly JsonSerializerOptions JsonOptions = new()
+        names[0] = "Empty";
+        transparent[0] = true;
+
+        for (int i = 0; i < defs.Count; i++)
         {
-            PropertyNameCaseInsensitive = true
-        };
+            uint numericId = (uint)(i + 1);
+            BlockDto def = defs[i];
 
-        public BlockRegistry()
-        {
-            var blockFaceData = GetBlockFaceData();
-            var blockData = GetBlockData();
-            textureNameToId = GetBlockNameToId();
-            multifaceTextures = GetMultifaceBlocks(blockFaceData, textureNameToId);
-            textureIdToName = GetBlockIdToName(blockData, textureNameToId);
-            transparentTextures = GetTransparentBlocks(blockData, textureNameToId);
-            (lightSources, lightValues) = GetLightSources(blockData, textureNameToId);
-        }
-
-        private List<BlockDto> GetBlockData()
-        {
-            return LoadJson<List<BlockDto>>("blocks.json");
-        }
-
-        private List<BlockFaceDto> GetBlockFaceData()
-        {
-            return LoadJson<List<BlockFaceDto>>("multiface_blocks.json");
-        }
-
-        private T LoadJson<T>(string fileName)
-        {
-            string path = AssetServer.GetAssetPath(fileName);
-            string json = File.ReadAllText(path);
-
-            return JsonSerializer.Deserialize<T>(json, JsonOptions)
-                   ?? throw new InvalidDataException($"Failed to deserialize {fileName}.");
-        }
-
-        private Dictionary<string, uint> GetBlockNameToId()
-        {
-            string blocksPath = AssetServer.GetAssetPath("Textures", "Blocks");
-            string[] texturePaths = Directory.GetFiles(blocksPath)
-                .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) 
-                            || f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) 
-                            || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
-                .Order()
-                .ToArray();
-            Dictionary<string, uint> result = new(texturePaths.Length);
-
-            for (uint i = 0; i < texturePaths.Length; i++)
+            if (!idToNumeric.TryAdd(def.Id, numericId))
             {
-                string textureName = Path.GetFileNameWithoutExtension(texturePaths[i]);
-                result.Add(textureName, i + 1);
+                throw new InvalidDataException($"Duplicate block id '{def.Id}'.");
             }
 
-            return result;
-        }
-
-        private static Dictionary<uint, uint[]> GetMultifaceBlocks(
-            List<BlockFaceDto> blockFaceData,
-            Dictionary<string, uint> textureNameToId)
-        {
-            Dictionary<uint, uint[]> result = [];
-
-            foreach (BlockFaceDto data in blockFaceData)
-            {
-                uint baseTexture = GetTextureId(textureNameToId, data.Type);
-
-                uint[] faceTextures = new uint[6];
-
-                faceTextures[(int)FaceDirection.ZPos] = GetTextureId(textureNameToId, data.Front ?? data.Type);
-                faceTextures[(int)FaceDirection.ZNeg] = GetTextureId(textureNameToId, data.Back ?? data.Type);
-                faceTextures[(int)FaceDirection.XPos] = GetTextureId(textureNameToId, data.Right ?? data.Type);
-                faceTextures[(int)FaceDirection.XNeg] = GetTextureId(textureNameToId, data.Left ?? data.Type);
-                faceTextures[(int)FaceDirection.YPos] = GetTextureId(textureNameToId, data.Top ?? data.Type);
-                faceTextures[(int)FaceDirection.YNeg] = GetTextureId(textureNameToId, data.Bottom ?? data.Type);
-
-                result.Add(baseTexture, faceTextures);
-            }
-
-            return result;
-        }
-        
-        
-        private static uint GetTextureId(Dictionary<string, uint> textureNameToId, string name)
-        {
-            if (!textureNameToId.TryGetValue(name, out uint id))
-            {
-                throw new InvalidDataException($"Unknown block texture/type '{name}'.");
-            }
-
-            return id;
-        }
-
-        private static Dictionary<uint, string> GetBlockIdToName(List<BlockDto> blockData,
-            Dictionary<string, uint> blockNameToId)
-        {
-            Dictionary<uint, string> blockIdToName = [];
-
-            foreach (BlockDto data in blockData)
-            {
-                string name = data.Name ?? data.Type.CapitalizeFirst();
-                blockIdToName.Add(blockNameToId[data.Type], name);
-            }
-
-            return blockIdToName;
-        }
-
-        private static HashSet<uint> GetTransparentBlocks(List<BlockDto> blockData,
-            Dictionary<string, uint> blockNameToId)
-        {
-            HashSet<uint> transparentBlocks = [];
-
-            foreach (BlockDto data in blockData)
-            {
-                if (data.Transparent)
-                {
-                    transparentBlocks.Add(blockNameToId[data.Type]);
-                }
-            }
-
-            return transparentBlocks;
-        }
-
-        private static (HashSet<uint>, Dictionary<uint, byte>) GetLightSources(List<BlockDto> blockData,
-            Dictionary<string, uint> blockNameToId)
-        {
-            HashSet<uint> lightSources = [];
-            Dictionary<uint, byte> lightValues = [];
-
-            foreach (BlockDto data in blockData)
-            {
-                if (data.LightLevel > 0)
-                {
-                    lightSources.Add(blockNameToId[data.Type]);
-                    lightValues.Add(blockNameToId[data.Type], (byte)data.LightLevel);
-                }
-            }
-
-            return (lightSources, lightValues);
+            names[numericId] = def.Name ?? def.Id.CapitalizeFirst();
+            AddFaces(def, assets, numericId, faceTextureLayers);
+            
+            transparent[numericId] = def.Transparent;
+            lightLevel[numericId] = (byte)def.LightLevel;
         }
     }
+
+    public uint GetNumericId(string id) => idToNumeric[id];
+    public string GetBlockName(Block block) => names[block.Value];
+    public bool IsTransparent(Block block) => transparent[block.Value];
+    public bool IsLightSource(Block block) => lightLevel[block.Value] > 0;
+    public byte GetLightLevel(Block block) => lightLevel[block.Value];
+    public uint GetFaceTextureLayer(Block block, FaceDirection face)
+        => faceTextureLayers[block.Value * 6 + (uint)face];
+
+    private static void AddFaces(BlockDto def, AssetServer assets, uint numericId, uint[] faceTextureLayers)
+    {
+        // Priority per face: explicit face name -> side (horizontals) -> texture/all -> error
+        string? all = def.Texture;
+        var t = def.Textures;
+
+        string Face(string? specific, bool horizontal)
+        {
+            string? name = specific
+                           ?? (horizontal ? t?.Side : null)
+                           ?? t?.All
+                           ?? all;
+            if (name is null)
+                throw new InvalidDataException($"Block '{def.Id}' has no texture for a face.");
+            return name;
+        }
+
+        var faces = new uint[6];
+        faces[(int)FaceDirection.ZPos] = assets.GetTextureLayer(Face(t?.Front, true));
+        faces[(int)FaceDirection.ZNeg] = assets.GetTextureLayer(Face(t?.Back,  true));
+        faces[(int)FaceDirection.XPos] = assets.GetTextureLayer(Face(t?.Right, true));
+        faces[(int)FaceDirection.XNeg] = assets.GetTextureLayer(Face(t?.Left,  true));
+        faces[(int)FaceDirection.YPos] = assets.GetTextureLayer(Face(t?.Top,   false));
+        faces[(int)FaceDirection.YNeg] = assets.GetTextureLayer(Face(t?.Bottom,false));
+        
+        Array.Copy(faces, 0, faceTextureLayers, (int)numericId * 6, 6);
+    }
+
+    private static T LoadJson<T>(string fileName)
+    {
+        string path = AssetServer.GetAssetPath(fileName);
+        string json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<T>(json, JsonOptions)
+               ?? throw new InvalidDataException($"Failed to deserialize {fileName}.");
+    }
+}

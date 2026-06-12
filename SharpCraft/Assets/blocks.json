@@ -1,102 +1,36 @@
 [
+  { "id": "bedrock", "texture": "bedrock" },
+  { "id": "water", "name": "Water", "texture": "water", "transparent": true },
+  { "id": "brick", "texture": "brick" },
+  { "id": "cobblestone", "texture": "cobblestone" },
+  { "id": "dirt", "texture": "dirt" },
   {
-    "type": "bedrock"
+    "id": "grass", "name": "Grass",
+    "textures": { "side": "grass_side", "top": "grass_top", "bottom": "dirt" }
   },
-
+  { "id": "glass", "texture": "glass", "transparent": true },
+  { "id": "glowstone", "texture": "glowstone", "lightLevel": 15 },
+  { "id": "sand", "texture": "sand" },
   {
-    "type": "water",
-    "transparent":  true
+    "id": "sandstone", "name": "Sandstone",
+    "textures": { "side": "sandstone_side", "top": "sandstone_top", "bottom": "sandstone_top" }
   },
-
+  { "id": "snow", "name": "Snow Block", "texture": "snow" },
+  { "id": "stone_brick", "name": "Stone Brick", "texture": "stone_brick" },
+  { "id": "stone", "texture": "stone" },
+  { "id": "granite", "texture": "granite" },
+  { "id": "terracotta", "texture": "terracotta" },
+  { "id": "iron", "name": "Iron Block", "texture": "iron" },
+  { "id": "leaves", "texture": "leaves", "transparent": true },
   {
-    "type": "brick"
+    "id": "birch_log", "name": "Birch Log",
+    "textures": { "side": "birch_bark", "top": "birch_log", "bottom": "birch_log" }
   },
-
   {
-    "type": "cobblestone"
+    "id": "oak_log", "name": "Oak Log",
+    "textures": { "side": "oak_bark", "top": "oak_log", "bottom": "oak_log" }
   },
-
-  {
-    "type": "dirt"
-  },
-
-  {
-    "name": "Grass",
-    "type": "grass_side"
-  },
-
-  {
-    "type": "glass",
-    "transparent":  true
-  },
-
-  {
-    "type": "glowstone",
-    "lightLevel": 15
-  },
-
-  {
-    "type": "sand"
-  },
-
-  {
-    "name": "Sandstone",
-    "type": "sandstone_side"
-  },
-
-  {
-    "name": "Snow Block",
-    "type": "snow"
-  },
-
-  {
-    "name": "Stone Brick",
-    "type": "stone_brick"
-  },
-
-  {
-    "type": "stone"
-  },
-
-  {
-    "type": "granite"
-  },
-
-  {
-    "type": "terracotta"
-  },
-
-  {
-    "name": "Iron Block",
-    "type": "iron"
-  },
-
-  {
-    "type": "leaves"
-  },
-
-  {
-    "name": "Birch Log",
-    "type": "birch_log"
-  },
-
-  {
-    "name": "Oak Log",
-    "type": "oak_log"
-  },
-
-  {
-    "name": "Birch Plank",
-    "type": "birch_plank"
-  },
-
-  {
-    "name": "Oak Plank",
-    "type": "oak_plank"
-  },
-
-  {
-    "name": "Spruce Plank",
-    "type": "spruce_plank"
-  }
+  { "id": "birch_plank", "name": "Birch Plank", "texture": "birch_plank" },
+  { "id": "oak_plank", "name": "Oak Plank", "texture": "oak_plank" },
+  { "id": "spruce_plank", "name": "Spruce Plank", "texture": "spruce_plank" }
 ]
