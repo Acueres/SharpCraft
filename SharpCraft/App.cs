@@ -6,6 +6,9 @@ using SharpCraft.Rendering;
 using SharpCraft.Rendering.Text;
 using SharpCraft.Time;
 using SharpCraft.World.Blocks;
+using SharpCraft.SharpMath;
+using SharpCraft.World.Generation;
+using SharpCraft.World.Meshing;
 
 using SDL;
 using System.Numerics;
@@ -41,8 +44,22 @@ internal unsafe class App : IDisposable
 
         assetServer = new AssetServer(device);
         var blockRegistry = new BlockRegistry(assetServer);
-
-        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer);
+        
+        var origin = Vec3<int>.Zero;
+        
+        var chunkGenerator = new ChunkGenerator(blockRegistry);
+        var originChunk = chunkGenerator.GenerateChunk(origin);
+        originChunk.XPos = chunkGenerator.GenerateChunk(new Vec3<int>(1, 0, 0));
+        originChunk.XNeg = chunkGenerator.GenerateChunk(new Vec3<int>(-1, 0, 0));
+        originChunk.ZPos = chunkGenerator.GenerateChunk(new Vec3<int>(0, 1, 0));
+        originChunk.ZNeg = chunkGenerator.GenerateChunk(new Vec3<int>(0, -1, 0));
+        originChunk.YPos = chunkGenerator.GenerateChunk(new Vec3<int>(0, 0, 1));
+        originChunk.YNeg = chunkGenerator.GenerateChunk(new Vec3<int>(0, 0, -1));
+        
+        var chunkMesher = new ChunkMesher(blockRegistry);
+        chunkMesher.Build(originChunk);
+        
+        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher);
         input = new InputHandler();
         camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, DefaultWidth, DefaultHeight);
 

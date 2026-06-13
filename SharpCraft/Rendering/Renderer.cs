@@ -5,9 +5,11 @@ using SharpCraft.Platform;
 using SharpCraft.Time;
 using SharpCraft.SharpMath;
 using SharpCraft.Rendering.Text;
+using SharpCraft.World.Meshing;
 
 using System.Numerics;
 using SDL;
+
 using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
@@ -19,7 +21,6 @@ internal unsafe class Renderer : IDisposable
     private readonly SpriteRenderer spriteRenderer;
 
     private readonly AssetServer assetServer;
-    private readonly MeshData mesh;
     private readonly TextureArray textureArray;
     private readonly Texture crosshairTexture;
 
@@ -30,6 +31,8 @@ internal unsafe class Renderer : IDisposable
 
     private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
+    
+    private readonly ChunkMesher chunkMesher;
 
     private readonly Vector4 clearColor = Colors.CornflowerBlue.ToVector4();
 
@@ -49,7 +52,8 @@ internal unsafe class Renderer : IDisposable
     private const uint defaultLineHeight = 18;
     private const uint defaultCrosshairSize = 32;
 
-    public Renderer(uint width, uint height, Window window, GpuDevice device, AssetServer assetServer)
+    public Renderer(uint width, uint height, Window window, GpuDevice device,
+        AssetServer assetServer, ChunkMesher chunkMesher)
     {
         this.device = device;
         this.assetServer = assetServer;
@@ -68,7 +72,7 @@ internal unsafe class Renderer : IDisposable
 
         debugOverlay = new DebugOverlay(textTextureManager, debugFont);
 
-        mesh = new MeshData(64);
+        this.chunkMesher = chunkMesher;
 
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
@@ -82,11 +86,6 @@ internal unsafe class Renderer : IDisposable
 
     public void Update(in FrameTime time, Camera camera)
     {
-        if (mesh.Update(time, camera))
-        {
-            voxelFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
-        }
-
         debugOverlay.Update(time);
     }
 
@@ -95,7 +94,11 @@ internal unsafe class Renderer : IDisposable
         uploader.Upload(textureArray);
         uploader.Upload(crosshairTexture);
 
-        voxelFaceRenderer.Upload(mesh.Faces, mesh.TransparentFaces);
+        var origin = Vec3<int>.Zero;
+        var faces = chunkMesher.GetFaces(origin);
+        var transparentFaces = chunkMesher.GetTransparentFaces(origin);
+        
+        voxelFaceRenderer.Upload(faces, transparentFaces);
     }
     
     public void Render(in FrameTime time, Camera camera)
