@@ -329,7 +329,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         return this;
     }
 
-    public IEnumerable<Vec3<byte>> GetVisibleBlocks()
+    public IEnumerable<(Vec3<byte> Index, FacesState Faces)> GetVisibleBlocks()
     {
         for (byte y = 0; y < Size; y++)
         {
@@ -348,7 +348,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
                     if (!visibleFaces.Any()) continue;
 
-                    yield return index;
+                    yield return (index, visibleFaces);
                 }
             }
         }

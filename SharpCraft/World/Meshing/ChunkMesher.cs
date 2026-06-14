@@ -1,4 +1,3 @@
-using SharpCraft.AssetProcessing;
 using SharpCraft.World.Blocks;
 using SharpCraft.SharpMath;
 using SharpCraft.Rendering;
@@ -11,49 +10,42 @@ namespace SharpCraft.World.Meshing;
 
 internal class ChunkMesher(BlockRegistry blockRegistry)
 {
-    private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> verticesCache = [];
-    private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> transparentVerticesCache = [];
+    private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> facesCache = [];
+    private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> transparentFacesCache = [];
 
     private const byte Skylight = 15;
     private const byte BlockLight = 0;
     
     public VoxelFace[] GetFaces(in Vec3<int> index)
     {
-        return verticesCache[index];
+        return facesCache[index];
     }
 
     public VoxelFace[] GetTransparentFaces(in Vec3<int> index)
     {
-        return transparentVerticesCache[index];
+        return transparentFacesCache[index];
     }
 
     public void Build(Chunk chunk)
     {
-        var (vertices, transparentVertices) = BuildMesh(chunk);
+        var (faces, transparentFaces) = BuildMesh(chunk);
 
-        if (!verticesCache.TryAdd(chunk.Index, vertices))
-        {
-            verticesCache[chunk.Index] = vertices;
-        }
-
-        if (!transparentVerticesCache.TryAdd(chunk.Index, transparentVertices))
-        {
-            transparentVerticesCache[chunk.Index] = transparentVertices;
-        }
+        facesCache[chunk.Index] = faces;
+        transparentFacesCache[chunk.Index] = transparentFaces;
     }
 
     public void Remove(Vec3<int> index)
     {
-        verticesCache.TryRemove(index, out _);
-        transparentVerticesCache.TryRemove(index, out _);
+        facesCache.TryRemove(index, out _);
+        transparentFacesCache.TryRemove(index, out _);
     }
 
-    public (VoxelFace[], VoxelFace[]) BuildMesh(Chunk chunk)
+    private (VoxelFace[], VoxelFace[]) BuildMesh(Chunk chunk)
     {
         List<VoxelFace> faces = [];
         List<VoxelFace> transparentFaces = [];
 
-        foreach (Vec3<byte> index in chunk.GetVisibleBlocks())
+        foreach ((Vec3<byte> index, FacesState visibleFaces) in chunk.GetVisibleBlocks())
         {
             int x = index.X;
             int y = index.Y;
@@ -61,35 +53,26 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
 
             Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
 
-            FacesState visibleFaces = chunk.GetVisibleFaces(index);
-
-            if (!visibleFaces.Any()) continue;
-
             //FacesData<LightValue> lightValues = LightSystem.GetFacesLight(visibleFaces, x, y, z, chunk);
             Block block = chunk[x, y, z];
-
+            bool transparent = blockRegistry.IsTransparent(block);
+            var target = transparent ? transparentFaces : faces;
+            
             foreach (FaceDirection face in visibleFaces.GetFaces())
             {
                 //LightValue light = lightValues.GetValue(face);
                 
                 var voxelFace = BuildVoxelFace(face, /*light,*/ blockPosition,
                     blockRegistry.GetFaceTextureLayer(block, face));
-
-                if (blockRegistry.IsTransparent(block))
-                {
-                    transparentFaces.AddRange(voxelFace);
-                }
-                else
-                {
-                    faces.AddRange(voxelFace);
-                }
+                
+                target.Add(voxelFace);
             }
         }
 
         return ([.. faces], [.. transparentFaces]);
     }
 
-    VoxelFace BuildVoxelFace(FaceDirection face, /*LightValue light,*/ Vector3 position, uint textureLayer)
+    private static VoxelFace BuildVoxelFace(FaceDirection face, /*LightValue light,*/ Vector3 position, uint textureLayer)
     {
         return new VoxelFace(
             2 * position.X,

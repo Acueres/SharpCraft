@@ -4,119 +4,57 @@ internal record struct FacesState
     {
         private byte data;
 
-        public FacesState()
-        {
-            data = 0;
-        }
+        public FacesState() { }
 
-        public FacesState(bool value)
-        {
-            XPos = value;
-            XNeg = value;
-            YPos = value;
-            YNeg = value;
-            ZPos = value;
-            ZNeg = value;
-        }
+        public FacesState(bool value) => data = value ? (byte)0x3F : (byte)0;
 
-        public readonly bool Any()
-        {
-            return YPos || XPos || XNeg || ZPos || ZNeg || YNeg;
-        }
-
-        public readonly IEnumerable<FaceDirection> GetFaces()
-        {
-            if (ZPos) yield return FaceDirection.ZPos;
-            if (ZNeg) yield return FaceDirection.ZNeg;
-            if (YPos) yield return FaceDirection.YPos;
-            if (YNeg) yield return FaceDirection.YNeg;
-            if (XPos) yield return FaceDirection.XPos;
-            if (XNeg) yield return FaceDirection.XNeg;
-        }
+        public readonly bool Any() => data != 0;
+        
+        public readonly FaceEnumerator GetFaces() => new(data);
 
         public readonly bool GetFaceValue(FaceDirection face)
         {
             return face switch
             {
+                FaceDirection.ZPos => ZPos,
+                FaceDirection.ZNeg => ZNeg,
                 FaceDirection.XPos => XPos,
                 FaceDirection.XNeg => XNeg,
                 FaceDirection.YPos => YPos,
                 FaceDirection.YNeg => YNeg,
-                FaceDirection.ZPos => ZPos,
-                FaceDirection.ZNeg => ZNeg,
                 _ => false,
             };
         }
 
-        public bool XPos
+        private readonly bool Get(int bit) => (data & (1 << bit)) != 0;
+        private void Set(int bit, bool value)
+            => data = value ? (byte)(data | (1 << bit)) : (byte)(data & ~(1 << bit));
+        
+        public bool ZPos { readonly get => Get(0); set => Set(0, value); }
+        public bool ZNeg { readonly get => Get(1); set => Set(1, value); }
+        public bool XPos { readonly get => Get(2); set => Set(2, value); }
+        public bool XNeg { readonly get => Get(3); set => Set(3, value); }
+        public bool YPos { readonly get => Get(4); set => Set(4, value); }
+        public bool YNeg { readonly get => Get(5); set => Set(5, value); }
+        
+        public struct FaceEnumerator(byte data)
         {
-            readonly get
-            {
-                return ((data >> 0) & 1) == 1;
-            }
-            set
-            {
-                data = value ? (byte)(data | (1 << 0)) : (byte)(data & ~(1 << 0));
-            }
-        }
+            private int i = -1;
+            public FaceDirection Current { get; private set; }
 
-        public bool XNeg
-        {
-            readonly get
+            public bool MoveNext()
             {
-                return ((data >> 1) & 1) == 1;
+                while (++i < 6)
+                {
+                    if (((data >> i) & 1) == 1)
+                    {
+                        Current = (FaceDirection)i;
+                        return true;
+                    }
+                }
+                return false;
             }
-            set
-            {
-                data = value ? (byte)(data | (1 << 1)) : (byte)(data & ~(1 << 1));
-            }
-        }
 
-        public bool YPos
-        {
-            readonly get
-            {
-                return ((data >> 2) & 1) == 1;
-            }
-            set
-            {
-                data = value ? (byte)(data | (1 << 2)) : (byte)(data & ~(1 << 2));
-            }
-        }
-
-        public bool YNeg
-        {
-            readonly get
-            {
-                return ((data >> 3) & 1) == 1;
-            }
-            set
-            {
-                data = value ? (byte)(data | (1 << 3)) : (byte)(data & ~(1 << 3));
-            }
-        }
-
-        public bool ZPos
-        {
-            readonly get
-            {
-                return ((data >> 4) & 1) == 1;
-            }
-            set
-            {
-                data = value ? (byte)(data | (1 << 4)) : (byte)(data & ~(1 << 4));
-            }
-        }
-
-        public bool ZNeg
-        {
-            readonly get
-            {
-                return ((data >> 5) & 1) == 1;
-            }
-            set
-            {
-                data = value ? (byte)(data | (1 << 5)) : (byte)(data & ~(1 << 5));
-            }
+            public FaceEnumerator GetEnumerator() => this;
         }
     }
