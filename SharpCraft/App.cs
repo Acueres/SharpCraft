@@ -9,6 +9,7 @@ using SharpCraft.World.Blocks;
 using SharpCraft.SharpMath;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Meshing;
+using SharpCraft.Rendering.View;
 
 using SDL;
 using System.Numerics;
@@ -31,7 +32,10 @@ internal unsafe class App : IDisposable
     private readonly FontSystem fontSystem;
 
     private readonly InputHandler input;
+    
     private readonly Camera camera;
+    private IViewController activeViewController;
+    
     private readonly FrameClock clock = new();
     private readonly FrameLimiter frameLimiter;
 
@@ -61,17 +65,25 @@ internal unsafe class App : IDisposable
         
         renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher);
         input = new InputHandler();
-        camera = new Camera(new Vector3(0f, 2f, 4f), Vector3.Zero, DefaultWidth, DefaultHeight);
+
+        var initialViewpoint = Viewpoint.LookAt(
+            position: new Vector3(0f, 40f, 4f),
+            target: Vector3.Zero,
+            up: MathUtilities.Vector3Up
+        );
+        
+        activeViewController = new ObserverViewController(initialViewpoint);
+        camera = new Camera(initialViewpoint, DefaultWidth, DefaultHeight);
 
         frameLimiter = new FrameLimiter(60);
+        
+        renderer.LoadGpuResources();
     }
 
     public void Run()
     {
-        renderer.LoadGpuResources();
-
         bool running = true;
-
+        
         while (running)
         {
             FrameTime time = clock.Tick();
@@ -105,7 +117,12 @@ internal unsafe class App : IDisposable
                 window.SetRelativeMouseMode(false);
             }
 
-            camera.Update(input, time);
+            if (activeViewController.Update(input, time))
+            {
+                var viewpoint = activeViewController.GetViewpoint();
+                camera.SetViewpoint(viewpoint);
+            }
+
             renderer.Update(time, camera);
             renderer.Render(time, camera);
 
