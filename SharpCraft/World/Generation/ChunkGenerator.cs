@@ -11,7 +11,7 @@ internal class ChunkGenerator(BlockRegistry blockRegistry)
         Chunk chunk = new(index, blockRegistry);
         Block[,,] buffer = Chunk.GetBuffer();
 
-        const uint block = 3;
+        var block = blockRegistry.GetNumericId("sandstone");
 
         int chunkWorldX = index.X * Chunk.Size;
         int chunkWorldY = index.Y * Chunk.Size;

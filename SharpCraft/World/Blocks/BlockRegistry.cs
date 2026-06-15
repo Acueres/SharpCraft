@@ -75,7 +75,9 @@ internal sealed class BlockRegistry
                            ?? t?.All
                            ?? all;
             if (name is null)
+            {
                 throw new InvalidDataException($"Block '{def.Id}' has no texture for a face.");
+            }
             return name;
         }
 

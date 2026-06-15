@@ -64,6 +64,7 @@ internal class AssetServer : IDisposable
             .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                         || f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
                         || f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+            .Order()
             .ToArray();
 
         var emptyTexture = new Texture(device, TextureSize, TextureSize, Colors.Transparent);
@@ -77,7 +78,7 @@ internal class AssetServer : IDisposable
             blockTextures.Add(blockTexture);
 
             string textureName = Path.GetFileNameWithoutExtension(texturePath);
-            textureLayers[textureName] = i;
+            textureLayers[textureName] = i + 1;
         }
     }
 
