@@ -6,6 +6,7 @@ using SharpCraft.Time;
 using SharpCraft.SharpMath;
 using SharpCraft.Rendering.Text;
 using SharpCraft.World.Meshing;
+using SharpCraft.World.WorldStreaming;
 
 using System.Numerics;
 using SDL;
@@ -31,8 +32,6 @@ internal unsafe class Renderer : IDisposable
 
     private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
-    
-    private readonly ChunkMesher chunkMesher;
 
     private readonly Vector4 clearColor = Colors.CornflowerBlue.ToVector4();
 
@@ -47,10 +46,10 @@ internal unsafe class Renderer : IDisposable
 
     private readonly uint defaultWidth;
     private readonly uint defaultHeight;
-    private const uint defaultFontSize = 16;
-    private const uint defaultPadding = 8;
-    private const uint defaultLineHeight = 18;
-    private const uint defaultCrosshairSize = 32;
+    private const uint DefaultFontSize = 16;
+    private const uint DefaultPadding = 8;
+    private const uint DefaultLineHeight = 18;
+    private const uint DefaultCrosshairSize = 32;
 
     public Renderer(uint width, uint height, Window window, GpuDevice device,
         AssetServer assetServer, ChunkMesher chunkMesher)
@@ -64,7 +63,7 @@ internal unsafe class Renderer : IDisposable
         var spriteShader = assetServer.GetShader("sprite");
         textureArray = assetServer.TextureArray;
         crosshairTexture = assetServer.CrosshairTexture;
-        var debugFont = assetServer.GetDebugFont(defaultFontSize);
+        var debugFont = assetServer.GetDebugFont(DefaultFontSize);
         
         uploader = new GpuUploader(this.device);
         
@@ -72,19 +71,22 @@ internal unsafe class Renderer : IDisposable
 
         debugOverlay = new DebugOverlay(textTextureManager, debugFont);
 
-        this.chunkMesher = chunkMesher;
-
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
 
-        voxelFaceRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader);
+        voxelFaceRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader, chunkMesher);
         spriteRenderer = new SpriteRenderer(device, uploader, spriteShader);
 
         RescaleUi(width, height);
     }
     
+    public void UpdateWorld(Camera camera, ChunkVolume volume)
+    {
+        voxelFaceRenderer.Update(volume, camera);
+    }
 
-    public void Update(in FrameTime time, Camera camera)
+
+    public void UpdateUi(in FrameTime time)
     {
         debugOverlay.Update(time);
     }
@@ -93,12 +95,6 @@ internal unsafe class Renderer : IDisposable
     {
         uploader.Upload(textureArray);
         uploader.Upload(crosshairTexture);
-
-        var origin = Vec3<int>.Zero;
-        var faces = chunkMesher.GetFaces(origin);
-        var transparentFaces = chunkMesher.GetTransparentFaces(origin);
-        
-        voxelFaceRenderer.Upload(faces, transparentFaces);
     }
     
     public void Render(in FrameTime time, Camera camera)
@@ -221,13 +217,13 @@ internal unsafe class Renderer : IDisposable
         float rawScale = Math.Min((float)newWidth / defaultWidth, (float)newHeight / defaultHeight);
         uiScale = Math.Max(0.75f, rawScale);
 
-        fontSize = MathF.Round(defaultFontSize * uiScale);
+        fontSize = MathF.Round(DefaultFontSize * uiScale);
         var font = assetServer.GetDebugFont(fontSize);
         debugOverlay.Rescale(font);
 
-        padding = MathF.Round(defaultPadding * uiScale);
-        lineHeight = MathF.Round(defaultLineHeight * uiScale);
-        crosshairSize = MathF.Round(defaultCrosshairSize * uiScale);
+        padding = MathF.Round(DefaultPadding * uiScale);
+        lineHeight = MathF.Round(DefaultLineHeight * uiScale);
+        crosshairSize = MathF.Round(DefaultCrosshairSize * uiScale);
 
         currentWidth = newWidth;
         currentHeight = newHeight;

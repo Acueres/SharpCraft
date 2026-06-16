@@ -51,7 +51,7 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
             int y = index.Y;
             int z = index.Z;
 
-            Vector3 blockPosition = new Vector3(x, y, z) + chunk.Position;
+            Vector3 position = new Vector3(x, y, z) + chunk.Position;
 
             //FacesData<LightValue> lightValues = LightSystem.GetFacesLight(visibleFaces, x, y, z, chunk);
             Block block = chunk[x, y, z];
@@ -62,26 +62,20 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
             {
                 //LightValue light = lightValues.GetValue(face);
                 
-                var voxelFace = BuildVoxelFace(face, /*light,*/ blockPosition,
-                    blockRegistry.GetFaceTextureLayer(block, face));
+                var voxelFace = new VoxelFace(
+                    position.X,
+                    position.Y,
+                    position.Z,
+                    (uint)face,
+                    blockRegistry.GetFaceTextureLayer(block, face),
+                    PackLight(Skylight, BlockLight)
+                );
                 
                 target.Add(voxelFace);
             }
         }
 
         return ([.. faces], [.. transparentFaces]);
-    }
-
-    private static VoxelFace BuildVoxelFace(FaceDirection face, /*LightValue light,*/ Vector3 position, uint textureLayer)
-    {
-        return new VoxelFace(
-            2 * position.X,
-            2 * position.Y,
-            2 * position.Z,
-            (uint)face,
-            textureLayer,
-            PackLight(Skylight, BlockLight)
-        );
     }
     
     private static uint PackLight(byte skylight, byte blockLight)

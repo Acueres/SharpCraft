@@ -9,11 +9,11 @@ using SharpCraft.World.Blocks;
 using SharpCraft.SharpMath;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Meshing;
+using SharpCraft.World.WorldStreaming;
 using SharpCraft.Rendering.View;
 
 using SDL;
 using System.Numerics;
-
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -39,6 +39,9 @@ internal unsafe class App : IDisposable
     private readonly FrameClock clock = new();
     private readonly FrameLimiter frameLimiter;
 
+    private readonly WorldLoader worldLoader;
+    private readonly ChunkVolume volume;
+
     public App()
     {
         sdlRuntime = new SdlRuntime();
@@ -49,21 +52,6 @@ internal unsafe class App : IDisposable
         assetServer = new AssetServer(device);
         var blockRegistry = new BlockRegistry(assetServer);
         
-        var origin = Vec3<int>.Zero;
-        
-        var chunkGenerator = new ChunkGenerator(blockRegistry);
-        var originChunk = chunkGenerator.GenerateChunk(origin);
-        originChunk.XPos = chunkGenerator.GenerateChunk(new Vec3<int>(1, 0, 0));
-        originChunk.XNeg = chunkGenerator.GenerateChunk(new Vec3<int>(-1, 0, 0));
-        originChunk.ZPos = chunkGenerator.GenerateChunk(new Vec3<int>(0, 1, 0));
-        originChunk.ZNeg = chunkGenerator.GenerateChunk(new Vec3<int>(0, -1, 0));
-        originChunk.YPos = chunkGenerator.GenerateChunk(new Vec3<int>(0, 0, 1));
-        originChunk.YNeg = chunkGenerator.GenerateChunk(new Vec3<int>(0, 0, -1));
-        
-        var chunkMesher = new ChunkMesher(blockRegistry);
-        chunkMesher.Build(originChunk);
-        
-        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher);
         input = new InputHandler();
 
         var initialViewpoint = Viewpoint.LookAt(
@@ -76,8 +64,16 @@ internal unsafe class App : IDisposable
         camera = new Camera(initialViewpoint, DefaultWidth, DefaultHeight);
 
         frameLimiter = new FrameLimiter(60);
+
+        volume = new ChunkVolume(8);
+        var chunkGenerator = new ChunkGenerator(blockRegistry);
+        var chunkMesher = new ChunkMesher(blockRegistry);
+        worldLoader = new WorldLoader(volume, chunkGenerator, chunkMesher);
+        worldLoader.BulkGenerate(Vector3.Zero);
         
+        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher);
         renderer.LoadGpuResources();
+        renderer.UpdateWorld(camera, volume);
     }
 
     public void Run()
@@ -116,14 +112,18 @@ internal unsafe class App : IDisposable
             {
                 window.SetRelativeMouseMode(false);
             }
+            
+            worldLoader.Tick();
 
             if (activeViewController.Update(input, time))
             {
                 var viewpoint = activeViewController.GetViewpoint();
                 camera.SetViewpoint(viewpoint);
+                
+                renderer.UpdateWorld(camera, volume);
             }
-
-            renderer.Update(time, camera);
+            
+            renderer.UpdateUi(time);
             renderer.Render(time, camera);
 
             frameLimiter.Wait();

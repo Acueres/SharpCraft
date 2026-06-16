@@ -1,16 +1,19 @@
 using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics;
 using SharpCraft.Graphics.Resources;
+using SharpCraft.World.Chunks;
+using SharpCraft.World.WorldStreaming;
+using SharpCraft.SharpMath;
+using SharpCraft.World.Meshing;
 
 using System.Numerics;
 using SDL;
-
 using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
 
 internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
-    TextureArray textureArray, GraphicsShader shader) : IDisposable
+    TextureArray textureArray, GraphicsShader shader, ChunkMesher chunkMesher) : IDisposable
 {
     private readonly Sampler sampler = Sampler.CreateNearestRepeat(device);
     
@@ -20,7 +23,47 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     private readonly BlockFacePipeline transparentPipeline = BlockFacePipeline.CreateTransparent(device, shader.Vertex, shader.Fragment);
     private readonly BlockFaceBuffer transparentBuffer = new(device);
 
-    public void Upload(VoxelFace[] data, VoxelFace[] transparentData)
+    public void Update(ChunkVolume volume, Camera camera)
+    {
+        List<Chunk> visibleChunks = [];
+        List<VoxelFace> faces = [];
+        List<VoxelFace> transparentFaces = [];
+        
+        //Drawing opaque blocks
+        foreach (var chunk in volume.GetActiveChunks())
+        {
+            if (chunk.IsEmpty || !chunk.IsReady) continue;
+            
+            Vector3 center = chunk.Position + new Vector3(Chunk.HalfSize);
+
+            CubeBound chunkBounds = new(center, Chunk.HalfSize);
+            
+            if (camera.Frustum.Intersects(chunkBounds))
+            {
+                visibleChunks.Add(chunk);
+            }
+            else continue;
+
+            var chunkFaces = chunkMesher.GetFaces(chunk.Index);
+            
+            if (chunkFaces.Length == 0) continue;
+            
+            faces.AddRange(chunkFaces);
+        }
+        
+        //Drawing transparent blocks
+        foreach (var chunk in visibleChunks)
+        {
+            var chunkFaces = chunkMesher.GetTransparentFaces(chunk.Index);
+            if (chunkFaces.Length == 0) continue;
+            
+            transparentFaces.AddRange(chunkFaces);
+        }
+        
+        Upload(faces.ToArray(), transparentFaces.ToArray());
+    }
+
+    private void Upload(VoxelFace[] data, VoxelFace[] transparentData)
     {
         uploader.Upload(opaqueBuffer, data);
         uploader.Upload(transparentBuffer, transparentData);

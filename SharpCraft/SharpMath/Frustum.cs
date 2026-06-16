@@ -49,8 +49,19 @@ internal readonly struct Frustum
             matrix.M34 - matrix.M33,
             matrix.M44 - matrix.M43).Normalize();
     }
+    
+    public bool ContainsPoint(Vector3 point)
+    {
+        return
+            left.DistanceToPoint(point) >= 0 &&
+            right.DistanceToPoint(point) >= 0 &&
+            top.DistanceToPoint(point) >= 0 &&
+            bottom.DistanceToPoint(point) >= 0 &&
+            near.DistanceToPoint(point) >= 0 &&
+            far.DistanceToPoint(point) >= 0;
+    }
 
-    public bool Intersects(in CubeBound cube)
+    public bool IntersectsWithNear(in CubeBound cube)
     {
         return
             IntersectsPlane(left, cube) &&
@@ -58,6 +69,16 @@ internal readonly struct Frustum
             IntersectsPlane(top, cube) &&
             IntersectsPlane(bottom, cube) &&
             IntersectsPlane(near, cube) &&
+            IntersectsPlane(far, cube);
+    }
+    
+    public bool Intersects(in CubeBound cube)
+    {
+        return
+            IntersectsPlane(left, cube) &&
+            IntersectsPlane(right, cube) &&
+            IntersectsPlane(top, cube) &&
+            IntersectsPlane(bottom, cube) &&
             IntersectsPlane(far, cube);
     }
 

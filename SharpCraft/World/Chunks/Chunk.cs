@@ -8,6 +8,7 @@ namespace SharpCraft.World.Chunks;
 internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 {
     public const byte Size = 16;
+    public const float HalfSize = Size * 0.5f;
     public const byte Last = Size - 1;
 
     public Vec3<int> Index { get; } = index;

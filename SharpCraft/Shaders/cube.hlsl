@@ -53,40 +53,40 @@ struct VSOutput
 static const float3 FaceCorners[24] =
 {
     // ZPos
-    float3(-1, -1,  1),
-    float3( 1, -1,  1),
-    float3( 1,  1,  1),
-    float3(-1,  1,  1),
+    float3(-0.5, -0.5,  0.5),
+    float3( 0.5, -0.5,  0.5),
+    float3( 0.5,  0.5,  0.5),
+    float3(-0.5,  0.5,  0.5),
 
     // ZNeg
-    float3( 1, -1, -1),
-    float3(-1, -1, -1),
-    float3(-1,  1, -1),
-    float3( 1,  1, -1),
+    float3( 0.5, -0.5, -0.5),
+    float3(-0.5, -0.5, -0.5),
+    float3(-0.5,  0.5, -0.5),
+    float3( 0.5,  0.5, -0.5),
 
     // XPos
-    float3( 1, -1,  1),
-    float3( 1, -1, -1),
-    float3( 1,  1, -1),
-    float3( 1,  1,  1),
+    float3( 0.5, -0.5,  0.5),
+    float3( 0.5, -0.5, -0.5),
+    float3( 0.5,  0.5, -0.5),
+    float3( 0.5,  0.5,  0.5),
 
     // XNeg
-    float3(-1, -1, -1),
-    float3(-1, -1,  1),
-    float3(-1,  1,  1),
-    float3(-1,  1, -1),
+    float3(-0.5, -0.5, -0.5),
+    float3(-0.5, -0.5,  0.5),
+    float3(-0.5,  0.5,  0.5),
+    float3(-0.5,  0.5, -0.5),
 
     // YPos
-    float3(-1,  1,  1),
-    float3( 1,  1,  1),
-    float3( 1,  1, -1),
-    float3(-1,  1, -1),
+    float3(-0.5,  0.5,  0.5),
+    float3( 0.5,  0.5,  0.5),
+    float3( 0.5,  0.5, -0.5),
+    float3(-0.5,  0.5, -0.5),
 
     // YNeg
-    float3(-1, -1, -1),
-    float3( 1, -1, -1),
-    float3( 1, -1,  1),
-    float3(-1, -1,  1)
+    float3(-0.5, -0.5, -0.5),
+    float3( 0.5, -0.5, -0.5),
+    float3( 0.5, -0.5,  0.5),
+    float3(-0.5, -0.5,  0.5)
 };
 
 float3 GetFaceCorner(uint direction, uint corner)
