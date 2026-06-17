@@ -10,7 +10,7 @@ namespace SharpCraft.Graphics;
 
 internal unsafe class GpuUploader(GpuDevice device)
 {
-    public void Upload(BlockFaceBuffer blockFaceBuffer, VoxelFace[] data)
+    public void Upload(BlockFaceBuffer blockFaceBuffer, ReadOnlySpan<VoxelFace> data)
     {
         SDL_GPUTransferBuffer* vertexTransfer = null;
         
