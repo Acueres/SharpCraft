@@ -10,6 +10,7 @@ using SharpCraft.SharpMath;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.WorldStreaming;
+using SharpCraft.World.Chunks;
 using SharpCraft.Rendering.View;
 
 using SDL;
@@ -61,6 +62,8 @@ internal unsafe class App : IDisposable
         );
         
         activeViewController = new ObserverViewController(initialViewpoint);
+        activeViewController.SetIndex(Chunk.WorldToChunkCoords(initialViewpoint.Position));
+        
         camera = new Camera(initialViewpoint, DefaultWidth, DefaultHeight);
 
         frameLimiter = new FrameLimiter(60);
@@ -111,6 +114,14 @@ internal unsafe class App : IDisposable
             if (input.Keyboard.IsDown(Keys.R))
             {
                 window.SetRelativeMouseMode(false);
+            }
+            
+            Vec3<int> currentControllerIndex = Chunk.WorldToChunkCoords(activeViewController.GetPosition());
+
+            if (activeViewController.GetIndex() != currentControllerIndex)
+            {
+                worldLoader.Recenter(activeViewController.GetPosition());
+                activeViewController.SetIndex(currentControllerIndex);
             }
             
             worldLoader.Tick();

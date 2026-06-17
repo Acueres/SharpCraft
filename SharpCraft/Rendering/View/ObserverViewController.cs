@@ -12,6 +12,8 @@ internal class ObserverViewController(in Viewpoint viewpoint) : IViewController
     private Vector3 direction = viewpoint.Direction;
     private Vector3 horizontalDirection;
 
+    private Vec3<int> index;
+
     private const float MovementSpeed = 5f;
     private const float RotationSpeed = 1.5f;
 
@@ -25,6 +27,8 @@ internal class ObserverViewController(in Viewpoint viewpoint) : IViewController
 
         return position != previousPosition || direction != previousDirection;
     }
+    
+    public Vector3 GetPosition() => position;
 
     public Viewpoint GetViewpoint()
     {
@@ -33,6 +37,13 @@ internal class ObserverViewController(in Viewpoint viewpoint) : IViewController
             direction,
             MathUtilities.Vector3Up
         );
+    }
+    
+    public Vec3<int> GetIndex() => index;
+
+    public void SetIndex(Vec3<int> idx)
+    {
+        index = idx;
     }
 
     private void UpdateLook(InputHandler input)

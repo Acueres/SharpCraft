@@ -12,6 +12,7 @@ namespace SharpCraft.World.WorldStreaming;
 class ChunkPipeline : IDisposable, IAsyncDisposable
 {
     private const int ChunkCapacity = 500;
+    private ulong NextVersion => Interlocked.Increment(ref field);
 
     private readonly ChunkVolume volume;
     private readonly ChunkLinker linker;
@@ -91,7 +92,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         ChunkRecord record = new()
         {
-            Version = 1,
+            Version = NextVersion,
             Chunk = chunk,
             Stage = stage,
             Flags = ChunkFlags.Wanted
@@ -317,7 +318,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         return true;
     }
 
-    private void HandleRelight(Vec3<int> index, int version)
+    private void HandleRelight(Vec3<int> index, ulong version)
     {
         if (!registry.TryGetValue(index, out var record)) return;
         if (record.Version != version) return;
@@ -326,7 +327,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         switch (record.Stage)
         {
             case ChunkStage.Meshing:
-                record.Version++;
+                record.Version = NextVersion;
                 record.Stage = ChunkStage.Lighting;
                 pendingLighting.Enqueue(new WorkItem(index, record.Version));
                 return;
@@ -345,7 +346,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         }
     }
 
-    private void HandleRemesh(Vec3<int> index, int version)
+    private void HandleRemesh(Vec3<int> index, ulong version)
     {
         if (!registry.TryGetValue(index, out var record)) return;
         if (record.Version != version) return;
@@ -361,7 +362,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
                 return;
 
             case ChunkStage.Meshing:
-                record.Version++;
+                record.Version = NextVersion;
                 record.Stage = ChunkStage.Lit;
                 TryScheduleMeshing(index);
                 return;
@@ -387,6 +388,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
 
             record.Flags &= ~ChunkFlags.Wanted;
             record.Flags |= ChunkFlags.DeleteRequested;
+            record.Version = NextVersion;
         }
     }
 
@@ -492,7 +494,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
             {
                 record = new ChunkRecord
                 {
-                    Version = 1,
+                    Version = NextVersion,
                     Stage = ChunkStage.Fresh,
                     Flags = ChunkFlags.Wanted
                 };
@@ -501,8 +503,16 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
             }
             else
             {
+                bool wasUnwanted = !record.Flags.HasFlag(ChunkFlags.Wanted)
+                                   || record.Flags.HasFlag(ChunkFlags.DeleteRequested);
+
                 record.Flags |= ChunkFlags.Wanted;
                 record.Flags &= ~ChunkFlags.DeleteRequested;
+
+                if (wasUnwanted)
+                {
+                    record.Version = NextVersion;
+                }
             }
 
             if (record.Chunk is not null)
@@ -511,9 +521,6 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
                 TryScheduleMeshing(id);
                 continue;
             }
-
-            record.Flags |= ChunkFlags.Wanted;
-            record.Flags &= ~ChunkFlags.DeleteRequested;
 
             if (record.Stage == ChunkStage.Fresh)
             {
@@ -667,7 +674,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         }
     }
 
-    private bool TryGetChunk(Vec3<int> index, int version, [MaybeNullWhen(false)] out Chunk chunk)
+    private bool TryGetChunk(Vec3<int> index, ulong version, [MaybeNullWhen(false)] out Chunk chunk)
     {
         chunk = null;
 
@@ -720,9 +727,9 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    private record struct WorkItem(Vec3<int> Index, int Version);
+    private record struct WorkItem(Vec3<int> Index, ulong Version);
     
-    private record struct WorkResult(Vec3<int> Index, int Version, JobType JobType, ResultStatus Status, Chunk? Chunk, Exception? Exception);
+    private record struct WorkResult(Vec3<int> Index, ulong Version, JobType JobType, ResultStatus Status, Chunk? Chunk, Exception? Exception);
 
     private enum ResultStatus
     {

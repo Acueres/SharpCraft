@@ -4,7 +4,7 @@ namespace SharpCraft.World.WorldStreaming;
 
 internal class ChunkRecord
 {
-    public int Version;
+    public ulong Version;
     public Chunk? Chunk;
     public ChunkStage Stage;
     public ChunkFlags Flags;
