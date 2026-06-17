@@ -37,6 +37,28 @@ internal sealed class ChunkVolume
         return true;
     }
 
+    public NeighborSet CollectNeighbors(Chunk chunk)
+    {
+        TryGetValue(chunk.Index + new Vec3<int>(0, 0, 1), out var zPos);
+        TryGetValue(chunk.Index + new Vec3<int>(0, 0, -1), out var zNeg);
+        TryGetValue(chunk.Index + new Vec3<int>(1, 0, 0), out var xPos);
+        TryGetValue(chunk.Index + new Vec3<int>(-1, 0, 0), out var xNeg);
+        TryGetValue(chunk.Index + new Vec3<int>(0, 1, 0), out var yPos);
+        TryGetValue(chunk.Index + new Vec3<int>(0, -1, 0), out var yNeg);
+
+        var neighbors = new NeighborSet
+        {
+            ZPos = zPos,
+            ZNeg = zNeg,
+            XPos = xPos,
+            XNeg = xNeg,
+            YPos = yPos,
+            YNeg = yNeg
+        };
+
+        return neighbors;
+    }
+
     public IEnumerable<Chunk> GetActiveChunks()
     {
         foreach (var chunk in chunks.Values)

@@ -26,9 +26,9 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
         return transparentFacesCache[index];
     }
 
-    public void Build(Chunk chunk)
+    public void Build(Chunk chunk, in NeighborSet neighbors)
     {
-        var (faces, transparentFaces) = BuildMesh(chunk);
+        var (faces, transparentFaces) = BuildMesh(chunk, neighbors);
 
         facesCache[chunk.Index] = faces;
         transparentFacesCache[chunk.Index] = transparentFaces;
@@ -40,12 +40,12 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
         transparentFacesCache.TryRemove(index, out _);
     }
 
-    private (VoxelFace[], VoxelFace[]) BuildMesh(Chunk chunk)
+    private (VoxelFace[], VoxelFace[]) BuildMesh(Chunk chunk, in NeighborSet neighbors)
     {
         List<VoxelFace> faces = [];
         List<VoxelFace> transparentFaces = [];
 
-        foreach ((Vec3<byte> index, FacesState visibleFaces) in chunk.GetVisibleBlocks())
+        foreach ((Vec3<byte> index, FacesState visibleFaces) in chunk.GetVisibleBlocks(neighbors))
         {
             int x = index.X;
             int y = index.Y;

@@ -3,50 +3,31 @@ using SharpCraft.SharpMath;
 
 namespace SharpCraft.World.WorldStreaming;
 
-internal class ChunkLinker(ChunkVolume volume)
+internal class ChunkLinker
 {
     private readonly Lock linkingLock = new();
     
-    public void LinkChunk(Chunk chunk)
+    public void LinkChunk(Chunk chunk, in NeighborSet neighbors)
     {
         lock (linkingLock)
         {
-            // ZPos
-            if (volume.TryGetValue(chunk.Index + new Vec3<int>(0, 0, 1), out var zPosChunk))
-            {
-                chunk.ZPos = zPosChunk;
-                zPosChunk.ZNeg = chunk;
-            }
-            // ZNeg
-            if (volume.TryGetValue(chunk.Index + new Vec3<int>(0, 0, -1), out var zNegChunk))
-            {
-                chunk.ZNeg = zNegChunk;
-                zNegChunk.ZPos = chunk;
-            }
-            // XPos
-            if (volume.TryGetValue(chunk.Index + new Vec3<int>(1, 0, 0), out var xPosChunk))
-            {
-                chunk.XPos = xPosChunk;
-                xPosChunk.XNeg = chunk;
-            }
-            // XNeg
-            if (volume.TryGetValue(chunk.Index + new Vec3<int>(-1, 0, 0), out var xNegChunk))
-            {
-                chunk.XNeg = xNegChunk;
-                xNegChunk.XPos = chunk;
-            }
-            // YPos
-            if (volume.TryGetValue(chunk.Index + new Vec3<int>(0, 1, 0), out var yPosChunk))
-            {
-                chunk.YPos = yPosChunk;
-                yPosChunk.YNeg = chunk;
-            }
-            // YNeg
-            if (volume.TryGetValue(chunk.Index + new Vec3<int>(0, -1, 0), out var yNegChunk))
-            {
-                chunk.YNeg = yNegChunk;
-                yNegChunk.YPos = chunk;
-            }
+            chunk.ZPos = neighbors.ZPos;
+            neighbors.ZPos?.ZNeg = chunk;
+
+            chunk.ZNeg = neighbors.ZNeg;
+            neighbors.ZNeg?.ZPos = chunk;
+
+            chunk.XPos = neighbors.XPos;
+            neighbors.XPos?.XNeg = chunk;
+
+            chunk.XNeg = neighbors.XNeg;
+            neighbors.XNeg?.XPos = chunk;
+
+            chunk.YPos = neighbors.YPos;
+            neighbors.YPos?.YNeg = chunk;
+
+            chunk.YNeg = neighbors.YNeg;
+            neighbors.YNeg?.YPos = chunk;
         }
     }
 

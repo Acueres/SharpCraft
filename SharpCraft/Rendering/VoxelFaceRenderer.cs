@@ -23,15 +23,13 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     
     private readonly BlockFacePipeline transparentPipeline = BlockFacePipeline.CreateTransparent(device, shader.Vertex, shader.Fragment);
     private readonly BlockFaceBuffer transparentBuffer = new(device);
-
-    private readonly List<Chunk> visibleChunks = [];
+    
     private readonly List<VoxelFace> faces = [];
     private readonly List<VoxelFace> transparentFaces = [];
     private readonly List<(VoxelFace[] opaque, VoxelFace[] transparent)> visibleMeshes = [];
 
     public void Update(ChunkVolume volume, Camera camera)
     {
-        visibleChunks.Clear();
         visibleMeshes.Clear();
 
         int opaqueCount = 0;
@@ -44,9 +42,7 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
 
             Vector3 center = chunk.Position + new Vector3(Chunk.HalfSize);
             if (!camera.Frustum.Intersects(new CubeBound(center, Chunk.HalfSize))) continue;
-
-            visibleChunks.Add(chunk);
-
+            
             var opaqueArr = chunkMesher.GetFaces(chunk.Index);
             opaqueCount += opaqueArr.Length;
 

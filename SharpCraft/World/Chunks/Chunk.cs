@@ -20,15 +20,24 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
     public readonly object SyncRoot = new();
 
-    //Adjacent chunk references
-    public Chunk? XNeg { get; set; }
-    public Chunk? XPos { get; set; }
-    public Chunk? YNeg { get; set; }
-    public Chunk? YPos { get; set; }
-    public Chunk? ZNeg { get; set; }
-    public Chunk? ZPos { get; set; }
+    public NeighborSet Neighbors =>
+        new()
+        {
+            ZPos = ZPos,
+            ZNeg = ZNeg,
+            XPos = XPos,
+            XNeg = XNeg,
+            YPos = YPos,
+            YNeg = YNeg
+        };
 
-    public bool AllNeighborsExist => XNeg != null && XPos != null && YNeg != null && YPos != null && ZNeg != null && ZPos != null;
+    //Adjacent chunk references
+    public Chunk? ZPos { get; set; }
+    public Chunk? ZNeg { get; set; }
+    public Chunk? XPos { get; set; }
+    public Chunk? XNeg { get; set; }
+    public Chunk? YPos { get; set; }
+    public Chunk? YNeg { get; set; }
 
     private List<Block>? palette;
     private Dictionary<Block, uint>? paletteIndexMap;
@@ -41,14 +50,14 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
     [ThreadStatic]
     private static Block[,,]? buffer;
     
-    public void BuildPalette(Block[,,]? buffer)
+    public void BuildPalette(Block[,,]? b)
     {
-        if (buffer is null)
+        if (b is null)
         {
             return;
         }
 
-        var uniqueBlocks = GetUniqueBlocks(buffer);
+        var uniqueBlocks = GetUniqueBlocks(b);
         if (uniqueBlocks.Count == 1 && uniqueBlocks.Contains(Block.Empty))
         {
             return;
@@ -73,7 +82,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
             {
                 for (int z = 0; z < Size; z++)
                 {
-                    storage[x, y, z] = paletteIndexMap[buffer[x, y, z]];
+                    storage[x, y, z] = paletteIndexMap[b[x, y, z]];
                 }
             }
         }
@@ -185,16 +194,6 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
     public uint GetPaletteValue(int p) => palette[p].Value;
 
-    public IEnumerable<Chunk> GetNeighbours()
-    {
-        if (XNeg != null) yield return XNeg;
-        if (XPos != null) yield return XPos;
-        if (YNeg != null) yield return YNeg;
-        if (YPos != null) yield return YPos;
-        if (ZNeg != null) yield return ZNeg;
-        if (ZPos != null) yield return ZPos;
-    }
-
     public IEnumerable<Vec3<int>> GetNeighborIndexes()
     {
         yield return Index + new Vec3<int>(-1, 0, 0);
@@ -290,7 +289,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         lightMap[x, y, z] = value;
     }*/
 
-    public void AddLightSource(byte x, byte y, byte z, Block block)
+    /*public void AddLightSource(byte x, byte y, byte z, Block block)
     {
         lightSources.Add(new Vec3<byte>(x, y, z));
     }
@@ -298,7 +297,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
     public void RemoveLightSource(byte x, byte y, byte z, Block block)
     {
         lightSources.Remove(new Vec3<byte>(x, y, z));
-    }
+    }*/
 
     /*public byte GetLightSourceValue(Vec3<int> index)
     {
@@ -306,12 +305,12 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         return blockMetadata.GetLightSourceValue(block);
     }*/
 
-    public IEnumerable<Vec3<byte>> GetLightSources()
+    /*public IEnumerable<Vec3<byte>> GetLightSources()
     {
         foreach (var sourceIndex in lightSources) yield return sourceIndex;
-    }
+    }*/
 
-    public Chunk GetNeighborFromOffset(Vec3<sbyte> offset)
+    /*public Chunk GetNeighborFromOffset(Vec3<sbyte> offset)
     {
         //Assuming all other components are zero
         if (offset.X == 1)
@@ -328,9 +327,9 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
             return ZNeg;
 
         return this;
-    }
+    }*/
 
-    public IEnumerable<(Vec3<byte> Index, FacesState Faces)> GetVisibleBlocks()
+    public IEnumerable<(Vec3<byte> Index, FacesState Faces)> GetVisibleBlocks(NeighborSet neighbors)
     {
         for (byte y = 0; y < Size; y++)
         {
@@ -345,7 +344,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
                     }
 
                     var index = new Vec3<byte>(x, y, z);
-                    var visibleFaces = GetVisibleFaces(index);
+                    var visibleFaces = GetVisibleFaces(index, neighbors);
 
                     if (!visibleFaces.Any()) continue;
 
@@ -355,13 +354,13 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         }
     }
 
-    public bool IsBlockTransparent(int x, int y, int z)
+    /*public bool IsBlockTransparent(int x, int y, int z)
     {
         Block block = this[x, y, z];
         return block.IsEmpty || blockRegistry.IsTransparent(block);
-    }
+    }*/
 
-    public FacesState GetVisibleFaces(Vec3<byte> index)
+    public FacesState GetVisibleFaces(Vec3<byte> index, in NeighborSet neighbors)
     {
         FacesState visibleFaces = new();
 
@@ -377,7 +376,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
         if (z == Last)
         {
-            adjacentBlock = ZPos[x, y, 0];
+            adjacentBlock = neighbors.ZPos![x, y, 0];
         }
         else
         {
@@ -387,7 +386,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
         if (z == 0)
         {
-            adjacentBlock = ZNeg[x, y, Last];
+            adjacentBlock = neighbors.ZNeg![x, y, Last];
         }
         else
         {
@@ -397,7 +396,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
         if (y == Last)
         {
-            adjacentBlock = YPos[x, 0, z];
+            adjacentBlock = neighbors.YPos![x, 0, z];
         }
         else
         {
@@ -407,7 +406,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
         if (y == 0)
         {
-            adjacentBlock = YNeg[x, Last, z];
+            adjacentBlock = neighbors.YNeg![x, Last, z];
         }
         else
         {
@@ -418,7 +417,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
         if (x == Last)
         {
-            adjacentBlock = XPos[0, y, z];
+            adjacentBlock = neighbors.XPos![0, y, z];
         }
         else
         {
@@ -428,7 +427,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
         if (x == 0)
         {
-            adjacentBlock = XNeg[Last, y, z];
+            adjacentBlock = neighbors.XNeg![Last, y, z];
         }
         else
         {
@@ -461,7 +460,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         return new Vec3<byte>(WorldToBlockIndex(pos.X), WorldToBlockIndex(pos.Y), WorldToBlockIndex(pos.Z));
     }
 
-    static byte WorldToBlockIndex(float worldCoord)
+    private static byte WorldToBlockIndex(float worldCoord)
     {
         int index = (int)Math.Floor(worldCoord);
         return (byte)(((index % Size) + Size) % Size);

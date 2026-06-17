@@ -4,12 +4,11 @@ using SharpCraft.World.Meshing;
 using SharpCraft.World.Generation;
 
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Channels;
 
 namespace SharpCraft.World.WorldStreaming;
 
-class ChunkPipeline : IDisposable, IAsyncDisposable
+internal class ChunkPipeline : IDisposable, IAsyncDisposable
 {
     private const int ChunkCapacity = 500;
     private ulong NextVersion => Interlocked.Increment(ref field);
@@ -65,7 +64,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         this.chunkGenerator = chunkGenerator;
         this.chunkMesher = chunkMesher;
 
-        linker = new ChunkLinker(volume);
+        linker = new ChunkLinker();
 
         CancellationToken ct = cts.Token;
 
@@ -105,7 +104,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         if (!registry.TryGetValue(chunk.Index, out var record)) return;
 
-        var work = new WorkItem(chunk.Index, record.Version);
+        var work = new WorkItem(chunk.Index, record.Version, chunk, chunk.Neighbors);
 
         switch (job)
         {
@@ -144,8 +143,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         if (result.Version != record.Version)
         {
             if (!record.Flags.HasFlag(ChunkFlags.Wanted) &&
-                record.Chunk is null &&
-                record.Stage is ChunkStage.Generating or ChunkStage.Linking)
+                record.Chunk is null)
             {
                 registry.TryRemove(result.Index, out _);
             }
@@ -194,16 +192,16 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         switch (record.Stage)
         {
             case ChunkStage.Generating:
-                pendingGeneration.Enqueue(new WorkItem(result.Index, record.Version));
+                pendingGeneration.Enqueue(new WorkItem(result.Index, record.Version, null, null));
                 break;
             case ChunkStage.Linking:
-                pendingLinking.Enqueue(new WorkItem(result.Index, record.Version));
+                pendingLinking.Enqueue(new WorkItem(result.Index, record.Version, result.Chunk, null));
                 break;
             case ChunkStage.Lighting:
-                pendingLighting.Enqueue(new WorkItem(result.Index, record.Version));
+                pendingLighting.Enqueue(new WorkItem(result.Index, record.Version, result.Chunk, result.Chunk?.Neighbors));
                 break;
             case ChunkStage.Meshing:
-                pendingMeshing.Enqueue(new WorkItem(result.Index, record.Version));
+                pendingMeshing.Enqueue(new WorkItem(result.Index, record.Version, result.Chunk, result.Chunk?.Neighbors));
                 break;
         }
     }
@@ -215,8 +213,6 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
 
     private void HandleSuccess(ChunkRecord record, WorkResult result)
     {
-        var work = new WorkItem(result.Index, record.Version);
-
         switch (result.JobType)
         {
             case JobType.Generation:
@@ -230,7 +226,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
                 record.Stage = ChunkStage.Generated;
                 record.Chunk = result.Chunk;
                 
-                volume.TryAdd(record.Chunk!);
+                volume.TryAdd(result.Chunk!);
 
                 TryScheduleLinking(result.Index);
 
@@ -243,6 +239,9 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
                 break;
             case JobType.Linking:
                 record.Stage = ChunkStage.Lighting;
+                
+                var work = new WorkItem(result.Index, record.Version, result.Chunk, result.Chunk?.Neighbors);
+                
                 if (!lightChannel.Writer.TryWrite(work))
                     pendingLighting.Enqueue(work);
                 break;
@@ -271,12 +270,12 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         if (record.Chunk is null)
             return;
 
-        if (!AllNeighborsExist(record.Chunk))
+        if (!TryCollectNeighbors(record.Chunk, out var neighbors))
             return;
 
         record.Stage = ChunkStage.Linking;
 
-        var work = new WorkItem(index, record.Version);
+        var work = new WorkItem(index, record.Version,record.Chunk, neighbors);
         if (!linkChannel.Writer.TryWrite(work))
             pendingLinking.Enqueue(work);
     }
@@ -295,27 +294,14 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         if (record.Chunk is null)
             return;
 
-        if (!AllNeighborsExist(record.Chunk))
+        if (!TryCollectNeighbors(record.Chunk, out var neighbors))
             return;
 
         record.Stage = ChunkStage.Meshing;
 
-        var work = new WorkItem(index, record.Version);
+        var work = new WorkItem(index, record.Version, record.Chunk, neighbors);
         if (!meshChannel.Writer.TryWrite(work))
             pendingMeshing.Enqueue(work);
-    }
-
-    private bool AllNeighborsExist(Chunk chunk)
-    {
-        foreach (var nIdx in chunk.GetNeighborIndexes())
-        {
-            if (!registry.TryGetValue(nIdx, out var record))
-                return false;
-
-            if (record.Chunk is null) return false;
-        }
-
-        return true;
     }
 
     private void HandleRelight(Vec3<int> index, ulong version)
@@ -329,13 +315,13 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
             case ChunkStage.Meshing:
                 record.Version = NextVersion;
                 record.Stage = ChunkStage.Lighting;
-                pendingLighting.Enqueue(new WorkItem(index, record.Version));
+                pendingLighting.Enqueue(new WorkItem(index, record.Version, record.Chunk, record.Chunk?.Neighbors));
                 return;
 
             case ChunkStage.Lit:
             case ChunkStage.Meshed:
                 record.Stage = ChunkStage.Lighting;
-                pendingLighting.Enqueue(new WorkItem(index, record.Version));
+                pendingLighting.Enqueue(new WorkItem(index, record.Version, record.Chunk, record.Chunk?.Neighbors));
                 return;
 
             case ChunkStage.Lighting:
@@ -415,6 +401,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
             if (record.Chunk is { } chunk)
             {
                 chunkMesher.Remove(chunk.Index);
+                linker.UnlinkChunk(chunk);
                 volume.RemoveChunk(chunk.Index);
 
                 /*if (!volume.ContainsColumn(chunk.Index.X, chunk.Index.Z))
@@ -524,7 +511,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
 
             if (record.Stage == ChunkStage.Fresh)
             {
-                var item = new WorkItem(id, record.Version);
+                var item = new WorkItem(id, record.Version, null,null);
                 record.Stage = ChunkStage.Generating;
 
                 if (!genChannel.Writer.TryWrite(item))
@@ -558,20 +545,24 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         await foreach (var item in linkChannel.Reader.ReadAllAsync(ct))
         {
-            var result = new WorkResult(item.Index, item.Version, JobType.Linking, ResultStatus.Skipped, null, null);
+            var result = new WorkResult(item.Index, item.Version, JobType.Linking, ResultStatus.Skipped, item.Chunk,
+                null);
             try
             {
-                if (TryGetChunk(item.Index, item.Version, out var chunk))
+                if (item.Chunk is null || item.Neighbors is null)
                 {
-                    linker.LinkChunk(chunk);
-                    result.Status = ResultStatus.Success;
+                    await resultChannel.Writer.WriteAsync(result, ct);
+                    continue;
                 }
+                
+                linker.LinkChunk(item.Chunk, item.Neighbors.Value);
+                result.Status = ResultStatus.Success;
             }
             catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
             {
                 Console.WriteLine(ex);
                 result.Exception = ex;
-                result.Status= ResultStatus.Failed;
+                result.Status = ResultStatus.Failed;
             }
 
             await resultChannel.Writer.WriteAsync(result, ct);
@@ -582,10 +573,10 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         await foreach (var item in lightChannel.Reader.ReadAllAsync(ct))
         {
-            var result = new WorkResult(item.Index, item.Version, JobType.Lighting, ResultStatus.Skipped, null, null);
+            var result = new WorkResult(item.Index, item.Version, JobType.Lighting, ResultStatus.Skipped, item.Chunk, null);
             try
             {
-                if (!TryGetChunk(item.Index, item.Version, out _))
+                if (item.Chunk is null)
                 {
                     await resultChannel.Writer.WriteAsync(result, ct);
                     continue;
@@ -602,7 +593,8 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
                 }
 
                 var (relightNeighbors, refreshMeshNeighbors) = LightSystem.RunBFS(chunk);*/
-
+                
+                result.Chunk = item.Chunk;
                 result.Status = ResultStatus.Success;
                 await resultChannel.Writer.WriteAsync(result, ct);
                 // Re-feed neighbors who received new light values
@@ -651,16 +643,16 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         await foreach (var item in meshChannel.Reader.ReadAllAsync(ct))
         {
-            var result = new WorkResult(item.Index, item.Version, JobType.Meshing, ResultStatus.Skipped, null, null);
+            var result = new WorkResult(item.Index, item.Version, JobType.Meshing, ResultStatus.Skipped, item.Chunk, null);
             try
             {
-                if (!TryGetChunk(item.Index, item.Version, out var chunk) || !chunk.AllNeighborsExist)
+                if (item.Chunk is null || item.Neighbors is null || item.Neighbors is { All: false })
                 {
                     await resultChannel.Writer.WriteAsync(result, ct);
                     continue;
                 }
 
-                chunkMesher.Build(chunk);
+                chunkMesher.Build(item.Chunk, item.Neighbors.Value);
                 result.Status = ResultStatus.Success;
             }
             catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
@@ -674,21 +666,26 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         }
     }
 
-    private bool TryGetChunk(Vec3<int> index, ulong version, [MaybeNullWhen(false)] out Chunk chunk)
+    private bool TryCollectNeighbors(Chunk chunk, out NeighborSet neighbors)
     {
-        chunk = null;
+        registry.TryGetValue(chunk.Index + new Vec3<int>(0, 0, 1), out var zPos);
+        registry.TryGetValue(chunk.Index + new Vec3<int>(0, 0, -1), out var zNeg);
+        registry.TryGetValue(chunk.Index + new Vec3<int>(1, 0, 0), out var xPos);
+        registry.TryGetValue(chunk.Index + new Vec3<int>(-1, 0, 0), out var xNeg);
+        registry.TryGetValue(chunk.Index + new Vec3<int>(0, 1, 0), out var yPos);
+        registry.TryGetValue(chunk.Index + new Vec3<int>(0, -1, 0), out var yNeg);
 
-        if (!registry.TryGetValue(index, out var record))
-            return false;
+        neighbors = new NeighborSet
+        {
+            ZPos = zPos?.Chunk,
+            ZNeg = zNeg?.Chunk,
+            XPos = xPos?.Chunk,
+            XNeg = xNeg?.Chunk,
+            YPos = yPos?.Chunk,
+            YNeg = yNeg?.Chunk
+        };
 
-        if (record.Version != version)
-            return false;
-
-        if (record.Chunk is null)
-            return false;
-
-        chunk = record.Chunk;
-        return true;
+        return neighbors.All;
     }
 
     // Disposal
@@ -727,7 +724,7 @@ class ChunkPipeline : IDisposable, IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    private record struct WorkItem(Vec3<int> Index, ulong Version);
+    private record struct WorkItem(Vec3<int> Index, ulong Version, Chunk? Chunk, NeighborSet? Neighbors);
     
     private record struct WorkResult(Vec3<int> Index, ulong Version, JobType JobType, ResultStatus Status, Chunk? Chunk, Exception? Exception);
 

@@ -43,7 +43,7 @@ internal class WorldLoader(
         ConcurrentBag<Chunk> generatedChunks = [];
         var indexesForGeneration = volume.CollectIndexesForGeneration(center);
 
-        var linker = new ChunkLinker(volume);
+        var linker = new ChunkLinker();
 
         Parallel.ForEach(indexesForGeneration, index =>
         {
@@ -59,7 +59,8 @@ internal class WorldLoader(
 
         foreach (var chunk in generatedChunks)
         {
-            linker.LinkChunk(chunk);
+            var neighbors = volume.CollectNeighbors(chunk);
+            linker.LinkChunk(chunk, neighbors);
         }
 
         List<Chunk> readyChunks = [];
@@ -77,7 +78,7 @@ internal class WorldLoader(
                 continue;
             }
 
-            if (chunk.AllNeighborsExist)
+            if (chunk.Neighbors.All)
             {
                 readyChunks.Add(chunk);
             }
@@ -117,7 +118,7 @@ internal class WorldLoader(
 
         Parallel.ForEach(readyChunks, chunk =>
         {
-            chunkMesher.Build(chunk);
+            chunkMesher.Build(chunk, chunk.Neighbors);
             chunk.IsReady = true;
             pipeline.AddToRegistry(chunk, ChunkStage.Meshed);
         });
@@ -134,7 +135,7 @@ internal class WorldLoader(
         GC.SuppressFinalize(this);
     }
 
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
         if (disposed) return;
         disposed = true;
