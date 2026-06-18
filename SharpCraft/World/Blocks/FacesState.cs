@@ -6,7 +6,10 @@ internal record struct FacesState
 
         public FacesState() { }
 
-        public FacesState(bool value) => data = value ? (byte)0x3F : (byte)0;
+        public FacesState(bool value)
+        {
+            data = value ? (byte)0x3F : (byte)0;
+        }
 
         public readonly bool Any() => data != 0;
         

@@ -3,6 +3,7 @@ using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SharpCraft.World.Lighting;
 
@@ -54,10 +55,10 @@ internal class LightSystem
         return touched;
     }
 
-    public static (HashSet<Chunk> lightTouched, HashSet<Chunk> meshTouched) RunBFS(Chunk chunk)
+    public static (HashSet<Chunk> MeshTouched, HashSet<Chunk> LightSpilled) RunBFS(Chunk chunk, in NeighborSet neighbors)
     {
-        HashSet<Chunk> lightPropagationTargets = [];
-        HashSet<Chunk> meshRefreshTargets = [];
+        HashSet<Chunk> lightSpilledChunks = [];
+        HashSet<Chunk> meshTouchedChunks = [];
         Queue<LightNode> localQueue = [];
 
         while (chunk.LightQueue.TryDequeue(out var pending))
@@ -73,10 +74,24 @@ internal class LightSystem
         while (localQueue.TryDequeue(out var node))
         {
             if (node.IsEmpty) continue;
-            BFSPropagateChunkLocal(node.Chunk, node.X, node.Y, node.Z, localQueue, lightPropagationTargets, meshRefreshTargets);
+            var (meshTouched, lightSpilled) = BFSPropagateChunkLocal(node.Chunk, node.X, node.Y, node.Z, localQueue, neighbors);
+            
+            if (meshTouched.ZPos) meshTouchedChunks.Add(neighbors.ZPos!);
+            if (meshTouched.ZNeg) meshTouchedChunks.Add(neighbors.ZNeg!);
+            if (meshTouched.XPos) meshTouchedChunks.Add(neighbors.XPos!);
+            if (meshTouched.XNeg) meshTouchedChunks.Add(neighbors.XNeg!);
+            if (meshTouched.YPos) meshTouchedChunks.Add(neighbors.YPos!);
+            if (meshTouched.YNeg) meshTouchedChunks.Add(neighbors.YNeg!);
+            
+            if (lightSpilled.ZPos) lightSpilledChunks.Add(neighbors.ZPos!);
+            if (lightSpilled.ZNeg) lightSpilledChunks.Add(neighbors.ZNeg!);
+            if (lightSpilled.XPos) lightSpilledChunks.Add(neighbors.XPos!);
+            if (lightSpilled.XNeg) lightSpilledChunks.Add(neighbors.XNeg!);
+            if (lightSpilled.YPos) lightSpilledChunks.Add(neighbors.YPos!);
+            if (lightSpilled.YNeg) lightSpilledChunks.Add(neighbors.YNeg!);
         }
 
-        return (lightPropagationTargets, meshRefreshTargets);
+        return (meshTouchedChunks, lightSpilledChunks);
     }
 
     public HashSet<Chunk> RunRemovalBFS()
@@ -306,15 +321,16 @@ internal class LightSystem
         return (nodes, lightValues);
     }
 
-    private static void BFSPropagateChunkLocal(
+    private static (FacesState MeshTouched, FacesState LightSpilled) BFSPropagateChunkLocal(
     Chunk chunk,
     int x, int y, int z,
     Queue<LightNode> localQueue,
-    HashSet<Chunk> lightPropagationTargets,
-    HashSet<Chunk> meshRefreshTargets)
+    in NeighborSet neighbors)
     {
+        FacesState meshTouched = default, lightSpilled = default;
+        
         LightValue light = chunk.GetLight(x, y, z);
-        if (light == LightValue.Null) return;
+        if (light == LightValue.Null) return (meshTouched, lightSpilled);
 
         // Lateral attenuation: both sky and block lose 1
         LightValue lateral = light;
@@ -328,12 +344,14 @@ internal class LightSystem
         if (down.BlockValue > 0)
             down = down.SubtractBlockValue(1);
 
-        PropagateFace(chunk, x, y + 1, z, chunk.YPos, x, 0, z, y == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
-        PropagateFace(chunk, x, y - 1, z, chunk.YNeg, x, Chunk.Last, z, y == 0, down, localQueue, lightPropagationTargets, meshRefreshTargets);
-        PropagateFace(chunk, x + 1, y, z, chunk.XPos, 0, y, z, x == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
-        PropagateFace(chunk, x - 1, y, z, chunk.XNeg, Chunk.Last, y, z, x == 0, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
-        PropagateFace(chunk, x, y, z + 1, chunk.ZPos, x, y, 0, z == Chunk.Last, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
-        PropagateFace(chunk, x, y, z - 1, chunk.ZNeg, x, y, Chunk.Last, z == 0, lateral, localQueue, lightPropagationTargets, meshRefreshTargets);
+        (meshTouched.YPos, lightSpilled.YPos) = PropagateFace(chunk, x, y + 1, z, neighbors.YPos!, x, 0, z, y == Chunk.Last, lateral, localQueue);
+        (meshTouched.YNeg, lightSpilled.YNeg) = PropagateFace(chunk, x, y - 1, z, neighbors.YNeg!, x, Chunk.Last, z, y == 0, down, localQueue);
+        (meshTouched.XPos, lightSpilled.XPos) = PropagateFace(chunk, x + 1, y, z, neighbors.XPos!, 0, y, z, x == Chunk.Last, lateral, localQueue);
+        (meshTouched.XNeg, lightSpilled.XNeg) = PropagateFace(chunk, x - 1, y, z, neighbors.XNeg!, Chunk.Last, y, z, x == 0, lateral, localQueue);
+        (meshTouched.ZPos, lightSpilled.ZPos) = PropagateFace(chunk, x, y, z + 1, neighbors.ZPos!, x, y, 0, z == Chunk.Last, lateral, localQueue);
+        (meshTouched.ZNeg, lightSpilled.ZNeg) = PropagateFace(chunk, x, y, z - 1, neighbors.ZNeg!, x, y, Chunk.Last, z == 0, lateral, localQueue);
+        
+        return (meshTouched, lightSpilled);
     }
 
     void BFSPropagate(Chunk chunk, sbyte x, sbyte y, sbyte z)
@@ -556,39 +574,43 @@ internal class LightSystem
         }
     }
 
-    private static void PropagateFace(
-    Chunk chunk,
-    int lx, int ly, int lz,
-    Chunk neighbor, int nx, int ny, int nz,
-    bool isBoundary,
-    LightValue next,
-    Queue<LightNode> localQueue,
-    HashSet<Chunk> lightPropagationTargets,
-    HashSet<Chunk> meshRefreshTargets)
+    private static (bool MeshTouched, bool LightSpilled) PropagateFace(
+        Chunk chunk,
+        int lx, int ly, int lz,
+        [MaybeNull] Chunk neighbor,
+        int nx, int ny, int nz,
+        bool isBoundary,
+        LightValue next,
+        Queue<LightNode> localQueue)
     {
+        bool meshTouched = false;
+        bool lightSpilled = false;
+
+        if (neighbor is null)
+        {
+            return (meshTouched, lightSpilled);
+        }
+        
         if (isBoundary)
         {
-            if (neighbor is null) return;
             if (!neighbor.IsBlockTransparent(nx, ny, nz))
             {
-                meshRefreshTargets.Add(neighbor);
-                return;
+                meshTouched = true;
             }
-            if (neighbor.GetLight(nx, ny, nz).Compare(next, out LightValue value))
+            else if (neighbor.GetLight(nx, ny, nz).Compare(next, out LightValue value))
             {
                 neighbor.LightQueue.Enqueue((value, (byte)nx, (byte)ny, (byte)nz));
-                lightPropagationTargets.Add(neighbor);
+                lightSpilled = true;
             }
         }
-        else
+        else if (chunk.IsBlockTransparent(lx, ly, lz)
+                 && chunk.GetLight(lx, ly, lz).Compare(next, out LightValue value))
         {
-            if (!chunk.IsBlockTransparent(lx, ly, lz)) return;
-            if (chunk.GetLight(lx, ly, lz).Compare(next, out LightValue value))
-            {
-                chunk.SetLight(lx, ly, lz, value);
-                localQueue.Enqueue(new LightNode(chunk, lx, ly, lz));
-            }
+            chunk.SetLight(lx, ly, lz, value);
+            localQueue.Enqueue(new LightNode(chunk, lx, ly, lz));
         }
+
+        return (meshTouched, lightSpilled);
     }
 
     public static FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int x, int y, int z, Chunk chunk)

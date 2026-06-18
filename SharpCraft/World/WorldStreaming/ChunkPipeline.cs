@@ -577,7 +577,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             var result = new WorkResult(item.Index, item.Version, JobType.Lighting, ResultStatus.Skipped, item.Chunk, null);
             try
             {
-                if (item.Chunk is null)
+                if (item.Chunk is null || item.Neighbors is null || item.Neighbors is { All: false })
                 {
                     await resultChannel.Writer.WriteAsync(result, ct);
                     continue;
@@ -594,13 +594,13 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     LightSystem.InitializeLight(chunk);
                 }
 
-                var (relightNeighbors, refreshMeshNeighbors) = LightSystem.RunBFS(chunk);
+                var (meshTouchedNeighbors, lightSpilledNeighbors) = LightSystem.RunBFS(chunk, item.Neighbors.Value);
                 
                 result.Chunk = item.Chunk;
                 result.Status = ResultStatus.Success;
                 await resultChannel.Writer.WriteAsync(result, ct);
                 // Re-feed neighbors who received new light values
-                foreach (var neighbor in relightNeighbors)
+                foreach (var neighbor in lightSpilledNeighbors)
                 {
                     if (!registry.TryGetValue(neighbor.Index, out var neighborRecord))
                         continue;
@@ -611,9 +611,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
                 // Rebuild neighbors whose boundary mesh depends on this light,
                 // but who did not receive light because the boundary block is opaque
-                foreach (var neighbor in refreshMeshNeighbors)
+                foreach (var neighbor in meshTouchedNeighbors)
                 {
-                    if (relightNeighbors.Contains(neighbor))
+                    if (lightSpilledNeighbors.Contains(neighbor))
                         continue;
 
                     if (!registry.TryGetValue(neighbor.Index, out var neighborRecord))

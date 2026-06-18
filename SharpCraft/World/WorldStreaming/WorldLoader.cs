@@ -92,13 +92,13 @@ internal class WorldLoader(
         Parallel.ForEach(sunlightChunks, chunk =>
         {
             LightSystem.InitializeSkylight(chunk);
-            LightSystem.RunBFS(chunk);
+            LightSystem.RunBFS(chunk, chunk.Neighbors);
         });
 
         Parallel.ForEach(readyChunks, chunk =>
         {
             LightSystem.InitializeLight(chunk);
-            LightSystem.RunBFS(chunk);
+            LightSystem.RunBFS(chunk, chunk.Neighbors);
         });
 
         int anyPending;
@@ -110,7 +110,7 @@ internal class WorldLoader(
             {
                 if (!chunk.LightQueue.IsEmpty)
                 {
-                    LightSystem.RunBFS(chunk);
+                    LightSystem.RunBFS(chunk, chunk.Neighbors);
                     Interlocked.Exchange(ref anyPending, 1);
                 }
             });
