@@ -1,6 +1,7 @@
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Meshing;
+using SharpCraft.World.Lighting;
 using SharpCraft.SharpMath;
 
 using System.Numerics;
@@ -67,10 +68,11 @@ internal class WorldLoader(
         List<Chunk> sunlightChunks = [];
         foreach (var chunk in generatedChunks)
         {
-            /*if (chunkGenerator.IsSunlight(chunk))
+            //if (chunkGenerator.IsSunlight(chunk))
+            if (!chunk.IsEmpty)
             {
                 sunlightChunks.Add(chunk);
-            }*/
+            }
 
             if (chunk.IsReady)
             {
@@ -88,7 +90,7 @@ internal class WorldLoader(
             }
         }
 
-        /*Parallel.ForEach(sunlightChunks, chunk =>
+        Parallel.ForEach(sunlightChunks, chunk =>
         {
             LightSystem.InitializeSkylight(chunk);
             LightSystem.RunBFS(chunk);
@@ -98,9 +100,9 @@ internal class WorldLoader(
         {
             LightSystem.InitializeLight(chunk);
             LightSystem.RunBFS(chunk);
-        });*/
+        });
 
-        /*int anyPending;
+        int anyPending;
         do
         {
             anyPending = 0;
@@ -114,7 +116,7 @@ internal class WorldLoader(
                 }
             });
 
-        } while (anyPending != 0);*/
+        } while (anyPending != 0);
 
         Parallel.ForEach(readyChunks, chunk =>
         {

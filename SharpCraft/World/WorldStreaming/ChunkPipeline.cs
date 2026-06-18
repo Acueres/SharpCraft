@@ -2,6 +2,7 @@ using SharpCraft.SharpMath;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.Generation;
+using SharpCraft.World.Lighting;
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
@@ -582,7 +583,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     continue;
                 }
 
-                /*if (chunkGenerator.IsSunlight(chunk))
+                var chunk = item.Chunk;
+                //if (chunkGenerator.IsSunlight(chunk))
+                if (!chunk.IsEmpty)
                 {
                     LightSystem.InitializeSkylight(chunk);
                 }
@@ -592,24 +595,24 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     LightSystem.InitializeLight(chunk);
                 }
 
-                var (relightNeighbors, refreshMeshNeighbors) = LightSystem.RunBFS(chunk);*/
+                var (relightNeighbors, refreshMeshNeighbors) = LightSystem.RunBFS(chunk);
                 
                 result.Chunk = item.Chunk;
                 result.Status = ResultStatus.Success;
                 await resultChannel.Writer.WriteAsync(result, ct);
                 // Re-feed neighbors who received new light values
-                /*foreach (var neighbor in relightNeighbors)
+                foreach (var neighbor in relightNeighbors)
                 {
                     if (!registry.TryGetValue(neighbor.Index, out var neighborRecord))
                         continue;
 
                     var neighborRelightResult = new WorkResult(neighbor.Index, neighborRecord.Version, JobType.Lighting, ResultStatus.RelightRequested, null, null);
                     await resultChannel.Writer.WriteAsync(neighborRelightResult, ct);
-                }*/
+                }
 
                 // Rebuild neighbors whose boundary mesh depends on this light,
                 // but who did not receive light because the boundary block is opaque
-                /*foreach (var neighbor in refreshMeshNeighbors)
+                foreach (var neighbor in refreshMeshNeighbors)
                 {
                     if (relightNeighbors.Contains(neighbor))
                         continue;
@@ -626,7 +629,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                         null);
 
                     await resultChannel.Writer.WriteAsync(neighborRemeshResult, ct);
-                }*/
+                }
             }
             catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
             {

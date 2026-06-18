@@ -2,6 +2,7 @@ using SharpCraft.World.Blocks;
 using SharpCraft.SharpMath;
 using SharpCraft.Rendering;
 using SharpCraft.World.Chunks;
+using SharpCraft.World.Lighting;
 
 using System.Collections.Concurrent;
 using System.Numerics;
@@ -12,9 +13,6 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
 {
     private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> facesCache = [];
     private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> transparentFacesCache = [];
-
-    private const byte Skylight = 15;
-    private const byte BlockLight = 0;
     
     public VoxelFace[] GetFaces(in Vec3<int> index)
     {
@@ -53,14 +51,14 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
 
             Vector3 position = new Vector3(x, y, z) + chunk.Position;
 
-            //FacesData<LightValue> lightValues = LightSystem.GetFacesLight(visibleFaces, x, y, z, chunk);
+            FacesData<LightValue> lightValues = LightSystem.GetFacesLight(visibleFaces, x, y, z, chunk);
             Block block = chunk[x, y, z];
             bool transparent = blockRegistry.IsTransparent(block);
             var target = transparent ? transparentFaces : faces;
             
             foreach (FaceDirection face in visibleFaces.GetFaces())
             {
-                //LightValue light = lightValues.GetValue(face);
+                LightValue light = lightValues.GetValue(face);
                 
                 var voxelFace = new VoxelFace(
                     position.X,
@@ -68,7 +66,7 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
                     position.Z,
                     (uint)face,
                     blockRegistry.GetFaceTextureLayer(block, face),
-                    PackLight(Skylight, BlockLight)
+                    light.Value
                 );
                 
                 target.Add(voxelFace);
@@ -76,12 +74,5 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
         }
 
         return ([.. faces], [.. transparentFaces]);
-    }
-    
-    private static uint PackLight(byte skylight, byte blockLight)
-    {
-        return
-            ((uint)skylight & 0xF) |
-            (((uint)blockLight & 0xF) << 4);
     }
 }
