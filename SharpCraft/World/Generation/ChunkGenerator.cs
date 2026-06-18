@@ -2,10 +2,14 @@ using SharpCraft.World.Chunks;
 using SharpCraft.World.Blocks;
 using SharpCraft.SharpMath;
 
+using System.Collections.Concurrent;
+
 namespace SharpCraft.World.Generation;
 
 internal class ChunkGenerator(BlockRegistry blockRegistry)
 {
+    private readonly ConcurrentDictionary<Vec2<int>, int> maxHeightCache = [];
+    
     public Chunk GenerateChunk(Vec3<int> index)
     {
         Chunk chunk = new(index, blockRegistry);
@@ -35,10 +39,31 @@ internal class ChunkGenerator(BlockRegistry blockRegistry)
 
             buffer[x, localY, z] = new Block(block);
         }
-
+        
         chunk.BuildPalette(buffer);
+        
+        Vec2<int> cacheIndex = new(index.X, index.Z);
+        AdjustMaximumElevation(chunk, cacheIndex);
 
         return chunk;
+    }
+    
+    public bool IsSunlight(Chunk chunk)
+    {
+        int maxElevation = maxHeightCache[new Vec2<int>(chunk.Index.X, chunk.Index.Z)];
+        int y = Chunk.WorldToChunkIndex(maxElevation);
+        return chunk.Index.Y == y || chunk.Index.Y == y + 1;
+    }
+    
+    private void AdjustMaximumElevation(Chunk chunk, Vec2<int> cacheIndex)
+    {
+        int? newMaxElevation = chunk.GetMaximumTerrainElevation();
+        if (!newMaxElevation.HasValue) return;
+
+        maxHeightCache.AddOrUpdate(
+            cacheIndex,
+            newMaxElevation.Value,
+            (_, existing) => Math.Max(existing, newMaxElevation.Value));
     }
 
     private static int GetTerrainHeight(int x, int z)

@@ -584,8 +584,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 }
 
                 var chunk = item.Chunk;
-                //if (chunkGenerator.IsSunlight(chunk))
-                if (!chunk.IsEmpty)
+                if (chunkGenerator.IsSunlight(chunk))
                 {
                     LightSystem.InitializeSkylight(chunk);
                 }

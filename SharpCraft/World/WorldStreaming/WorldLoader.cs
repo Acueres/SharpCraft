@@ -68,8 +68,7 @@ internal class WorldLoader(
         List<Chunk> sunlightChunks = [];
         foreach (var chunk in generatedChunks)
         {
-            //if (chunkGenerator.IsSunlight(chunk))
-            if (!chunk.IsEmpty)
+            if (chunkGenerator.IsSunlight(chunk))
             {
                 sunlightChunks.Add(chunk);
             }
