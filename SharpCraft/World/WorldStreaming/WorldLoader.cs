@@ -91,14 +91,32 @@ internal class WorldLoader(
 
         Parallel.ForEach(sunlightChunks, chunk =>
         {
+            var neighbors = chunk.Neighbors;
+
             LightSystem.InitializeSkylight(chunk);
-            LightSystem.RunBFS(chunk, chunk.Neighbors);
+            var (_, spilledLight) = LightSystem.RunBFS(chunk, chunk.Neighbors);
+
+            if (spilledLight.ZPos.Count != 0) foreach (var node in spilledLight.ZPos) neighbors.ZPos!.EnqueueLight(node);
+            if (spilledLight.ZNeg.Count != 0) foreach (var node in spilledLight.ZNeg) neighbors.ZNeg!.EnqueueLight(node);
+            if (spilledLight.XPos.Count != 0) foreach (var node in spilledLight.XPos) neighbors.XPos!.EnqueueLight(node);
+            if (spilledLight.XNeg.Count != 0) foreach (var node in spilledLight.XNeg) neighbors.XNeg!.EnqueueLight(node);
+            if (spilledLight.YPos.Count != 0) foreach (var node in spilledLight.YPos) neighbors.YPos!.EnqueueLight(node);
+            if (spilledLight.YNeg.Count != 0) foreach (var node in spilledLight.YNeg) neighbors.YNeg!.EnqueueLight(node);
         });
 
         Parallel.ForEach(readyChunks, chunk =>
         {
+            var neighbors = chunk.Neighbors;
+
             LightSystem.InitializeLight(chunk);
-            LightSystem.RunBFS(chunk, chunk.Neighbors);
+            var (_, spilledLight) = LightSystem.RunBFS(chunk, chunk.Neighbors);
+
+            if (spilledLight.ZPos.Count != 0) foreach (var node in spilledLight.ZPos) neighbors.ZPos!.EnqueueLight(node);
+            if (spilledLight.ZNeg.Count != 0) foreach (var node in spilledLight.ZNeg) neighbors.ZNeg!.EnqueueLight(node);
+            if (spilledLight.XPos.Count != 0) foreach (var node in spilledLight.XPos) neighbors.XPos!.EnqueueLight(node);
+            if (spilledLight.XNeg.Count != 0) foreach (var node in spilledLight.XNeg) neighbors.XNeg!.EnqueueLight(node);
+            if (spilledLight.YPos.Count != 0) foreach (var node in spilledLight.YPos) neighbors.YPos!.EnqueueLight(node);
+            if (spilledLight.YNeg.Count != 0) foreach (var node in spilledLight.YNeg) neighbors.YNeg!.EnqueueLight(node);
         });
 
         int anyPending;

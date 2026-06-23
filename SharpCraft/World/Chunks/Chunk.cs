@@ -48,6 +48,11 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 
     public ConcurrentQueue<(LightValue Value, byte X, byte Y, byte Z)> LightQueue { get; } = [];
     private readonly HashSet<Vec3<byte>> lightSources = [];
+
+    public void EnqueueLight(in LightNode lightNode)
+    {
+        LightQueue.Enqueue((lightNode.Value, (byte)lightNode.X, (byte)lightNode.Y, (byte)lightNode.Z));
+    }
     
     [ThreadStatic]
     private static Block[,,]? buffer;

@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace SharpCraft.World.Chunks;
 
 internal readonly struct NeighborSet

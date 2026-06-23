@@ -39,7 +39,7 @@ internal class LightSystem
         GetNeighborsLight(chunk);
     }
 
-    public HashSet<Chunk> RunBFS()
+    /*public HashSet<Chunk> RunBFS()
     {
         HashSet<Chunk> touched = [];
 
@@ -53,12 +53,10 @@ internal class LightSystem
         }
 
         return touched;
-    }
+    }*/
 
-    public static (HashSet<Chunk> MeshTouched, HashSet<Chunk> LightSpilled) RunBFS(Chunk chunk, in NeighborSet neighbors)
+    public static (FacesState MeshTouched, FacesData<List<LightNode>> SpilledLight) RunBFS(Chunk chunk, in NeighborSet neighbors)
     {
-        HashSet<Chunk> lightSpilledChunks = [];
-        HashSet<Chunk> meshTouchedChunks = [];
         Queue<LightNode> localQueue = [];
 
         while (chunk.LightQueue.TryDequeue(out var pending))
@@ -67,34 +65,44 @@ internal class LightSystem
             if (existing.Compare(pending.Value, out LightValue merged))
             {
                 chunk.SetLight(pending.X, pending.Y, pending.Z, merged);
-                localQueue.Enqueue(new LightNode(chunk, pending.X, pending.Y, pending.Z));
+                localQueue.Enqueue(new LightNode(merged, pending.X, pending.Y, pending.Z));
             }
         }
 
+        FacesState meshTouched = default;
+        FacesData<List<LightNode>> spilledLight = new()
+        {
+            ZPos = [],
+            ZNeg = [],
+            XPos = [],
+            XNeg = [],
+            YPos = [],
+            YNeg = []
+        };
+
         while (localQueue.TryDequeue(out var node))
         {
-            if (node.IsEmpty) continue;
-            var (meshTouched, lightSpilled) = BFSPropagateChunkLocal(node.Chunk, node.X, node.Y, node.Z, localQueue, neighbors);
-            
-            if (meshTouched.ZPos) meshTouchedChunks.Add(neighbors.ZPos!);
-            if (meshTouched.ZNeg) meshTouchedChunks.Add(neighbors.ZNeg!);
-            if (meshTouched.XPos) meshTouchedChunks.Add(neighbors.XPos!);
-            if (meshTouched.XNeg) meshTouchedChunks.Add(neighbors.XNeg!);
-            if (meshTouched.YPos) meshTouchedChunks.Add(neighbors.YPos!);
-            if (meshTouched.YNeg) meshTouchedChunks.Add(neighbors.YNeg!);
-            
-            if (lightSpilled.ZPos) lightSpilledChunks.Add(neighbors.ZPos!);
-            if (lightSpilled.ZNeg) lightSpilledChunks.Add(neighbors.ZNeg!);
-            if (lightSpilled.XPos) lightSpilledChunks.Add(neighbors.XPos!);
-            if (lightSpilled.XNeg) lightSpilledChunks.Add(neighbors.XNeg!);
-            if (lightSpilled.YPos) lightSpilledChunks.Add(neighbors.YPos!);
-            if (lightSpilled.YNeg) lightSpilledChunks.Add(neighbors.YNeg!);
+            var (meshTouchedPerNode, spilledLightPerNode) = BFSPropagateChunkLocal(chunk, node.X, node.Y, node.Z, localQueue, neighbors);
+
+            if (meshTouchedPerNode.ZPos) meshTouched.ZPos = true;
+            if (meshTouchedPerNode.ZNeg) meshTouched.ZNeg = true;
+            if (meshTouchedPerNode.XPos) meshTouched.XPos = true;
+            if (meshTouchedPerNode.XNeg) meshTouched.XNeg = true;
+            if (meshTouchedPerNode.YPos) meshTouched.YPos = true;
+            if (meshTouchedPerNode.YNeg) meshTouched.YNeg = true;
+
+            if (spilledLightPerNode.ZPos is not null) spilledLight.ZPos.Add(spilledLightPerNode.ZPos.Value);
+            if (spilledLightPerNode.ZNeg is not null) spilledLight.ZNeg.Add(spilledLightPerNode.ZNeg.Value);
+            if (spilledLightPerNode.XPos is not null) spilledLight.XPos.Add(spilledLightPerNode.XPos.Value);
+            if (spilledLightPerNode.XNeg is not null) spilledLight.XNeg.Add(spilledLightPerNode.XNeg.Value);
+            if (spilledLightPerNode.YPos is not null) spilledLight.YPos.Add(spilledLightPerNode.YPos.Value);
+            if (spilledLightPerNode.YNeg is not null) spilledLight.YNeg.Add(spilledLightPerNode.YNeg.Value);
         }
 
-        return (meshTouchedChunks, lightSpilledChunks);
+        return (meshTouched, spilledLight);
     }
 
-    public HashSet<Chunk> RunRemovalBFS()
+    /*public HashSet<Chunk> RunRemovalBFS()
     {
         HashSet<Chunk> visitedChunks = [];
 
@@ -111,9 +119,9 @@ internal class LightSystem
         }
 
         return visitedChunks;
-    }
+    }*/
 
-    public HashSet<Chunk> RecalculateLightOnBlockUpdate(Chunk chunk, Vec3<byte> index)
+    /*public HashSet<Chunk> RecalculateLightOnBlockUpdate(Chunk chunk, Vec3<byte> index)
     {
         lightRemovalQueue.Enqueue((new LightNode(chunk, index.X, index.Y, index.Z), LightValue.Null));
         var removedVisited = RunRemovalBFS();
@@ -126,9 +134,9 @@ internal class LightSystem
         HashSet<Chunk> combined = [.. removedVisited];
         combined.UnionWith(visited);
         return combined;
-    }
+    }*/
 
-    public HashSet<Chunk> RecalculateLightOnBlockRemoval(Chunk chunk, Vec3<byte> index)
+    /*public HashSet<Chunk> RecalculateLightOnBlockRemoval(Chunk chunk, Vec3<byte> index)
     {
         var (neighborNodes, _) =
             GetNeighborLightValues(index.X, index.Y, index.Z, chunk);
@@ -139,7 +147,7 @@ internal class LightSystem
         }
 
         return RunBFS();
-    }
+    }*/
 
     private static void GetNeighborsLight(Chunk chunk)
     {
@@ -217,7 +225,7 @@ internal class LightSystem
         }
     }
 
-    void SetSourceLight(Chunk chunk)
+    /*void SetSourceLight(Chunk chunk)
     {
         foreach (Vec3<byte> lightSourceIndex in chunk.GetLightSources())
         {
@@ -231,9 +239,9 @@ internal class LightSystem
             chunk.SetLight(x, y, z, sourceLight);
             lightQueue.Enqueue(new LightNode(chunk, x, y, z));
         }
-    }
+    }*/
 
-    static (FacesData<LightNode> nodes, FacesData<LightValue> lightValues) GetNeighborLightValues(int x, int y, int z, Chunk chunk)
+    /*static (FacesData<LightNode> nodes, FacesData<LightValue> lightValues) GetNeighborLightValues(int x, int y, int z, Chunk chunk)
     {
         FacesData<LightNode> nodes = new();
         FacesData<LightValue> lightValues = new();
@@ -319,18 +327,20 @@ internal class LightSystem
         }
 
         return (nodes, lightValues);
-    }
+    }*/
 
-    private static (FacesState MeshTouched, FacesState LightSpilled) BFSPropagateChunkLocal(
+    private static (FacesState MeshTouched, FacesData<LightNode?> SpilledLight) BFSPropagateChunkLocal(
     Chunk chunk,
     int x, int y, int z,
     Queue<LightNode> localQueue,
     in NeighborSet neighbors)
     {
-        FacesState meshTouched = default, lightSpilled = default;
-        
+        FacesState meshTouched = default;
+        FacesData<LightNode?> spilledLight = new();
+
+
         LightValue light = chunk.GetLight(x, y, z);
-        if (light == LightValue.Null) return (meshTouched, lightSpilled);
+        if (light == LightValue.Null) return (meshTouched, spilledLight);
 
         // Lateral attenuation: both sky and block lose 1
         LightValue lateral = light;
@@ -344,17 +354,17 @@ internal class LightSystem
         if (down.BlockValue > 0)
             down = down.SubtractBlockValue(1);
 
-        (meshTouched.YPos, lightSpilled.YPos) = PropagateFace(chunk, x, y + 1, z, neighbors.YPos!, x, 0, z, y == Chunk.Last, lateral, localQueue);
-        (meshTouched.YNeg, lightSpilled.YNeg) = PropagateFace(chunk, x, y - 1, z, neighbors.YNeg!, x, Chunk.Last, z, y == 0, down, localQueue);
-        (meshTouched.XPos, lightSpilled.XPos) = PropagateFace(chunk, x + 1, y, z, neighbors.XPos!, 0, y, z, x == Chunk.Last, lateral, localQueue);
-        (meshTouched.XNeg, lightSpilled.XNeg) = PropagateFace(chunk, x - 1, y, z, neighbors.XNeg!, Chunk.Last, y, z, x == 0, lateral, localQueue);
-        (meshTouched.ZPos, lightSpilled.ZPos) = PropagateFace(chunk, x, y, z + 1, neighbors.ZPos!, x, y, 0, z == Chunk.Last, lateral, localQueue);
-        (meshTouched.ZNeg, lightSpilled.ZNeg) = PropagateFace(chunk, x, y, z - 1, neighbors.ZNeg!, x, y, Chunk.Last, z == 0, lateral, localQueue);
+        (meshTouched.YPos, spilledLight.YPos) = PropagateFace(chunk, x, y + 1, z, neighbors.YPos!, x, 0, z, y == Chunk.Last, lateral, localQueue);
+        (meshTouched.YNeg, spilledLight.YNeg) = PropagateFace(chunk, x, y - 1, z, neighbors.YNeg!, x, Chunk.Last, z, y == 0, down, localQueue);
+        (meshTouched.XPos, spilledLight.XPos) = PropagateFace(chunk, x + 1, y, z, neighbors.XPos!, 0, y, z, x == Chunk.Last, lateral, localQueue);
+        (meshTouched.XNeg, spilledLight.XNeg) = PropagateFace(chunk, x - 1, y, z, neighbors.XNeg!, Chunk.Last, y, z, x == 0, lateral, localQueue);
+        (meshTouched.ZPos, spilledLight.ZPos) = PropagateFace(chunk, x, y, z + 1, neighbors.ZPos!, x, y, 0, z == Chunk.Last, lateral, localQueue);
+        (meshTouched.ZNeg, spilledLight.ZNeg) = PropagateFace(chunk, x, y, z - 1, neighbors.ZNeg!, x, y, Chunk.Last, z == 0, lateral, localQueue);
         
-        return (meshTouched, lightSpilled);
+        return (meshTouched, spilledLight);
     }
 
-    void BFSPropagate(Chunk chunk, sbyte x, sbyte y, sbyte z)
+    /*void BFSPropagate(Chunk chunk, sbyte x, sbyte y, sbyte z)
     {
         LightValue lightValue = chunk.GetLight(x, y, z);
 
@@ -528,9 +538,9 @@ internal class LightSystem
             chunk.SetLight(x, y, z - 1, value);
             lightQueue.Enqueue(new LightNode(chunk, x, y, z - 1));
         }
-    }
+    }*/
 
-    void BFSRemove(LightNode node, LightValue target)
+    /*void BFSRemove(LightNode node, LightValue target)
     {
         LightValue current = node.GetLight();
         if (current == target) return;
@@ -572,9 +582,9 @@ internal class LightSystem
                 lightRemovalQueue.Enqueue((new LightNode(nNode.Chunk), LightValue.Null));
             }
         }
-    }
+    }*/
 
-    private static (bool MeshTouched, bool LightSpilled) PropagateFace(
+    private static (bool MeshTouched, LightNode? spilledLight) PropagateFace(
         Chunk chunk,
         int lx, int ly, int lz,
         [MaybeNull] Chunk neighbor,
@@ -584,11 +594,11 @@ internal class LightSystem
         Queue<LightNode> localQueue)
     {
         bool meshTouched = false;
-        bool lightSpilled = false;
+        LightNode? spilledLight = null;
 
         if (neighbor is null)
         {
-            return (meshTouched, lightSpilled);
+            return (meshTouched, spilledLight);
         }
         
         if (isBoundary)
@@ -597,23 +607,23 @@ internal class LightSystem
             {
                 meshTouched = true;
             }
-            else if (neighbor.GetLight(nx, ny, nz).Compare(next, out LightValue value))
+            else if (neighbor.GetLight(nx, ny, nz).Compare(next, out LightValue merged))
             {
-                neighbor.LightQueue.Enqueue((value, (byte)nx, (byte)ny, (byte)nz));
-                lightSpilled = true;
+                //neighbor.LightQueue.Enqueue((value, (byte)nx, (byte)ny, (byte)nz));
+                spilledLight = new LightNode(merged, nx, ny, nz);
             }
         }
         else if (chunk.IsBlockTransparent(lx, ly, lz)
-                 && chunk.GetLight(lx, ly, lz).Compare(next, out LightValue value))
+                 && chunk.GetLight(lx, ly, lz).Compare(next, out LightValue merged))
         {
-            chunk.SetLight(lx, ly, lz, value);
-            localQueue.Enqueue(new LightNode(chunk, lx, ly, lz));
+            chunk.SetLight(lx, ly, lz, merged);
+            localQueue.Enqueue(new LightNode(merged, lx, ly, lz));
         }
 
-        return (meshTouched, lightSpilled);
+        return (meshTouched, spilledLight);
     }
 
-    public static FacesData<LightValue> GetFacesLight(FacesState visibleFaces, int x, int y, int z, Chunk chunk)
+    public static FacesData<LightValue> GetFacesLight(FacesState visibleFaces, in NeighborSet neighbors, int x, int y, int z, Chunk chunk)
     {
         FacesData<LightValue> lightValues = new();
 
@@ -621,7 +631,7 @@ internal class LightSystem
         {
             if (z == Chunk.Last)
             {
-                lightValues.ZPos = chunk.ZPos.GetLight(x, y, 0);
+                lightValues.ZPos = neighbors.ZPos!.GetLight(x, y, 0);
             }
             else
             {
@@ -633,7 +643,7 @@ internal class LightSystem
         {
             if (z == 0)
             {
-                lightValues.ZNeg = chunk.ZNeg.GetLight(x, y, Chunk.Last);
+                lightValues.ZNeg = neighbors.ZNeg!.GetLight(x, y, Chunk.Last);
             }
             else
             {
@@ -645,7 +655,7 @@ internal class LightSystem
         {
             if (y == Chunk.Last)
             {
-                lightValues.YPos = chunk.YPos.GetLight(x, 0, z);
+                lightValues.YPos = neighbors.YPos!.GetLight(x, 0, z);
             }
             else
             {
@@ -657,7 +667,7 @@ internal class LightSystem
         {
             if (y == 0)
             {
-                lightValues.YNeg = chunk.YNeg.GetLight(x, Chunk.Last, z);
+                lightValues.YNeg = neighbors.YNeg!.GetLight(x, Chunk.Last, z);
             }
             else
             {
@@ -670,7 +680,7 @@ internal class LightSystem
         {
             if (x == Chunk.Last)
             {
-                lightValues.XPos = chunk.XPos.GetLight(0, y, z);
+                lightValues.XPos = neighbors.XPos!.GetLight(0, y, z);
             }
             else
             {
@@ -682,7 +692,7 @@ internal class LightSystem
         {
             if (x == 0)
             {
-                lightValues.XNeg = chunk.XNeg.GetLight(Chunk.Last, y, z);
+                lightValues.XNeg = neighbors.XNeg!.GetLight(Chunk.Last, y, z);
             }
             else
             {
