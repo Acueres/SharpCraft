@@ -436,6 +436,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 linker.UnlinkChunk(chunk);
                 volume.RemoveChunk(chunk.Index);
 
+                chunk.IsReady = false;
+
                 /*if (!volume.ContainsColumn(chunk.Index.X, chunk.Index.Z))
                     chunkGenerator.RemoveCache(chunk.Index);*/
             }

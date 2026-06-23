@@ -338,7 +338,6 @@ internal class LightSystem
         FacesState meshTouched = default;
         FacesData<LightNode?> spilledLight = new();
 
-
         LightValue light = chunk.GetLight(x, y, z);
         if (light == LightValue.Null) return (meshTouched, spilledLight);
 
@@ -603,14 +602,13 @@ internal class LightSystem
         
         if (isBoundary)
         {
-            if (!neighbor.IsBlockTransparent(nx, ny, nz))
+            if (neighbor.IsBlockTransparent(nx, ny, nz))
+            {
+                spilledLight = new LightNode(next, nx, ny, nz);
+            }
+            else
             {
                 meshTouched = true;
-            }
-            else if (neighbor.GetLight(nx, ny, nz).Compare(next, out LightValue merged))
-            {
-                //neighbor.LightQueue.Enqueue((value, (byte)nx, (byte)ny, (byte)nz));
-                spilledLight = new LightNode(merged, nx, ny, nz);
             }
         }
         else if (chunk.IsBlockTransparent(lx, ly, lz)
