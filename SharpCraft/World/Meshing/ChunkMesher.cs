@@ -51,7 +51,7 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
 
             Vector3 position = new Vector3(x, y, z) + chunk.Position;
 
-            FacesData<LightValue> lightValues = LightSystem.GetFacesLight(visibleFaces, neighbors, x, y, z, chunk);
+            FacesData<LightValue> lightValues = chunk.Light!.GetFacesLight(visibleFaces, neighbors, x, y, z);
             Block block = chunk[x, y, z];
             bool transparent = blockRegistry.IsTransparent(block);
             var target = transparent ? transparentFaces : faces;

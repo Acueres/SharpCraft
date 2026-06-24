@@ -9,10 +9,10 @@ namespace SharpCraft.World.Lighting;
 
 internal class LightSystem
 {
-    readonly ConcurrentQueue<LightNode> lightQueue = [];
+    /*readonly ConcurrentQueue<LightNode> lightQueue = [];
     readonly ConcurrentQueue<(LightNode, LightValue)> lightRemovalQueue = [];
 
-    public static void InitializeSkylight(Chunk chunk)
+    public static void SeedSkylight(Chunk chunk)
     {
         chunk.EnsureLight();
 
@@ -20,7 +20,7 @@ internal class LightSystem
             for (int z = 0; z < Chunk.Size; z++)
             {
                 if (!chunk[x, Chunk.Last, z].IsEmpty) continue;
-                chunk.LightQueue.Enqueue((LightValue.Sunlight, (byte)x, Chunk.Last, (byte)z));
+                chunk.Light.Enqueue((LightValue.Sunlight, (byte)x, Chunk.Last, (byte)z));
             }
     }
 
@@ -37,7 +37,7 @@ internal class LightSystem
         }
 
         GetNeighborsLight(chunk);
-    }
+    }*/
 
     /*public HashSet<Chunk> RunBFS()
     {
@@ -55,7 +55,7 @@ internal class LightSystem
         return touched;
     }*/
 
-    public static (FacesState MeshTouched, FacesData<List<LightNode>> SpilledLight) RunBFS(Chunk chunk, in NeighborSet neighbors)
+    /*public static (FacesState MeshTouched, FacesData<List<LightNode>> SpilledLight) RunBFS(Chunk chunk, in NeighborSet neighbors)
     {
         Queue<LightNode> localQueue = [];
 
@@ -100,7 +100,7 @@ internal class LightSystem
         }
 
         return (meshTouched, spilledLight);
-    }
+    }*/
 
     /*public HashSet<Chunk> RunRemovalBFS()
     {
@@ -149,7 +149,7 @@ internal class LightSystem
         return RunBFS();
     }*/
 
-    private static void GetNeighborsLight(Chunk chunk)
+    /*private static void GetNeighborsLight(Chunk chunk)
     {
         for (int x = 0; x < Chunk.Size; x++)
             for (int z = 0; z < Chunk.Size; z++)
@@ -223,7 +223,7 @@ internal class LightSystem
                 (byte)localY,
                 (byte)localZ));
         }
-    }
+    }*/
 
     /*void SetSourceLight(Chunk chunk)
     {
@@ -329,7 +329,7 @@ internal class LightSystem
         return (nodes, lightValues);
     }*/
 
-    private static (FacesState MeshTouched, FacesData<LightNode?> SpilledLight) BFSPropagateChunkLocal(
+    /*private static (FacesState MeshTouched, FacesData<LightNode?> SpilledLight) BFSPropagateChunkLocal(
     Chunk chunk,
     int x, int y, int z,
     Queue<LightNode> localQueue,
@@ -361,7 +361,7 @@ internal class LightSystem
         (meshTouched.ZNeg, spilledLight.ZNeg) = PropagateFace(chunk, x, y, z - 1, neighbors.ZNeg!, x, y, Chunk.Last, z == 0, lateral, localQueue);
         
         return (meshTouched, spilledLight);
-    }
+    }*/
 
     /*void BFSPropagate(Chunk chunk, sbyte x, sbyte y, sbyte z)
     {
@@ -583,7 +583,7 @@ internal class LightSystem
         }
     }*/
 
-    private static (bool MeshTouched, LightNode? spilledLight) PropagateFace(
+    /*private static (bool MeshTouched, LightNode? spilledLight) PropagateFace(
         Chunk chunk,
         int lx, int ly, int lz,
         [MaybeNull] Chunk neighbor,
@@ -699,5 +699,5 @@ internal class LightSystem
         }
 
         return lightValues;
-    }
+    }*/
 }

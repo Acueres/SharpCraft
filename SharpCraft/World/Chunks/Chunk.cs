@@ -3,7 +3,6 @@ using SharpCraft.World.Blocks;
 using SharpCraft.World.Lighting;
 
 using System.Numerics;
-using System.Collections.Concurrent;
 
 namespace SharpCraft.World.Chunks;
 
@@ -21,6 +20,8 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
     public bool IsReady { get; set; }
 
     public readonly object SyncRoot = new();
+    
+    public ChunkLight? Light { get; private set; }
 
     public NeighborSet Neighbors =>
         new()
@@ -44,15 +45,8 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
     private List<Block>? palette;
     private Dictionary<Block, uint>? paletteIndexMap;
     private BitStorage? storage;
-    private LightValue[,,] lightMap;
-
-    public ConcurrentQueue<(LightValue Value, byte X, byte Y, byte Z)> LightQueue { get; } = [];
+    
     private readonly HashSet<Vec3<byte>> lightSources = [];
-
-    public void EnqueueLight(in LightNode lightNode)
-    {
-        LightQueue.Enqueue((lightNode.Value, (byte)lightNode.X, (byte)lightNode.Y, (byte)lightNode.Z));
-    }
     
     [ThreadStatic]
     private static Block[,,]? buffer;
@@ -157,12 +151,12 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
             paletteIndexMap = [];
             paletteIndexMap.Add(Block.Empty, 0);
         }
-        lightMap = new LightValue[Size, Size, Size];
+        EnsureLight();
     }
 
     public void EnsureLight()
     {
-        lightMap ??= new LightValue[Size, Size, Size];
+        Light ??= new ChunkLight(this);
     }
 
     public Block this[int x, int y, int z]
@@ -284,18 +278,6 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         storage = resizedStorage;
     }
 
-    public LightValue GetLight(int x, int y, int z)
-    {
-        EnsureLight();
-        return lightMap[x, y, z];
-    }
-
-    public void SetLight(int x, int y, int z, LightValue value)
-    {
-        EnsureLight();
-        lightMap[x, y, z] = value;
-    }
-
     public void AddLightSource(byte x, byte y, byte z, Block block)
     {
         lightSources.Add(new Vec3<byte>(x, y, z));
@@ -367,7 +349,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         return block.IsEmpty || blockRegistry.IsTransparent(block);
     }
 
-    public FacesState GetVisibleFaces(Vec3<byte> index, in NeighborSet neighbors)
+    private FacesState GetVisibleFaces(Vec3<byte> index, in NeighborSet neighbors)
     {
         FacesState visibleFaces = new();
 

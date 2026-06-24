@@ -326,11 +326,12 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (!registry.TryGetValue(request.Index, out var record)) return;
         if (!record.Flags.HasFlag(ChunkFlags.Wanted)) return;
         if (record.Chunk is null) return;
-
+        if (record.Chunk.Light is null) return;
+        
         // deposit the carried nodes on the main thread
         foreach (var n in request.LightNodes)
         {
-            record.Chunk.EnqueueLight(n);
+            record.Chunk.Light.Enqueue(n);
         }
 
         RequestRelight(record);
@@ -617,17 +618,20 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 }
 
                 var chunk = item.Chunk;
+                chunk.EnsureLight();
+                
                 if (chunkGenerator.IsSunlight(chunk))
                 {
-                    LightSystem.InitializeSkylight(chunk);
+                    chunk.Light!.SeedSkylight();
                 }
 
                 if (!chunk.IsEmpty)
                 {
-                    LightSystem.InitializeLight(chunk);
+                    chunk.Light!.SeedBlockLight();
+                    chunk.Light!.SeedNeighborsLight();
                 }
 
-                var (meshTouched, spilledLight) = LightSystem.RunBFS(chunk, item.Neighbors.Value);
+                var (meshTouched, spilledLight) = chunk.Light!.Flood(item.Neighbors.Value);
 
                 FacesState lightSpilled = default;
 

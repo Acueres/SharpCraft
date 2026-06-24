@@ -14,7 +14,7 @@ internal sealed class BulkLight
         public sbyte Y { get; } = (sbyte)y;
         public sbyte Z { get; } = (sbyte)z;
 
-        public LightValue GetLight() => Chunk.GetLight(X, Y, Z);
+        public LightValue GetLight() => Chunk.Light!.Get(X, Y, Z);
     }
 
     private readonly Queue<Node> queue = [];
@@ -24,17 +24,16 @@ internal sealed class BulkLight
         chunk.EnsureLight();
 
         for (int x = 0; x < Chunk.Size; x++)
+        {
             for (int z = 0; z < Chunk.Size; z++)
             {
                 if (!chunk[x, Chunk.Last, z].IsEmpty) continue;
-
-                LightValue existing = chunk.GetLight(x, Chunk.Last, z);
-                if (existing.Compare(LightValue.Sunlight, out LightValue merged))
-                {
-                    chunk.SetLight(x, Chunk.Last, z, merged);
-                    queue.Enqueue(new Node(chunk, x, Chunk.Last, z));
-                }
+                
+                chunk.Light!.Set(x, Chunk.Last, z, LightValue.Sunlight);
+                var node = new Node(chunk, x, Chunk.Last, z);
+                queue.Enqueue(node);
             }
+        }
     }
     
     public void SeedBlockLights(Chunk chunk)
@@ -44,12 +43,12 @@ internal sealed class BulkLight
         foreach (var src in chunk.GetLightSources())
         {
             byte srcVal = chunk.GetLightSourceValue(src.Into<int>());
-            LightValue current = chunk.GetLight(src.X, src.Y, src.Z);
+            LightValue current = chunk.Light!.Get(src.X, src.Y, src.Z);
 
             LightValue seeded = new(current.SkyValue, srcVal);
             if (current.Compare(seeded, out LightValue merged))
             {
-                chunk.SetLight(src.X, src.Y, src.Z, merged);
+                chunk.Light.Set(src.X, src.Y, src.Z, merged);
                 queue.Enqueue(new Node(chunk, src.X, src.Y, src.Z));
             }
         }
@@ -117,11 +116,11 @@ internal sealed class BulkLight
             tx = lx; ty = ly; tz = lz;
         }
 
-        if (!target.IsBlockTransparent(tx, ty, tz)) return;
-
-        if (target.GetLight(tx, ty, tz).Compare(next, out LightValue merged))
+        if (!target.IsBlockTransparent(tx, ty, tz) || target.Light is null) return;
+        
+        if (target.Light.Get(tx, ty, tz).Compare(next, out LightValue merged))
         {
-            target.SetLight(tx, ty, tz, merged);
+            target.Light.Set(tx, ty, tz, merged);
             queue.Enqueue(new Node(target, tx, ty, tz));
         }
     }
