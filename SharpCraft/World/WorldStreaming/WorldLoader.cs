@@ -89,51 +89,19 @@ internal class WorldLoader(
             }
         }
 
-        Parallel.ForEach(sunlightChunks, chunk =>
+        var bulkLight = new BulkLight();
+
+        foreach (var chunk in sunlightChunks)
         {
-            var neighbors = chunk.Neighbors;
+            bulkLight.SeedSkylight(chunk);
+        }
 
-            LightSystem.InitializeSkylight(chunk);
-            var (_, spilledLight) = LightSystem.RunBFS(chunk, chunk.Neighbors);
-
-            if (spilledLight.ZPos.Count != 0) foreach (var node in spilledLight.ZPos) neighbors.ZPos!.EnqueueLight(node);
-            if (spilledLight.ZNeg.Count != 0) foreach (var node in spilledLight.ZNeg) neighbors.ZNeg!.EnqueueLight(node);
-            if (spilledLight.XPos.Count != 0) foreach (var node in spilledLight.XPos) neighbors.XPos!.EnqueueLight(node);
-            if (spilledLight.XNeg.Count != 0) foreach (var node in spilledLight.XNeg) neighbors.XNeg!.EnqueueLight(node);
-            if (spilledLight.YPos.Count != 0) foreach (var node in spilledLight.YPos) neighbors.YPos!.EnqueueLight(node);
-            if (spilledLight.YNeg.Count != 0) foreach (var node in spilledLight.YNeg) neighbors.YNeg!.EnqueueLight(node);
-        });
-
-        Parallel.ForEach(readyChunks, chunk =>
+        foreach (var chunk in readyChunks)
         {
-            var neighbors = chunk.Neighbors;
-
-            LightSystem.InitializeLight(chunk);
-            var (_, spilledLight) = LightSystem.RunBFS(chunk, chunk.Neighbors);
-
-            if (spilledLight.ZPos.Count != 0) foreach (var node in spilledLight.ZPos) neighbors.ZPos!.EnqueueLight(node);
-            if (spilledLight.ZNeg.Count != 0) foreach (var node in spilledLight.ZNeg) neighbors.ZNeg!.EnqueueLight(node);
-            if (spilledLight.XPos.Count != 0) foreach (var node in spilledLight.XPos) neighbors.XPos!.EnqueueLight(node);
-            if (spilledLight.XNeg.Count != 0) foreach (var node in spilledLight.XNeg) neighbors.XNeg!.EnqueueLight(node);
-            if (spilledLight.YPos.Count != 0) foreach (var node in spilledLight.YPos) neighbors.YPos!.EnqueueLight(node);
-            if (spilledLight.YNeg.Count != 0) foreach (var node in spilledLight.YNeg) neighbors.YNeg!.EnqueueLight(node);
-        });
-
-        int anyPending;
-        do
-        {
-            anyPending = 0;
-
-            Parallel.ForEach(readyChunks, chunk =>
-            {
-                if (!chunk.LightQueue.IsEmpty)
-                {
-                    LightSystem.RunBFS(chunk, chunk.Neighbors);
-                    Interlocked.Exchange(ref anyPending, 1);
-                }
-            });
-
-        } while (anyPending != 0);
+            bulkLight.SeedBlockLights(chunk);
+        }
+        
+        bulkLight.Flood();
 
         Parallel.ForEach(readyChunks, chunk =>
         {
