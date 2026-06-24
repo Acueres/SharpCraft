@@ -122,21 +122,9 @@ internal class ChunkLight(Chunk chunk)
             queue.Enqueue(node);
         }
     }
-    
+
     public (FacesState MeshTouched, FacesData<List<LightNode>> SpilledLight) Flood(in NeighborSet neighbors)
     {
-        Queue<LightNode> localQueue = [];
-
-        while (queue.TryDequeue(out var pending))
-        {
-            LightValue existing = map[pending.X, pending.Y, pending.Z];
-            if (existing.Compare(pending.Value, out LightValue merged))
-            {
-                map[pending.X, pending.Y, pending.Z] = merged;
-                localQueue.Enqueue(new LightNode(merged, pending.X, pending.Y, pending.Z));
-            }
-        }
-
         FacesState meshTouched = default;
         FacesData<List<LightNode>> spilledLight = new()
         {
@@ -148,9 +136,24 @@ internal class ChunkLight(Chunk chunk)
             YNeg = []
         };
 
-        while (localQueue.TryDequeue(out var node))
+        int count = queue.Count;
+        for (int i = 0; i < count; i++)
         {
-            var (meshTouchedPerNode, spilledLightPerNode) = Propagate(node.X, node.Y, node.Z, localQueue, neighbors);
+            if (!queue.TryDequeue(out var node)) continue;
+
+            LightValue existing = map[node.X, node.Y, node.Z];
+
+            if (existing.Compare(node.Value, out LightValue merged))
+            {
+                map[node.X, node.Y, node.Z] = merged;
+                queue.Enqueue(node);
+            }
+        }
+
+        while (queue.TryDequeue(out var node))
+        {
+            var (meshTouchedPerNode, spilledLightPerNode) =
+                Propagate(node.X, node.Y, node.Z, neighbors);
 
             if (meshTouchedPerNode.ZPos) meshTouched.ZPos = true;
             if (meshTouchedPerNode.ZNeg) meshTouched.ZNeg = true;
@@ -169,10 +172,9 @@ internal class ChunkLight(Chunk chunk)
 
         return (meshTouched, spilledLight);
     }
-    
+
     private (FacesState MeshTouched, FacesData<LightNode?> SpilledLight) Propagate(
         int x, int y, int z,
-        Queue<LightNode> localQueue,
         in NeighborSet neighbors)
     {
         FacesState meshTouched = default;
@@ -193,12 +195,12 @@ internal class ChunkLight(Chunk chunk)
         if (down.BlockValue > 0)
             down = down.SubtractBlockValue(1);
 
-        (meshTouched.YPos, spilledLight.YPos) = PropagateFace(x, y + 1, z, neighbors.YPos, x, 0, z, y == Chunk.Last, lateral, localQueue);
-        (meshTouched.YNeg, spilledLight.YNeg) = PropagateFace(x, y - 1, z, neighbors.YNeg, x, Chunk.Last, z, y == 0, down, localQueue);
-        (meshTouched.XPos, spilledLight.XPos) = PropagateFace(x + 1, y, z, neighbors.XPos, 0, y, z, x == Chunk.Last, lateral, localQueue);
-        (meshTouched.XNeg, spilledLight.XNeg) = PropagateFace(x - 1, y, z, neighbors.XNeg, Chunk.Last, y, z, x == 0, lateral, localQueue);
-        (meshTouched.ZPos, spilledLight.ZPos) = PropagateFace(x, y, z + 1, neighbors.ZPos, x, y, 0, z == Chunk.Last, lateral, localQueue);
-        (meshTouched.ZNeg, spilledLight.ZNeg) = PropagateFace(x, y, z - 1, neighbors.ZNeg, x, y, Chunk.Last, z == 0, lateral, localQueue);
+        (meshTouched.YPos, spilledLight.YPos) = PropagateFace(x, y + 1, z, neighbors.YPos, x, 0, z, y == Chunk.Last, lateral);
+        (meshTouched.YNeg, spilledLight.YNeg) = PropagateFace(x, y - 1, z, neighbors.YNeg, x, Chunk.Last, z, y == 0, down);
+        (meshTouched.XPos, spilledLight.XPos) = PropagateFace(x + 1, y, z, neighbors.XPos, 0, y, z, x == Chunk.Last, lateral);
+        (meshTouched.XNeg, spilledLight.XNeg) = PropagateFace(x - 1, y, z, neighbors.XNeg, Chunk.Last, y, z, x == 0, lateral);
+        (meshTouched.ZPos, spilledLight.ZPos) = PropagateFace(x, y, z + 1, neighbors.ZPos, x, y, 0, z == Chunk.Last, lateral);
+        (meshTouched.ZNeg, spilledLight.ZNeg) = PropagateFace(x, y, z - 1, neighbors.ZNeg, x, y, Chunk.Last, z == 0, lateral);
         
         return (meshTouched, spilledLight);
     }
@@ -208,8 +210,7 @@ internal class ChunkLight(Chunk chunk)
         Chunk? neighbor,
         int nx, int ny, int nz,
         bool isBoundary,
-        LightValue next,
-        Queue<LightNode> localQueue)
+        LightValue next)
     {
         bool meshTouched = false;
         LightNode? spilledLight = null;
@@ -234,7 +235,7 @@ internal class ChunkLight(Chunk chunk)
                  && map[lx, ly, lz].Compare(next, out LightValue merged))
         {
             map[lx, ly, lz] = merged;
-            localQueue.Enqueue(new LightNode(merged, lx, ly, lz));
+            queue.Enqueue(new LightNode(merged, lx, ly, lz));
         }
 
         return (meshTouched, spilledLight);
