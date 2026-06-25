@@ -45,27 +45,27 @@ internal class ChunkLight(Chunk chunk)
         }
     }
 
-    public void SeedNeighborsLight()
+    public void SeedNeighborsLight(in NeighborSet neighbors)
     {
         for (int x = 0; x < Chunk.Size; x++)
         for (int z = 0; z < Chunk.Size; z++)
         {
-            SeedFromNeighbor(x, Chunk.Last, z, chunk.YPos, x, 0, z, downward: true);
-            SeedFromNeighbor(x, 0, z, chunk.YNeg, x, Chunk.Last, z, downward: false);
+            SeedFromNeighbor(x, Chunk.Last, z, neighbors.YPos, x, 0, z, downward: true);
+            SeedFromNeighbor(x, 0, z, neighbors.YNeg, x, Chunk.Last, z, downward: false);
         }
 
         for (int y = 0; y < Chunk.Size; y++)
         for (int z = 0; z < Chunk.Size; z++)
         {
-            SeedFromNeighbor(Chunk.Last, y, z, chunk.XPos, 0, y, z, downward: false);
-            SeedFromNeighbor(0, y, z, chunk.XNeg, Chunk.Last, y, z, downward: false);
+            SeedFromNeighbor(Chunk.Last, y, z, neighbors.XPos, 0, y, z, downward: false);
+            SeedFromNeighbor(0, y, z, neighbors.XNeg, Chunk.Last, y, z, downward: false);
         }
 
         for (int x = 0; x < Chunk.Size; x++)
         for (int y = 0; y < Chunk.Size; y++)
         {
-            SeedFromNeighbor(x, y, Chunk.Last, chunk.ZPos, x, y, 0, downward: false);
-            SeedFromNeighbor(x, y, 0, chunk.ZNeg, x, y, Chunk.Last, downward: false);
+            SeedFromNeighbor(x, y, Chunk.Last, neighbors.ZPos, x, y, 0, downward: false);
+            SeedFromNeighbor(x, y, 0, neighbors.ZNeg, x, y, Chunk.Last, downward: false);
         }
     }
 

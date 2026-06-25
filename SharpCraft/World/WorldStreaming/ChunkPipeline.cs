@@ -628,7 +628,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 if (!chunk.IsEmpty)
                 {
                     chunk.Light!.SeedBlockLight();
-                    chunk.Light!.SeedNeighborsLight();
+                    chunk.Light!.SeedNeighborsLight(item.Neighbors.Value);
                 }
 
                 var (meshTouched, spilledLight) = chunk.Light!.Flood(item.Neighbors.Value);
