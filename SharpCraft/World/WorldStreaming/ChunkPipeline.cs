@@ -265,6 +265,11 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             case JobType.Lighting:
                 record.Stage = ChunkStage.Lit;
                 TryScheduleMeshing(result.Index);
+                foreach (var neighborIndex in result.Chunk!.GetNeighborIndexes())
+                {
+                    TryScheduleMeshing(neighborIndex);
+                }
+
                 break;
             case JobType.Meshing:
                 record.Stage = ChunkStage.Meshed;
@@ -287,7 +292,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (record.Chunk is null)
             return;
 
-        if (!TryCollectNeighbors(record.Chunk, out var neighbors))
+        if (!TryCollectNeighbors(record.Chunk, out var neighbors, out _))
             return;
 
         record.Stage = ChunkStage.Linking;
@@ -311,7 +316,10 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (record.Chunk is null)
             return;
 
-        if (!TryCollectNeighbors(record.Chunk, out var neighbors))
+        if (!TryCollectNeighbors(record.Chunk, out var neighbors, out var records))
+            return;
+        
+        if (!AllNeighborsLit(records))
             return;
 
         record.Stage = ChunkStage.Meshing;
@@ -754,7 +762,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         }
     }
 
-    private bool TryCollectNeighbors(Chunk chunk, out NeighborSet neighbors)
+    private bool TryCollectNeighbors(Chunk chunk, out NeighborSet neighbors, out FacesData<ChunkRecord> records)
     {
         registry.TryGetValue(chunk.Index + new Vec3<int>(0, 0, 1), out var zPos);
         registry.TryGetValue(chunk.Index + new Vec3<int>(0, 0, -1), out var zNeg);
@@ -773,7 +781,27 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             YNeg = yNeg?.Chunk
         };
 
+        records = new FacesData<ChunkRecord>
+        {
+            ZPos = zPos!,
+            ZNeg = zNeg!,
+            XPos = xPos!,
+            XNeg = xNeg!,
+            YPos = yPos!,
+            YNeg = yNeg!
+        };
+
         return neighbors.All;
+    }
+    
+    private static bool AllNeighborsLit(FacesData<ChunkRecord> records)
+    {
+        return records.ZPos.Stage >= ChunkStage.Lit
+               && records.ZNeg.Stage >= ChunkStage.Lit
+               && records.XPos.Stage >= ChunkStage.Lit
+               && records.XNeg.Stage >= ChunkStage.Lit
+               && records.YPos.Stage >= ChunkStage.Lit
+               && records.YNeg.Stage >= ChunkStage.Lit;
     }
 
     // Disposal
