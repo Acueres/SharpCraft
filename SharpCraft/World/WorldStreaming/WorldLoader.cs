@@ -25,8 +25,9 @@ internal class WorldLoader(
     {
         Vec3<int> center = Chunk.WorldToChunkCoords(pos);
 
-        var indexesForGeneration = volume.CollectIndexesForGeneration(center);
-        var indexesForRemoval = volume.CollectIndexesForRemoval(center);
+        volume.SetCenter(center);
+        var indexesForGeneration = volume.CollectIndexesForGeneration();
+        var indexesForRemoval = volume.CollectIndexesForRemoval();
 
         pipeline.Schedule(indexesForGeneration, indexesForRemoval);
     }
@@ -40,16 +41,18 @@ internal class WorldLoader(
     public void BulkGenerate(Vector3 pos)
     {
         Vec3<int> center = Chunk.WorldToChunkCoords(pos);
+        
+        volume.SetCenter(center);
 
         ConcurrentBag<Chunk> generatedChunks = [];
-        var indexesForGeneration = volume.CollectIndexesForGeneration(center);
+        var indexesForGeneration = volume.CollectIndexesForGeneration();
 
         var linker = new ChunkLinker();
 
         Parallel.ForEach(indexesForGeneration, index =>
         {
             Chunk chunk = chunkGenerator.GenerateChunk(index);
-            volume.TryAdd(chunk);
+            volume.Add(chunk);
 
             generatedChunks.Add(chunk);
             if (chunk.IsEmpty)

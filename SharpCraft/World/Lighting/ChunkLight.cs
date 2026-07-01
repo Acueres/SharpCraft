@@ -225,26 +225,26 @@ internal class ChunkLight(Chunk chunk)
         FacesData<LightValue> lightValues = new();
 
         if (visibleFaces.ZPos)
-            lightValues.ZPos = z == Chunk.Last ? NeighborLight(neighbors.ZPos, x, y, 0) : map[x, y, z + 1];
+            lightValues.ZPos = z == Chunk.Last ? NeighborLight(neighbors.ZPos!, x, y, 0) : map[x, y, z + 1];
 
         if (visibleFaces.ZNeg)
-            lightValues.ZNeg = z == 0 ? NeighborLight(neighbors.ZNeg, x, y, Chunk.Last) : map[x, y, z - 1];
+            lightValues.ZNeg = z == 0 ? NeighborLight(neighbors.ZNeg!, x, y, Chunk.Last) : map[x, y, z - 1];
 
         if (visibleFaces.YPos)
-            lightValues.YPos = y == Chunk.Last ? NeighborLight(neighbors.YPos, x, 0, z) : map[x, y + 1, z];
+            lightValues.YPos = y == Chunk.Last ? NeighborLight(neighbors.YPos!, x, 0, z) : map[x, y + 1, z];
 
         if (visibleFaces.YNeg)
-            lightValues.YNeg = y == 0 ? NeighborLight(neighbors.YNeg, x, Chunk.Last, z) : map[x, y - 1, z];
+            lightValues.YNeg = y == 0 ? NeighborLight(neighbors.YNeg!, x, Chunk.Last, z) : map[x, y - 1, z];
 
         if (visibleFaces.XPos)
-            lightValues.XPos = x == Chunk.Last ? NeighborLight(neighbors.XPos, 0, y, z) : map[x + 1, y, z];
+            lightValues.XPos = x == Chunk.Last ? NeighborLight(neighbors.XPos!, 0, y, z) : map[x + 1, y, z];
 
         if (visibleFaces.XNeg)
-            lightValues.XNeg = x == 0 ? NeighborLight(neighbors.XNeg, Chunk.Last, y, z) : map[x - 1, y, z];
+            lightValues.XNeg = x == 0 ? NeighborLight(neighbors.XNeg!, Chunk.Last, y, z) : map[x - 1, y, z];
 
         return lightValues;
     }
     
-    private static LightValue NeighborLight(Chunk? neighbor, int x, int y, int z)
-        => neighbor?.Light?.Get(x, y, z) ?? LightValue.Null;
+    private static LightValue NeighborLight(Chunk neighbor, int x, int y, int z)
+        => neighbor.Light?.Get(x, y, z) ?? LightValue.Null;
 }

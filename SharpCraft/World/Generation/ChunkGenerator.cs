@@ -50,7 +50,11 @@ internal class ChunkGenerator(BlockRegistry blockRegistry)
     
     public bool IsSunlight(Chunk chunk)
     {
-        int maxElevation = maxHeightCache[new Vec2<int>(chunk.Index.X, chunk.Index.Z)];
+        if (!maxHeightCache.TryGetValue(new Vec2<int>(chunk.Index.X, chunk.Index.Z), out int maxElevation))
+        {
+            return false;
+        }
+
         int y = Chunk.WorldToChunkIndex(maxElevation);
         return chunk.Index.Y == y || chunk.Index.Y == y + 1;
     }

@@ -2,7 +2,6 @@ using SharpCraft.SharpMath;
 using SharpCraft.World.Chunks;
 
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 
 namespace SharpCraft.World.WorldStreaming;
 
@@ -15,36 +14,35 @@ internal sealed class ChunkVolume
     private readonly ConcurrentDictionary<Vec2<int>, int> columnCounts = [];
     private readonly Vec3<sbyte>[] proximityIndexes;
 
+    private Vec3<int> center;
+
     public ChunkVolume(int apothem)
     {
         this.apothem = apothem;
         proximityIndexes = BuildProximityIndexes();
     }
 
-    public Chunk? this[Vec3<int> index] => chunks.GetValueOrDefault(index);
-
-    public bool TryGetValue(Vec3<int> index, [MaybeNullWhen(false)] out Chunk chunk)
+    public void SetCenter(Vec3<int> pos)
     {
-        return chunks.TryGetValue(index, out chunk);
+        center = pos;
     }
 
-    public bool TryAdd(Chunk chunk)
+    public void Add(Chunk chunk)
     {
-        if (!chunks.TryAdd(chunk.Index, chunk)) return false;
+        if (!chunks.TryAdd(chunk.Index, chunk)) return;
         
         var col = new Vec2<int>(chunk.Index.X, chunk.Index.Z);
         columnCounts.AddOrUpdate(col, 1, (_, count) => count + 1);
-        return true;
     }
 
     public NeighborSet CollectNeighbors(Chunk chunk)
     {
-        TryGetValue(chunk.Index + new Vec3<int>(0, 0, 1), out var zPos);
-        TryGetValue(chunk.Index + new Vec3<int>(0, 0, -1), out var zNeg);
-        TryGetValue(chunk.Index + new Vec3<int>(1, 0, 0), out var xPos);
-        TryGetValue(chunk.Index + new Vec3<int>(-1, 0, 0), out var xNeg);
-        TryGetValue(chunk.Index + new Vec3<int>(0, 1, 0), out var yPos);
-        TryGetValue(chunk.Index + new Vec3<int>(0, -1, 0), out var yNeg);
+        chunks.TryGetValue(chunk.Index + new Vec3<int>(0, 0, 1), out var zPos);
+        chunks.TryGetValue(chunk.Index + new Vec3<int>(0, 0, -1), out var zNeg);
+        chunks.TryGetValue(chunk.Index + new Vec3<int>(1, 0, 0), out var xPos);
+        chunks.TryGetValue(chunk.Index + new Vec3<int>(-1, 0, 0), out var xNeg);
+        chunks.TryGetValue(chunk.Index + new Vec3<int>(0, 1, 0), out var yPos);
+        chunks.TryGetValue(chunk.Index + new Vec3<int>(0, -1, 0), out var yNeg);
 
         var neighbors = new NeighborSet
         {
@@ -61,10 +59,7 @@ internal sealed class ChunkVolume
 
     public IEnumerable<Chunk> GetActiveChunks()
     {
-        foreach (var chunk in chunks.Values)
-        {
-            yield return chunk;
-        }
+        return chunks.Values;
     }
 
     public bool ContainsColumn(int x, int z)
@@ -72,7 +67,7 @@ internal sealed class ChunkVolume
         return columnCounts.TryGetValue(new Vec2<int>(x, z), out var count) && count > 0;
     }
 
-    public List<Vec3<int>> CollectIndexesForGeneration(Vec3<int> center)
+    public List<Vec3<int>> CollectIndexesForGeneration()
     {
         List<Vec3<int>> scheduledForGeneration = [];
         foreach (var proximityIndex in proximityIndexes)
@@ -87,7 +82,7 @@ internal sealed class ChunkVolume
         return scheduledForGeneration;
     }
 
-    public List<Vec3<int>> CollectIndexesForRemoval(Vec3<int> center)
+    public List<Vec3<int>> CollectIndexesForRemoval()
     {
         IEnumerable<Vec3<int>> activeChunks =
             from i in proximityIndexes
@@ -95,6 +90,14 @@ internal sealed class ChunkVolume
 
         var toRemove = chunks.Keys.Except(activeChunks).ToList();
         return toRemove;
+    }
+
+    public bool IsWithinActiveVolume(in Vec3<int> pos)
+    {
+        int dx = Math.Abs(pos.X - center.X);
+        int dy = Math.Abs(pos.Y - center.Y);
+        int dz = Math.Abs(pos.Z - center.Z);
+        return Math.Max(dx, Math.Max(dy, dz)) <= apothem;
     }
 
     public void RemoveChunk(Vec3<int> index)
