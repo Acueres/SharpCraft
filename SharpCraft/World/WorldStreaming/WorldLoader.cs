@@ -16,11 +16,6 @@ internal class WorldLoader(
 {
     private readonly ChunkPipeline pipeline = new(volume, chunkGenerator, chunkMesher);
 
-    public void ScheduleForMeshing(Chunk chunk)
-    {
-        pipeline.AddToWorker(chunk, JobType.Meshing);
-    }
-
     public void Recenter(Vector3 pos)
     {
         Vec3<int> center = Chunk.WorldToChunkCoords(pos);
@@ -88,7 +83,7 @@ internal class WorldLoader(
             }
             else
             {
-                pipeline.AddToRegistry(chunk, ChunkStage.Generated);
+                pipeline.AddToRegistry(chunk, ChunkStage.Linked);
             }
         }
 

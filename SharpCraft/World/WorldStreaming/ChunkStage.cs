@@ -3,11 +3,8 @@ namespace SharpCraft.World.WorldStreaming;
 internal enum ChunkStage
 {
     Fresh,
-    Generating,
     Generated,
-    Linking,
-    Lighting,
+    Linked,
     Lit,
-    Meshing,
     Meshed
 }

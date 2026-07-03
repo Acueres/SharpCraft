@@ -12,7 +12,7 @@ namespace SharpCraft.World.WorldStreaming;
 
 internal class ChunkPipeline : IDisposable, IAsyncDisposable
 {
-    private const int ChunkCapacity = 500;
+    private const int ChunkBudget = 500;
     private ulong NextVersion => Interlocked.Increment(ref field);
 
     private readonly ChunkVolume volume;
@@ -28,40 +28,40 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private readonly Queue<WorkItem> pendingLighting = [];
     private readonly Queue<WorkItem> pendingMeshing = [];
 
-    private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkCapacity)
+    private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
         SingleWriter = false
     });
-    private readonly Channel<WorkItem> linkChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkCapacity)
+    private readonly Channel<WorkItem> linkChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
         SingleWriter = false
     });
-    private readonly Channel<WorkItem> lightChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkCapacity)
+    private readonly Channel<WorkItem> lightChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
         SingleWriter = false
     });
-    private readonly Channel<WorkItem> meshChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkCapacity)
-    {
-        SingleReader = true,
-        SingleWriter = false
-    });
-
-    private readonly Channel<WorkResult> resultChannel = Channel.CreateBounded<WorkResult>(new BoundedChannelOptions(ChunkCapacity)
+    private readonly Channel<WorkItem> meshChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
         SingleWriter = false
     });
 
-    private readonly Channel<RelightRequest> relightChannel = Channel.CreateBounded<RelightRequest>(new BoundedChannelOptions(ChunkCapacity)
+    private readonly Channel<WorkResult> resultChannel = Channel.CreateBounded<WorkResult>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
         SingleWriter = false
     });
 
-    private readonly Channel<RemeshRequest> remeshChannel = Channel.CreateBounded<RemeshRequest>(new BoundedChannelOptions(ChunkCapacity)
+    private readonly Channel<RelightRequest> relightChannel = Channel.CreateBounded<RelightRequest>(new BoundedChannelOptions(ChunkBudget)
+    {
+        SingleReader = true,
+        SingleWriter = false
+    });
+
+    private readonly Channel<RemeshRequest> remeshChannel = Channel.CreateBounded<RemeshRequest>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
         SingleWriter = false
@@ -114,40 +114,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         registry.TryAdd(chunk.Index, record);
     }
 
-    public void AddToWorker(Chunk chunk, JobType job)
-    {
-        if (!registry.TryGetValue(chunk.Index, out var record)) return;
-
-        var work = new WorkItem(chunk.Index, record.Version, chunk, chunk.Neighbors);
-
-        switch (job)
-        {
-            case JobType.Generation:
-                if (!genChannel.Writer.TryWrite(work))
-                    pendingGeneration.Enqueue(work);
-                break;
-            case JobType.Linking:
-                if (!linkChannel.Writer.TryWrite(work))
-                    pendingLinking.Enqueue(work);
-                break;
-            case JobType.Lighting:
-                if (!lightChannel.Writer.TryWrite(work))
-                    pendingLighting.Enqueue(work);
-                break;
-            case JobType.Meshing:
-                if (!meshChannel.Writer.TryWrite(work))
-                    pendingMeshing.Enqueue(work);
-                break;
-        }
-    }
-
     private void DrainResults()
     {
-        while (resultChannel.Reader.TryRead(out var result))
-        {
-            ProcessResult(result);
-        }
-
         while (relightChannel.Reader.TryRead(out var relightRequest))
         {
             ProcessRelightRequest(relightRequest);
@@ -157,6 +125,11 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         {
             ProcessRemeshRequest(remeshRequest);
         }
+
+        while (resultChannel.Reader.TryRead(out var result))
+        {
+            ProcessResult(result);
+        }
     }
 
     private void ProcessResult(WorkResult result)
@@ -164,185 +137,140 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (!registry.TryGetValue(result.Index, out var record))
             return;
 
+        record.InFlight = null;
+
         if (result.Version != record.Version)
         {
-            if (!record.Flags.HasFlag(ChunkFlags.Wanted) &&
-                record.Chunk is null)
+            if (!record.Flags.HasFlag(ChunkFlags.Wanted) && record.Chunk is null)
             {
                 registry.TryRemove(result.Index, out _);
+            }
+            else
+            {
+                TryDispatch(result.Index);
             }
             return;
         }
 
-        switch (result.Status)
-        {
-            case ResultStatus.Skip:
-                HandleSkipped(record, result);
-                return;
-
-            case ResultStatus.Fail:
-                HandleFailed(record, result);
-                return;
-
-            case ResultStatus.Success:
-                HandleSuccess(record, result);
-                return;
-        }
+        Advance(record, result);
     }
 
-    private void HandleSkipped(ChunkRecord record, WorkResult result)
+    private void Advance(ChunkRecord record, WorkResult result)
     {
-        if (!record.Flags.HasFlag(ChunkFlags.Wanted) ||
-            record.Flags.HasFlag(ChunkFlags.DeleteRequested))
+        if (!record.Flags.HasFlag(ChunkFlags.Wanted) || record.Flags.HasFlag(ChunkFlags.DeleteRequested))
         {
-            record.Stage = result.JobType switch
-            {
-                JobType.Generation => ChunkStage.Fresh,
-                JobType.Linking or JobType.Lighting => ChunkStage.Generated,
-                JobType.Meshing => ChunkStage.Lit,
-                _ => record.Stage
-            };
-
             return;
         }
 
+        if (result.Status == ResultStatus.Success)
+        {
+            switch (result.JobType)
+            {
+                case JobType.Generation:
+                    record.Chunk = result.Chunk;
+                    volume.Add(record.Chunk!);
+                    record.Stage = ChunkStage.Generated;
+                    break;
+                case JobType.Linking:
+                    record.Stage = ChunkStage.Linked;
+                    break;
+                case JobType.Lighting:
+                    record.Stage = ChunkStage.Lit;
+                    break;
+                case JobType.Meshing:
+                    record.Stage = ChunkStage.Meshed;
+                    record.Chunk?.IsReady = true;
+                    break;
+            }
+
+            TryDispatch(result.Index);
+
+            if (record.Chunk is not null && result.JobType is JobType.Lighting or JobType.Generation)
+            {
+                foreach (var n in record.Chunk.GetNeighborIndexes())
+                {
+                    TryDispatch(n);
+                }
+            }
+        }
+        else if (result.Status == ResultStatus.Skip)
+        {
+            TryDispatch(result.Index);
+        }
+        else if (result.Status == ResultStatus.Fail)
+        {
+            Console.WriteLine($"Job failed for chunk {result.Index}, stage: {record.Stage}, error: {result.Exception}");
+        }
+    }
+
+    private void TryDispatch(Vec3<int> index)
+    {
+        if (!registry.TryGetValue(index, out var record))
+            return;
+
+        if (!record.Flags.HasFlag(ChunkFlags.Wanted))
+            return;
+
+        if (record.InFlight != null)
+            return;
+
+        if (record.Chunk is null)
+            return;
+
+        JobType? job = null;
         switch (record.Stage)
         {
-            case ChunkStage.Generating:
-                pendingGeneration.Enqueue(new WorkItem(result.Index, record.Version, null, null));
-                break;
-            case ChunkStage.Linking:
-                pendingLinking.Enqueue(new WorkItem(result.Index, record.Version, result.Chunk, null));
-                break;
-            case ChunkStage.Lighting:
-                pendingLighting.Enqueue(new WorkItem(result.Index, record.Version, result.Chunk, result.Chunk?.Neighbors));
-                break;
-            case ChunkStage.Meshing:
-                pendingMeshing.Enqueue(new WorkItem(result.Index, record.Version, result.Chunk, result.Chunk?.Neighbors));
-                break;
+            case ChunkStage.Generated: job = JobType.Linking; break;
+            case ChunkStage.Linked: job = JobType.Lighting; break;
+            case ChunkStage.Lit: job = JobType.Meshing; break;
         }
-    }
 
-    private static void HandleFailed(ChunkRecord record, WorkResult result)
-    {
-        Console.WriteLine($"Job failed for chunk {result.Index}, stage: {record.Stage}, error: {result.Exception}");
-    }
-
-    private void HandleSuccess(ChunkRecord record, WorkResult result)
-    {
-        switch (result.JobType)
+        ChunkDirty dirty = ChunkDirty.None;
+        if (record.Dirty.HasFlag(ChunkDirty.NeedsRelight) && record.Stage >= ChunkStage.Lit)
         {
-            case JobType.Generation:
-                if (!record.Flags.HasFlag(ChunkFlags.Wanted) ||
-                    record.Flags.HasFlag(ChunkFlags.DeleteRequested))
-                {
-                    registry.TryRemove(result.Index, out _);
-                    break;
-                }
-
-                record.Stage = ChunkStage.Generated;
-                record.Chunk = result.Chunk;
-                
-                volume.Add(result.Chunk!);
-
-                TryScheduleLinking(result.Index);
-
-                foreach (var neighborIndex in result.Chunk!.GetNeighborIndexes())
-                {
-                    TryScheduleLinking(neighborIndex);
-                }
-
-                break;
-            case JobType.Linking:
-                TryScheduleLighting(result.Index);
-                break;
-            case JobType.Lighting:
-                record.Stage = ChunkStage.Lit;
-                TryScheduleMeshing(result.Index);
-                foreach (var neighborIndex in result.Chunk!.GetNeighborIndexes())
-                {
-                    TryScheduleMeshing(neighborIndex);
-                }
-
-                break;
-            case JobType.Meshing:
-                record.Stage = ChunkStage.Meshed;
-                record.Chunk?.IsReady = true;
-                break;
+            dirty = ChunkDirty.NeedsRelight;
+            job = JobType.Lighting;
         }
+        else if (record.Dirty.HasFlag(ChunkDirty.NeedsRemesh) && record.Stage >= ChunkStage.Lit)
+        {
+            dirty = ChunkDirty.NeedsRemesh;
+            job = JobType.Meshing;
+        }
+
+        if (job is null)
+            return;
+
+        bool allNeighborsExist = TryCollectNeighbors(record.Chunk, out var neighbors, out var records);
+
+        if (job == JobType.Meshing && !(allNeighborsExist && AllNeighborsLit(records)))
+            return;
+
+        if (dirty.HasFlag(ChunkDirty.NeedsRelight))
+        {
+            record.Dirty &= ~ChunkDirty.NeedsRelight;
+        }
+        else if (dirty.HasFlag(ChunkDirty.NeedsRemesh))
+        {
+            record.Dirty &= ~ChunkDirty.NeedsRemesh;
+        }
+
+        Dispatch(record, index, job.Value, neighbors);
     }
 
-    private void TryScheduleLinking(Vec3<int> index)
+    private void Dispatch(ChunkRecord record, Vec3<int> index, JobType job, in NeighborSet neighbors)
     {
-        if (!registry.TryGetValue(index, out var record))
-            return;
-
-        if (record.Stage != ChunkStage.Generated)
-            return;
-
-        if (!record.Flags.HasFlag(ChunkFlags.Wanted))
-            return;
-
-        if (record.Chunk is null)
-            return;
-
-        TryCollectNeighbors(record.Chunk, out var neighbors, out _);
-
-        record.Stage = ChunkStage.Linking;
-
-        var work = new WorkItem(index, record.Version,record.Chunk, neighbors);
-        if (!linkChannel.Writer.TryWrite(work))
-            pendingLinking.Enqueue(work);
-    }
-
-    private void TryScheduleLighting(Vec3<int> index)
-    {
-        if (!registry.TryGetValue(index, out var record))
-            return;
-        
-        if (!record.Flags.HasFlag(ChunkFlags.Wanted))
-            return;
-        
-        if (record.Chunk is null)
-            return;
-        
-        if (!volume.IsWithinActiveVolume(record.Chunk.Index))
-            return;
-
-        TryCollectNeighbors(record.Chunk, out var neighbors, out _);
-        
-        record.Stage = ChunkStage.Lighting;
-        
+        record.InFlight = job;
         var work = new WorkItem(index, record.Version, record.Chunk, neighbors);
-        if (!lightChannel.Writer.TryWrite(work))
-            pendingLighting.Enqueue(work);
-    }
-
-    private void TryScheduleMeshing(Vec3<int> index)
-    {
-        if (!registry.TryGetValue(index, out var record))
-            return;
-
-        if (record.Stage != ChunkStage.Lit)
-            return;
-
-        if (!record.Flags.HasFlag(ChunkFlags.Wanted))
-            return;
-
-        if (record.Chunk is null)
-            return;
-
-        if (!TryCollectNeighbors(record.Chunk, out var neighbors, out var records))
-            return;
-        
-        if (!AllNeighborsLit(records))
-            return;
-
-        record.Stage = ChunkStage.Meshing;
-
-        var work = new WorkItem(index, record.Version, record.Chunk, neighbors);
-        if (!meshChannel.Writer.TryWrite(work))
-            pendingMeshing.Enqueue(work);
+        var (channel, pending) = job switch
+        {
+            JobType.Generation => (genChannel, pendingGeneration),
+            JobType.Linking => (linkChannel, pendingLinking),
+            JobType.Lighting => (lightChannel, pendingLighting),
+            JobType.Meshing => (meshChannel, pendingMeshing),
+            _ => throw new ArgumentOutOfRangeException(nameof(job))
+        };
+        if (!channel.Writer.TryWrite(work))
+            pending.Enqueue(work);
     }
 
     private void ProcessRelightRequest(RelightRequest request)
@@ -357,31 +285,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             record.Chunk.Light.Enqueue(n);
         }
 
-        RequestRelight(record);
-    }
-
-    private void RequestRelight(ChunkRecord record)
-    {
-        switch (record.Stage)
-        {
-            case ChunkStage.Meshing:
-                record.Version = NextVersion;
-                record.Stage = ChunkStage.Lighting;
-                pendingLighting.Enqueue(new WorkItem(record.Chunk!.Index, record.Version, record.Chunk, record.Chunk?.Neighbors));
-                return;
-
-            case ChunkStage.Lit:
-            case ChunkStage.Meshed:
-                record.Stage = ChunkStage.Lighting;
-                pendingLighting.Enqueue(new WorkItem(record.Chunk!.Index, record.Version, record.Chunk, record.Chunk?.Neighbors));
-                return;
-
-            case ChunkStage.Lighting:
-                return;
-
-            default:
-                return;
-        }
+        record.Dirty |= ChunkDirty.NeedsRelight;
+        TryDispatch(request.Index);
     }
 
     private void ProcessRemeshRequest(RemeshRequest request)
@@ -390,35 +295,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (!record.Flags.HasFlag(ChunkFlags.Wanted)) return;
         if (record.Chunk is null) return;
 
-        RequestRemesh(record);
-    }
-
-    private void RequestRemesh(ChunkRecord record)
-    {
-        switch (record.Stage)
-        {
-            case ChunkStage.Lit:
-            case ChunkStage.Meshed:
-                record.Stage = ChunkStage.Lit;
-                TryScheduleMeshing(record.Chunk!.Index);
-                return;
-
-            case ChunkStage.Meshing:
-                record.Version = NextVersion;
-                record.Stage = ChunkStage.Lit;
-                TryScheduleMeshing(record.Chunk!.Index);
-                return;
-
-            case ChunkStage.Lighting:
-            case ChunkStage.Fresh:
-            case ChunkStage.Generating:
-            case ChunkStage.Generated:
-            case ChunkStage.Linking:
-                return;
-
-            default:
-                return;
-        }
+        record.Dirty |= ChunkDirty.NeedsRemesh;
+        TryDispatch(request.Index);
     }
 
     private void MarkForDeletion(List<Vec3<int>> toRemove)
@@ -447,8 +325,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             if (record.Flags.HasFlag(ChunkFlags.Wanted))
                 continue;
 
-            if (record.Stage is ChunkStage.Generating or ChunkStage.Linking
-                             or ChunkStage.Lighting or ChunkStage.Meshing)
+            if (record.InFlight != null)
                 continue;
 
             if (record.Chunk is not null && AnyNeighborInFlight(record.Chunk))
@@ -480,8 +357,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             if (!nRecord.Flags.HasFlag(ChunkFlags.Wanted))
                 continue;
 
-            if (nRecord.Stage is ChunkStage.Generating or ChunkStage.Linking
-                              or ChunkStage.Lighting or ChunkStage.Meshing)
+            if (nRecord.InFlight != null)
                 return true;
         }
         return false;
@@ -491,51 +367,48 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         if (pendingGeneration.Count > 0)
         {
-            FlushQueue(pendingGeneration, genChannel, ChunkStage.Generating);
+            FlushQueue(pendingGeneration, JobType.Generation);
         }
         if (pendingLinking.Count > 0)
         {
-            FlushQueue(pendingLinking, linkChannel, ChunkStage.Linking);
+            FlushQueue(pendingLinking, JobType.Linking);
         }
         if (pendingLighting.Count > 0)
         {
-            FlushQueue(pendingLighting, lightChannel, ChunkStage.Lighting);
+            FlushQueue(pendingLighting, JobType.Lighting);
         }
         if (pendingMeshing.Count > 0)
         {
-            FlushQueue(pendingMeshing, meshChannel, ChunkStage.Meshing);
+            FlushQueue(pendingMeshing, JobType.Meshing);
         }
     }
 
-    private void FlushQueue(Queue<WorkItem> pending, Channel<WorkItem> channel, ChunkStage stage)
+    private void FlushQueue(Queue<WorkItem> pending, JobType job)
     {
-        for (int i = 0; i < ChunkCapacity; i++)
+        for (int i = 0; i < ChunkBudget; i++)
         {
             if (!pending.TryDequeue(out var item))
                 break;
 
-            if (!registry.TryGetValue(item.Index, out var record))
+            if (!registry.TryGetValue(item.Index, out var record)) continue;
+
+            if (record.InFlight == job)
+            {
+                record.InFlight = null;
+            }
+
+            if (record.Version != item.Version && !record.Flags.HasFlag(ChunkFlags.Wanted))
                 continue;
 
-            if (record.Version != item.Version)
-                continue;
-
-            if (!record.Flags.HasFlag(ChunkFlags.Wanted))
-                continue;
-
-            if (record.Stage != stage)
-                continue;
-
-            if (!channel.Writer.TryWrite(item))
-                pending.Enqueue(item);
+            TryDispatch(item.Index);
         }
     }
 
     private void ProcessFresh(List<Vec3<int>> toGenerate)
     {
-        foreach (var id in toGenerate)
+        foreach (var index in toGenerate)
         {
-            if (!registry.TryGetValue(id, out var record))
+            if (!registry.TryGetValue(index, out var record))
             {
                 record = new ChunkRecord
                 {
@@ -544,7 +417,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     Flags = ChunkFlags.Wanted
                 };
 
-                registry[id] = record;
+                registry[index] = record;
             }
             else
             {
@@ -562,18 +435,13 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
             if (record.Chunk is not null)
             {
-                TryScheduleLinking(id);
-                TryScheduleMeshing(id);
+                TryDispatch(index);
                 continue;
             }
 
-            if (record.Stage == ChunkStage.Fresh)
+            if (record.Stage == ChunkStage.Fresh && record.InFlight is null)
             {
-                var item = new WorkItem(id, record.Version, null,null);
-                record.Stage = ChunkStage.Generating;
-
-                if (!genChannel.Writer.TryWrite(item))
-                    pendingGeneration.Enqueue(item);
+                Dispatch(record, index, JobType.Generation, new NeighborSet());
             }
         }
     }
