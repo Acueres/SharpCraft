@@ -27,6 +27,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private readonly Queue<WorkItem> pendingLinking = [];
     private readonly Queue<WorkItem> pendingLighting = [];
     private readonly Queue<WorkItem> pendingMeshing = [];
+    private readonly HashSet<Vec3<int>> pendingDeletion = [];
+    private readonly Queue<Vec3<int>> deletionQueue = [];
 
     private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
@@ -92,13 +94,13 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         MarkForDeletion(toRemove);
         ProcessFresh(toGenerate);
-        ProcessDeletion(toRemove);
     }
 
     public void Tick()
     {
         DrainResults();
         Flush();
+        ProcessDeletion();
     }
 
     public void AddToRegistry(Chunk chunk, ChunkStage stage)
@@ -205,6 +207,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     private void TryDispatch(Vec3<int> index)
     {
+        if (!volume.IsWithinActiveVolume(index))
+            return;
+        
         if (!registry.TryGetValue(index, out var record))
             return;
 
@@ -214,16 +219,14 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (record.InFlight != null)
             return;
 
-        if (record.Chunk is null)
-            return;
-
-        JobType? job = null;
-        switch (record.Stage)
+        JobType? job = record.Stage switch
         {
-            case ChunkStage.Generated: job = JobType.Linking; break;
-            case ChunkStage.Linked: job = JobType.Lighting; break;
-            case ChunkStage.Lit: job = JobType.Meshing; break;
-        }
+            ChunkStage.Fresh     => JobType.Generation,
+            ChunkStage.Generated => JobType.Linking,
+            ChunkStage.Linked    => JobType.Lighting,
+            ChunkStage.Lit       => JobType.Meshing,
+            _ => null
+        };
 
         ChunkDirty dirty = ChunkDirty.None;
         if (record.Dirty.HasFlag(ChunkDirty.NeedsRelight) && record.Stage >= ChunkStage.Lit)
@@ -238,6 +241,16 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         }
 
         if (job is null)
+            return;
+
+        // Generation jobs are dispatched separately as a special case
+        if (job == JobType.Generation)
+        {
+            Dispatch(record, index, JobType.Generation, new NeighborSet());
+            return;
+        }
+
+        if (record.Chunk is null)
             return;
 
         bool allNeighborsExist = TryCollectNeighbors(record.Chunk, out var neighbors, out var records);
@@ -305,6 +318,11 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         {
             if (!registry.TryGetValue(id, out var record))
                 continue;
+            
+            if (record.Flags.HasFlag(ChunkFlags.DeleteRequested))
+                continue;
+            
+            pendingDeletion.Add(id);
 
             record.Flags &= ~ChunkFlags.Wanted;
             record.Flags |= ChunkFlags.DeleteRequested;
@@ -312,18 +330,23 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         }
     }
 
-    private void ProcessDeletion(List<Vec3<int>> idxDeletion)
+    private void ProcessDeletion()
     {
-        foreach (var id in idxDeletion)
+        if (pendingDeletion.Count == 0) return;
+
+        foreach (var id in pendingDeletion)
         {
-            if (!registry.TryGetValue(id, out var record))
-                continue;
+            deletionQueue.Enqueue(id);
+        }
 
-            if (!record.Flags.HasFlag(ChunkFlags.DeleteRequested))
+        while (deletionQueue.TryDequeue(out var id))
+        {
+            if (!registry.TryGetValue(id, out var record)
+                || record.Flags.HasFlag(ChunkFlags.Wanted))
+            {
+                pendingDeletion.Remove(id);
                 continue;
-
-            if (record.Flags.HasFlag(ChunkFlags.Wanted))
-                continue;
+            }
 
             if (record.InFlight != null)
                 continue;
@@ -336,15 +359,21 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 chunkMesher.Remove(chunk.Index);
                 linker.UnlinkChunk(chunk);
                 volume.RemoveChunk(chunk.Index);
-
                 chunk.IsReady = false;
-
-                /*if (!volume.ContainsColumn(chunk.Index.X, chunk.Index.Z))
-                    chunkGenerator.RemoveCache(chunk.Index);*/
             }
 
             registry.TryRemove(id, out _);
+            pendingDeletion.Remove(id);
         }
+        
+        // Behavior not observed in the current architecture - keeping for future
+        /*foreach (var (id, record) in registry)
+        {
+            if (record.Chunk is null && record.InFlight is null && !volume.IsWithinActiveVolume(id))
+            {
+                registry.TryRemove(id, out _);
+            }
+        }*/
     }
 
     private bool AnyNeighborInFlight(Chunk chunk)
@@ -433,16 +462,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 }
             }
 
-            if (record.Chunk is not null)
-            {
-                TryDispatch(index);
-                continue;
-            }
-
-            if (record.Stage == ChunkStage.Fresh && record.InFlight is null)
-            {
-                Dispatch(record, index, JobType.Generation, new NeighborSet());
-            }
+            TryDispatch(index);
         }
     }
 
@@ -672,6 +692,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             YNeg = yNeg?.Chunk
         };
 
+        // Guaranteed to be not null for the consumer if the method returns 'true'
         records = new FacesData<ChunkRecord>
         {
             ZPos = zPos!,
