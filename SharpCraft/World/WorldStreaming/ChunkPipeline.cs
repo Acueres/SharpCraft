@@ -99,17 +99,19 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         ProcessFresh(toGenerate);
     }
 
-    public void Tick()
+    public bool Tick()
     {
-        DrainResults();
+        int chunksMeshed = DrainResults();
         Flush();
-        ProcessDeletion();
+        int chunksDeleted = ProcessDeletion();
 
         if (++ticksSinceLastStrandedCleanup >= strandedCleanupPeriodTicks)
         {
             ClearStrandedRecords();
             ticksSinceLastStrandedCleanup = 0;
         }
+
+        return chunksMeshed > 0 || chunksDeleted > 0;
     }
 
     public void AddToRegistry(Chunk chunk, ChunkStage stage)
@@ -125,8 +127,10 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         registry.TryAdd(chunk.Index, record);
     }
 
-    private void DrainResults()
+    private int DrainResults()
     {
+        int chunksMeshed = 0;
+
         while (relightChannel.Reader.TryRead(out var relightRequest))
         {
             ProcessRelightRequest(relightRequest);
@@ -139,8 +143,15 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         while (resultChannel.Reader.TryRead(out var result))
         {
+            if (result.JobType == JobType.Meshing && result.Status == ResultStatus.Success)
+            {
+                chunksMeshed++;
+            }
+
             ProcessResult(result);
         }
+
+        return chunksMeshed;
     }
 
     private void ProcessResult(WorkResult result)
@@ -339,14 +350,16 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         }
     }
 
-    private void ProcessDeletion()
+    private int ProcessDeletion()
     {
-        if (pendingDeletion.Count == 0) return;
+        if (pendingDeletion.Count == 0) return 0;
 
         foreach (var id in pendingDeletion)
         {
             deletionQueue.Enqueue(id);
         }
+
+        int chunksDeleted = 0;
 
         while (deletionQueue.TryDequeue(out var id))
         {
@@ -373,7 +386,10 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
             registry.TryRemove(id, out _);
             pendingDeletion.Remove(id);
+            chunksDeleted++;
         }
+
+        return chunksDeleted;
     }
 
     private void ClearStrandedRecords()

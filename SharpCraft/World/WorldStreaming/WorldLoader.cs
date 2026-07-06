@@ -27,9 +27,9 @@ internal class WorldLoader(
         pipeline.Schedule(indexesForGeneration, indexesForRemoval);
     }
 
-    public void Tick()
+    public bool Tick()
     {
-        pipeline.Tick();
+        return pipeline.Tick();
     }
 
     // Use to generate chunks in bulk

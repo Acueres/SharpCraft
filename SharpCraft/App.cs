@@ -124,13 +124,17 @@ internal unsafe class App : IDisposable
                 activeViewController.SetIndex(currentControllerIndex);
             }
             
-            worldLoader.Tick();
+            bool worldUpdate = worldLoader.Tick();
+            bool controllerUpdate = activeViewController.Update(input, time);
 
-            if (activeViewController.Update(input, time))
+            if (controllerUpdate)
             {
                 var viewpoint = activeViewController.GetViewpoint();
                 camera.SetViewpoint(viewpoint);
-                
+            }
+
+            if (controllerUpdate || worldUpdate)
+            {
                 renderer.UpdateWorld(camera, volume);
             }
             
