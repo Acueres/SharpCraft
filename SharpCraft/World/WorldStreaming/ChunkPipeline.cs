@@ -30,6 +30,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private readonly HashSet<Vec3<int>> pendingDeletion = [];
     private readonly Queue<Vec3<int>> deletionQueue = [];
 
+    private const int strandedCleanupPeriodTicks = 500;
+    private int ticksSinceLastStrandedCleanup;
+
     private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
@@ -101,6 +104,12 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         DrainResults();
         Flush();
         ProcessDeletion();
+
+        if (++ticksSinceLastStrandedCleanup >= strandedCleanupPeriodTicks)
+        {
+            ClearStrandedRecords();
+            ticksSinceLastStrandedCleanup = 0;
+        }
     }
 
     public void AddToRegistry(Chunk chunk, ChunkStage stage)
@@ -365,15 +374,18 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             registry.TryRemove(id, out _);
             pendingDeletion.Remove(id);
         }
-        
-        // Behavior not observed in the current architecture - keeping for future
-        /*foreach (var (id, record) in registry)
+    }
+
+    private void ClearStrandedRecords()
+    {
+        foreach (var (id, record) in registry)
         {
             if (record.Chunk is null && record.InFlight is null && !volume.IsWithinActiveVolume(id))
             {
                 registry.TryRemove(id, out _);
+                Console.WriteLine($"Cleared stranded record {id}");
             }
-        }*/
+        }
     }
 
     private bool AnyNeighborInFlight(Chunk chunk)
