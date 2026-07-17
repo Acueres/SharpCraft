@@ -7,6 +7,7 @@ using SharpCraft.SharpMath;
 using SharpCraft.Rendering.Text;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.WorldStreaming;
+using SharpCraft.View;
 
 using System.Numerics;
 using SDL;

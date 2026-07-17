@@ -11,7 +11,7 @@ using SharpCraft.World.Generation;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.WorldStreaming;
 using SharpCraft.World.Chunks;
-using SharpCraft.Rendering.View;
+using SharpCraft.View;
 
 using SDL;
 using System.Numerics;
@@ -35,7 +35,7 @@ internal unsafe class App : IDisposable
     private readonly InputHandler input;
     
     private readonly Camera camera;
-    private IViewController activeViewController;
+    private ICameraController activeViewController;
     
     private readonly FrameClock clock = new();
     private readonly FrameLimiter frameLimiter;
@@ -60,8 +60,14 @@ internal unsafe class App : IDisposable
             target: Vector3.Zero,
             up: MathUtilities.Vector3Up
         );
-        
-        activeViewController = new ObserverViewController(initialViewpoint);
+
+        //activeViewController = new ObserverViewController(initialViewpoint);
+        activeViewController = new OrbitViewController(
+            target: Vector3.Zero,
+            initialViewpoint: initialViewpoint,
+            minimumDistance: 2f,
+            maximumDistance: 500f
+        );
         activeViewController.SetIndex(Chunk.WorldToChunkCoords(initialViewpoint.Position));
         
         camera = new Camera(initialViewpoint, DefaultWidth, DefaultHeight);

@@ -5,6 +5,7 @@ using SharpCraft.World.Chunks;
 using SharpCraft.World.WorldStreaming;
 using SharpCraft.SharpMath;
 using SharpCraft.World.Meshing;
+using SharpCraft.View;
 
 using System.Numerics;
 using SDL;

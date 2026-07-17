@@ -4,9 +4,9 @@ using SharpCraft.SharpMath;
 
 using System.Numerics;
 
-namespace SharpCraft.Rendering.View;
+namespace SharpCraft.View;
 
-internal interface IViewController
+internal interface ICameraController
 {
     bool Update(InputHandler input, FrameTime time);
     Vector3 GetPosition();

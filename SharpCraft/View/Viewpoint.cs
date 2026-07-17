@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace SharpCraft.Rendering.View;
+namespace SharpCraft.View;
 
 internal readonly record struct Viewpoint(
     Vector3 Position,

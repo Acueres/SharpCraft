@@ -1,9 +1,8 @@
 ﻿using SharpCraft.SharpMath;
-using SharpCraft.Rendering.View;
 
 using System.Numerics;
 
-namespace SharpCraft.Rendering;
+namespace SharpCraft.View;
 
 internal class Camera
 {

@@ -4,9 +4,9 @@ using SharpCraft.SharpMath;
 
 using System.Numerics;
 
-namespace SharpCraft.Rendering.View;
+namespace SharpCraft.View;
 
-internal class ObserverViewController(in Viewpoint viewpoint) : IViewController
+internal class ObserverViewController(in Viewpoint viewpoint) : ICameraController
 {
     private Vector3 position = viewpoint.Position;
     private Vector3 direction = viewpoint.Direction;
