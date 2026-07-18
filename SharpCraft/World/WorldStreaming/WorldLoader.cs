@@ -41,9 +41,7 @@ internal class WorldLoader(
 
         ConcurrentBag<Chunk> generatedChunks = [];
         var indexesForGeneration = volume.CollectIndexesForGeneration();
-
-        var linker = new ChunkLinker();
-
+        
         Parallel.ForEach(indexesForGeneration, index =>
         {
             Chunk chunk = chunkGenerator.GenerateChunk(index);
@@ -55,11 +53,12 @@ internal class WorldLoader(
                 chunk.IsReady = true;
             }
         });
-
+        
+        Dictionary<Vec3<int>, NeighborSet> neighbors = [];
         foreach (var chunk in generatedChunks)
         {
-            var neighbors = volume.CollectNeighbors(chunk);
-            linker.LinkChunk(chunk, neighbors);
+            var n = volume.CollectNeighbors(chunk);
+            neighbors.Add(chunk.Index, n);
         }
 
         List<Chunk> readyChunks = [];
@@ -76,18 +75,19 @@ internal class WorldLoader(
                 pipeline.AddToRegistry(chunk, ChunkStage.Meshed);
                 continue;
             }
-
-            if (chunk.Neighbors.All)
+            
+            var n = neighbors[chunk.Index];
+            if (n.All)
             {
                 readyChunks.Add(chunk);
             }
             else
             {
-                pipeline.AddToRegistry(chunk, ChunkStage.Linked);
+                pipeline.AddToRegistry(chunk, ChunkStage.Generated);
             }
         }
 
-        var bulkLight = new BulkLight();
+        var bulkLight = new BulkLight(neighbors);
 
         foreach (var chunk in sunlightChunks)
         {
@@ -103,7 +103,9 @@ internal class WorldLoader(
 
         Parallel.ForEach(readyChunks, chunk =>
         {
-            chunkMesher.Build(chunk, chunk.Neighbors);
+            var n = neighbors[chunk.Index];
+            
+            chunkMesher.Build(chunk, n);
             chunk.IsReady = true;
             pipeline.AddToRegistry(chunk, ChunkStage.Meshed);
         });

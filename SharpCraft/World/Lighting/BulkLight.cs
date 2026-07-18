@@ -1,3 +1,4 @@
+using SharpCraft.SharpMath;
 using SharpCraft.World.Chunks;
 
 namespace SharpCraft.World.Lighting;
@@ -5,7 +6,7 @@ namespace SharpCraft.World.Lighting;
 /// <summary>
 /// Single-threaded light flood for startup bulk generation.
 /// </summary>
-internal sealed class BulkLight
+internal sealed class BulkLight(Dictionary<Vec3<int>, NeighborSet> neighbors)
 {
     private readonly struct Node(Chunk chunk, int x, int y, int z)
     {
@@ -76,13 +77,15 @@ internal sealed class BulkLight
             int x = node.X, y = node.Y, z = node.Z;
             Chunk chunk = node.Chunk;
 
+            var n = neighbors[chunk.Index];
+
             // Y+ (lateral), Y- (downward), then the four laterals
-            Visit(chunk, x, y + 1, z, chunk.YPos, x, 0, z, y == Chunk.Last, lateral);
-            Visit(chunk, x, y - 1, z, chunk.YNeg, x, Chunk.Last, z, y == 0, down);
-            Visit(chunk, x + 1, y, z, chunk.XPos, 0, y, z, x == Chunk.Last, lateral);
-            Visit(chunk, x - 1, y, z, chunk.XNeg, Chunk.Last, y, z, x == 0, lateral);
-            Visit(chunk, x, y, z + 1, chunk.ZPos, x, y, 0, z == Chunk.Last, lateral);
-            Visit(chunk, x, y, z - 1, chunk.ZNeg, x, y, Chunk.Last, z == 0, lateral);
+            Visit(chunk, x, y + 1, z, n.YPos, x, 0, z, y == Chunk.Last, lateral);
+            Visit(chunk, x, y - 1, z, n.YNeg, x, Chunk.Last, z, y == 0, down);
+            Visit(chunk, x + 1, y, z, n.XPos, 0, y, z, x == Chunk.Last, lateral);
+            Visit(chunk, x - 1, y, z, n.XNeg, Chunk.Last, y, z, x == 0, lateral);
+            Visit(chunk, x, y, z + 1, n.ZPos, x, y, 0, z == Chunk.Last, lateral);
+            Visit(chunk, x, y, z - 1, n.ZNeg, x, y, Chunk.Last, z == 0, lateral);
         }
     }
 

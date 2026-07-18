@@ -4,7 +4,6 @@ internal enum ChunkStage
 {
     Fresh,
     Generated,
-    Linked,
     Lit,
     Meshed
 }

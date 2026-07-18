@@ -16,7 +16,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private ulong NextVersion => Interlocked.Increment(ref field);
 
     private readonly ChunkVolume volume;
-    private readonly ChunkLinker linker;
     private readonly ChunkGenerator chunkGenerator;
     private readonly ChunkMesher chunkMesher;
 
@@ -24,21 +23,16 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     private readonly ConcurrentDictionary<Vec3<int>, ChunkRecord> registry = [];
     private readonly Queue<WorkItem> pendingGeneration = [];
-    private readonly Queue<WorkItem> pendingLinking = [];
     private readonly Queue<WorkItem> pendingLighting = [];
     private readonly Queue<WorkItem> pendingMeshing = [];
     private readonly HashSet<Vec3<int>> pendingDeletion = [];
     private readonly Queue<Vec3<int>> deletionQueue = [];
 
-    private const int strandedCleanupPeriodTicks = 500;
+    private const int StrandedCleanupPeriodTicks = 500;
+    
     private int ticksSinceLastStrandedCleanup;
 
     private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
-    {
-        SingleReader = true,
-        SingleWriter = false
-    });
-    private readonly Channel<WorkItem> linkChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
         SingleReader = true,
         SingleWriter = false
@@ -73,7 +67,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     });
 
     private readonly Task genWorker;
-    private readonly Task linkingWorker;
     private readonly Task lightingWorker;
     private readonly Task meshingWorker;
 
@@ -82,13 +75,10 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         this.volume = volume;
         this.chunkGenerator = chunkGenerator;
         this.chunkMesher = chunkMesher;
-
-        linker = new ChunkLinker();
-
+        
         CancellationToken ct = cts.Token;
 
         genWorker = Task.Run(() => GenerateChunkAsync(ct), ct);
-        linkingWorker = Task.Run(() => LinkChunkAsync(ct), ct);
         lightingWorker = Task.Run(() => LightChunkAsync(ct), ct);
         meshingWorker = Task.Run(() => MeshChunkAsync(ct), ct);
     }
@@ -105,7 +95,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         Flush();
         int chunksDeleted = ProcessDeletion();
 
-        if (++ticksSinceLastStrandedCleanup >= strandedCleanupPeriodTicks)
+        if (++ticksSinceLastStrandedCleanup >= StrandedCleanupPeriodTicks)
         {
             ClearStrandedRecords();
             ticksSinceLastStrandedCleanup = 0;
@@ -143,7 +133,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         while (resultChannel.Reader.TryRead(out var result))
         {
-            if (result.JobType == JobType.Meshing && result.Status == ResultStatus.Success)
+            if (result is { JobType: JobType.Meshing, Status: ResultStatus.Success })
             {
                 chunksMeshed++;
             }
@@ -193,9 +183,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     volume.Add(record.Chunk!);
                     record.Stage = ChunkStage.Generated;
                     break;
-                case JobType.Linking:
-                    record.Stage = ChunkStage.Linked;
-                    break;
                 case JobType.Lighting:
                     record.Stage = ChunkStage.Lit;
                     break;
@@ -242,8 +229,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         JobType? job = record.Stage switch
         {
             ChunkStage.Fresh     => JobType.Generation,
-            ChunkStage.Generated => JobType.Linking,
-            ChunkStage.Linked    => JobType.Lighting,
+            ChunkStage.Generated => JobType.Lighting,
             ChunkStage.Lit       => JobType.Meshing,
             _ => null
         };
@@ -297,7 +283,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         var (channel, pending) = job switch
         {
             JobType.Generation => (genChannel, pendingGeneration),
-            JobType.Linking => (linkChannel, pendingLinking),
             JobType.Lighting => (lightChannel, pendingLighting),
             JobType.Meshing => (meshChannel, pendingMeshing),
             _ => throw new ArgumentOutOfRangeException(nameof(job))
@@ -379,7 +364,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             if (record.Chunk is { } chunk)
             {
                 chunkMesher.Remove(chunk.Index);
-                linker.UnlinkChunk(chunk);
                 volume.RemoveChunk(chunk.Index);
                 chunk.IsReady = false;
             }
@@ -425,10 +409,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (pendingGeneration.Count > 0)
         {
             FlushQueue(pendingGeneration, JobType.Generation);
-        }
-        if (pendingLinking.Count > 0)
-        {
-            FlushQueue(pendingLinking, JobType.Linking);
         }
         if (pendingLighting.Count > 0)
         {
@@ -502,34 +482,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             try
             {
                 result.Chunk = chunkGenerator.GenerateChunk(item.Index);
-                result.Status = ResultStatus.Success;
-            }
-            catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
-            {
-                Console.WriteLine(ex);
-                result.Exception = ex;
-                result.Status = ResultStatus.Fail;
-            }
-
-            await resultChannel.Writer.WriteAsync(result, ct);
-        }
-    }
-
-    private async Task LinkChunkAsync(CancellationToken ct)
-    {
-        await foreach (var item in linkChannel.Reader.ReadAllAsync(ct))
-        {
-            var result = new WorkResult(item.Index, item.Version, JobType.Linking, ResultStatus.Skip, item.Chunk,
-                null);
-            try
-            {
-                if (item.Chunk is null || item.Neighbors is null)
-                {
-                    await resultChannel.Writer.WriteAsync(result, ct);
-                    continue;
-                }
-                
-                linker.LinkChunk(item.Chunk, item.Neighbors.Value);
                 result.Status = ResultStatus.Success;
             }
             catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
@@ -767,7 +719,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         try
         {
-            await Task.WhenAll(genWorker, linkingWorker, lightingWorker, meshingWorker);
+            await Task.WhenAll(genWorker, lightingWorker, meshingWorker);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)

@@ -18,29 +18,8 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
     public bool IsEmpty => palette is null;
     public int PaletteCount => palette?.Count ?? 0;
     public bool IsReady { get; set; }
-
-    public readonly object SyncRoot = new();
     
     public ChunkLight? Light { get; private set; }
-
-    public NeighborSet Neighbors =>
-        new()
-        {
-            ZPos = ZPos,
-            ZNeg = ZNeg,
-            XPos = XPos,
-            XNeg = XNeg,
-            YPos = YPos,
-            YNeg = YNeg
-        };
-
-    //Adjacent chunk references
-    public Chunk? ZPos { get; set; }
-    public Chunk? ZNeg { get; set; }
-    public Chunk? XPos { get; set; }
-    public Chunk? XNeg { get; set; }
-    public Chunk? YPos { get; set; }
-    public Chunk? YNeg { get; set; }
 
     private List<Block>? palette;
     private Dictionary<Block, uint>? paletteIndexMap;
