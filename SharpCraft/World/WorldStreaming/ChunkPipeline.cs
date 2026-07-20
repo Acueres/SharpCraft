@@ -3,7 +3,6 @@ using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.Generation;
-using SharpCraft.World.Lighting;
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
@@ -34,18 +33,18 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
-        SingleReader = true,
-        SingleWriter = false
+        SingleReader = false,
+        SingleWriter = true
     });
     private readonly Channel<WorkItem> lightChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
-        SingleReader = true,
-        SingleWriter = false
+        SingleReader = false,
+        SingleWriter = true
     });
     private readonly Channel<WorkItem> meshChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
     {
-        SingleReader = true,
-        SingleWriter = false
+        SingleReader = false,
+        SingleWriter = true
     });
 
     private readonly Channel<WorkResult> resultChannel = Channel.CreateBounded<WorkResult>(new BoundedChannelOptions(ChunkBudget)
@@ -60,15 +59,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         SingleWriter = false
     });
 
-    private readonly Channel<RemeshRequest> remeshChannel = Channel.CreateBounded<RemeshRequest>(new BoundedChannelOptions(ChunkBudget)
-    {
-        SingleReader = true,
-        SingleWriter = false
-    });
-
-    private readonly Task genWorker;
-    private readonly Task lightingWorker;
-    private readonly Task meshingWorker;
+    private readonly Task[] genWorkers;
+    private readonly Task[] lightingWorkers;
+    private readonly Task[] meshingWorkers;
 
     public ChunkPipeline(ChunkVolume volume, ChunkGenerator chunkGenerator, ChunkMesher chunkMesher)
     {
@@ -77,10 +70,15 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         this.chunkMesher = chunkMesher;
         
         CancellationToken ct = cts.Token;
+        
+        int computeBudget = Math.Max(1, Environment.ProcessorCount - 2);
+        int genWorkersCount   = Math.Max(1, computeBudget / 2);
+        int lightWorkersCount = Math.Max(1, computeBudget / 4);
+        int meshWorkersCount  = Math.Max(1, computeBudget - genWorkersCount - lightWorkersCount);
 
-        genWorker = Task.Run(() => GenerateChunkAsync(ct), ct);
-        lightingWorker = Task.Run(() => LightChunkAsync(ct), ct);
-        meshingWorker = Task.Run(() => MeshChunkAsync(ct), ct);
+        genWorkers = Enumerable.Range(0, genWorkersCount).Select(_ => Task.Run(() => GenerateChunkAsync(ct), ct)).ToArray();
+        lightingWorkers = Enumerable.Range(0, lightWorkersCount).Select(_ => Task.Run(() => LightChunkAsync(ct), ct)).ToArray();
+        meshingWorkers = Enumerable.Range(0, meshWorkersCount).Select(_ => Task.Run(() => MeshChunkAsync(ct), ct)).ToArray();
     }
 
     public void Schedule(List<Vec3<int>> toGenerate, List<Vec3<int>> toRemove)
@@ -92,7 +90,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     public bool Tick()
     {
         int chunksMeshed = DrainResults();
+        
         Flush();
+        
         int chunksDeleted = ProcessDeletion();
 
         if (++ticksSinceLastStrandedCleanup >= StrandedCleanupPeriodTicks)
@@ -124,11 +124,6 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         while (relightChannel.Reader.TryRead(out var relightRequest))
         {
             ProcessRelightRequest(relightRequest);
-        }
-
-        while (remeshChannel.Reader.TryRead(out var remeshRequest))
-        {
-            ProcessRemeshRequest(remeshRequest);
         }
 
         while (resultChannel.Reader.TryRead(out var result))
@@ -180,6 +175,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             {
                 case JobType.Generation:
                     record.Chunk = result.Chunk;
+                    record.Chunk!.EnsureLight();
                     volume.Add(record.Chunk!);
                     record.Stage = ChunkStage.Generated;
                     break;
@@ -216,7 +212,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         if (!volume.IsWithinActiveVolume(index))
             return;
-        
+
         if (!registry.TryGetValue(index, out var record))
             return;
 
@@ -234,15 +230,12 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             _ => null
         };
 
-        ChunkDirty dirty = ChunkDirty.None;
         if (record.Dirty.HasFlag(ChunkDirty.NeedsRelight) && record.Stage >= ChunkStage.Lit)
         {
-            dirty = ChunkDirty.NeedsRelight;
             job = JobType.Lighting;
         }
         else if (record.Dirty.HasFlag(ChunkDirty.NeedsRemesh) && record.Stage >= ChunkStage.Lit)
         {
-            dirty = ChunkDirty.NeedsRemesh;
             job = JobType.Meshing;
         }
 
@@ -263,16 +256,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         if (job == JobType.Meshing && !(allNeighborsExist && AllNeighborsLit(records)))
             return;
-
-        if (dirty.HasFlag(ChunkDirty.NeedsRelight))
-        {
-            record.Dirty &= ~ChunkDirty.NeedsRelight;
-        }
-        else if (dirty.HasFlag(ChunkDirty.NeedsRemesh))
-        {
-            record.Dirty &= ~ChunkDirty.NeedsRemesh;
-        }
-
+        
         Dispatch(record, index, job.Value, neighbors);
     }
 
@@ -287,33 +271,27 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             JobType.Meshing => (meshChannel, pendingMeshing),
             _ => throw new ArgumentOutOfRangeException(nameof(job))
         };
-        if (!channel.Writer.TryWrite(work))
+
+        if (channel.Writer.TryWrite(work))
+        {
+            if (job == JobType.Lighting)
+                record.Dirty &= ~ChunkDirty.NeedsRelight;
+            else if (job == JobType.Meshing)
+                record.Dirty &= ~ChunkDirty.NeedsRemesh;
+        }
+        else
+        {
             pending.Enqueue(work);
+        }
     }
 
     private void ProcessRelightRequest(RelightRequest request)
     {
         if (!registry.TryGetValue(request.Index, out var record)) return;
         if (!record.Flags.HasFlag(ChunkFlags.Wanted)) return;
-        if (record.Chunk?.Light is null) return;
-        
-        // Deposit the carried nodes on the main thread
-        foreach (var n in request.LightNodes)
-        {
-            record.Chunk.Light.Enqueue(n);
-        }
-
-        record.Dirty |= ChunkDirty.NeedsRelight;
-        TryDispatch(request.Index);
-    }
-
-    private void ProcessRemeshRequest(RemeshRequest request)
-    {
-        if (!registry.TryGetValue(request.Index, out var record)) return;
-        if (!record.Flags.HasFlag(ChunkFlags.Wanted)) return;
         if (record.Chunk is null) return;
 
-        record.Dirty |= ChunkDirty.NeedsRemesh;
+        record.Dirty |= ChunkDirty.NeedsRelight;
         TryDispatch(request.Index);
     }
 
@@ -467,6 +445,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 if (wasUnwanted)
                 {
                     record.Version = NextVersion;
+                    record.Dirty |= ChunkDirty.NeedsRelight;
                 }
             }
 
@@ -507,9 +486,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     await resultChannel.Writer.WriteAsync(result, ct);
                     continue;
                 }
-
-                chunk.EnsureLight();
-
+                
                 if (chunkGenerator.IsSunlight(chunk))
                 {
                     chunk.Light!.SeedSkylight();
@@ -518,100 +495,25 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 if (!chunk.IsEmpty)
                 {
                     chunk.Light!.SeedBlockLight();
-                    chunk.Light!.SeedNeighborsLight(neighborSet.Value);
                 }
+                
+                chunk.Light!.SeedNeighborsLight(neighborSet.Value);
 
-                var (meshTouched, spilledLight) = chunk.Light!.Flood(neighborSet.Value);
+                FacesState changed = chunk.Light!.Flood();
+                
+                if (changed.ZPos)
+                    await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(0, 0, 1)), ct);
+                if (changed.ZNeg)
+                    await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(0, 0, -1)), ct);
+                if (changed.XPos)
+                    await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(1, 0, 0)), ct);
+                if (changed.XNeg)
+                    await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(-1, 0, 0)), ct);
+                if (changed.YPos)
+                    await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(0, 1, 0)), ct);
+                if (changed.YNeg)
+                    await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(0, -1, 0)), ct);
 
-                FacesState lightSpilled = default;
-
-                // Re-feed neighbors who received new light values
-                if (spilledLight.ZPos.Count != 0)
-                {
-                    lightSpilled.ZPos = true;
-
-                    var relightRequest = new RelightRequest(chunk.Index + new Vec3<int>(0, 0, 1), spilledLight.ZPos);
-                    await relightChannel.Writer.WriteAsync(relightRequest, ct);
-                }
-
-                if (spilledLight.ZNeg.Count != 0)
-                {
-                    lightSpilled.ZNeg = true;
-
-                    var relightRequest = new RelightRequest(chunk.Index + new Vec3<int>(0, 0, -1), spilledLight.ZNeg);
-                    await relightChannel.Writer.WriteAsync(relightRequest, ct);
-                }
-
-                if (spilledLight.XPos.Count != 0)
-                {
-                    lightSpilled.XPos = true;
-
-                    var relightRequest = new RelightRequest(chunk.Index + new Vec3<int>(1, 0, 0), spilledLight.XPos);
-                    await relightChannel.Writer.WriteAsync(relightRequest, ct);
-                }
-
-                if (spilledLight.XNeg.Count != 0)
-                {
-                    lightSpilled.XNeg = true;
-
-                    var relightRequest = new RelightRequest(chunk.Index + new Vec3<int>(-1, 0, 0), spilledLight.XNeg);
-                    await relightChannel.Writer.WriteAsync(relightRequest, ct);
-                }
-
-                if (spilledLight.YPos.Count != 0)
-                {
-                    lightSpilled.YPos = true;
-
-                    var relightRequest = new RelightRequest(chunk.Index + new Vec3<int>(0, 1, 0), spilledLight.YPos);
-                    await relightChannel.Writer.WriteAsync(relightRequest, ct);
-                }
-
-                if (spilledLight.YNeg.Count != 0)
-                {
-                    lightSpilled.YNeg = true;
-
-                    var relightRequest = new RelightRequest(chunk.Index + new Vec3<int>(0, -1, 0), spilledLight.YNeg);
-                    await relightChannel.Writer.WriteAsync(relightRequest, ct);
-                }
-
-                // Remesh neighbors that were touched, but had no light spilled into them
-                if (!lightSpilled.ZPos && meshTouched.ZPos)
-                {
-                    var remeshRequest = new RemeshRequest(chunk.Index + new Vec3<int>(0, 0, 1));
-                    await remeshChannel.Writer.WriteAsync(remeshRequest, ct);
-                }
-
-                if (!lightSpilled.ZNeg && meshTouched.ZNeg)
-                {
-                    var remeshRequest = new RemeshRequest(chunk.Index + new Vec3<int>(0, 0, -1));
-                    await remeshChannel.Writer.WriteAsync(remeshRequest, ct);
-                }
-
-                if (!lightSpilled.XPos && meshTouched.XPos)
-                {
-                    var remeshRequest = new RemeshRequest(chunk.Index + new Vec3<int>(1, 0, 0));
-                    await remeshChannel.Writer.WriteAsync(remeshRequest, ct);
-                }
-
-                if (!lightSpilled.XNeg && meshTouched.XNeg)
-                {
-                    var remeshRequest = new RemeshRequest(chunk.Index + new Vec3<int>(-1, 0, 0));
-                    await remeshChannel.Writer.WriteAsync(remeshRequest, ct);
-                }
-
-                if (!lightSpilled.YPos && meshTouched.YPos)
-                {
-                    var remeshRequest = new RemeshRequest(chunk.Index + new Vec3<int>(0, 1, 0));
-                    await remeshChannel.Writer.WriteAsync(remeshRequest, ct);
-                }
-
-                if (!lightSpilled.YNeg && meshTouched.YNeg)
-                {
-                    var remeshRequest = new RemeshRequest(chunk.Index + new Vec3<int>(0, -1, 0));
-                    await remeshChannel.Writer.WriteAsync(remeshRequest, ct);
-                }
-
-                // Success
                 result.Chunk = chunk;
                 result.Status = ResultStatus.Success;
             }
@@ -719,7 +621,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         try
         {
-            await Task.WhenAll(genWorker, lightingWorker, meshingWorker);
+            var allWorkers = genWorkers.Concat(lightingWorkers).Concat(meshingWorkers);
+            await Task.WhenAll(allWorkers);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -736,9 +639,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     
     private record struct WorkResult(Vec3<int> Index, ulong Version, JobType JobType, ResultStatus Status, Chunk? Chunk, Exception? Exception);
 
-    private record struct RelightRequest(Vec3<int> Index, List<LightNode> LightNodes);
-
-    private record struct RemeshRequest(Vec3<int> Index);
+    private record struct RelightRequest(Vec3<int> Index);
 
     private enum ResultStatus
     {

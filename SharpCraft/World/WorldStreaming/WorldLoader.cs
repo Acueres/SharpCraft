@@ -46,12 +46,7 @@ internal class WorldLoader(
         {
             Chunk chunk = chunkGenerator.GenerateChunk(index);
             volume.Add(chunk);
-
             generatedChunks.Add(chunk);
-            if (chunk.IsEmpty)
-            {
-                chunk.IsReady = true;
-            }
         });
         
         Dictionary<Vec3<int>, NeighborSet> neighbors = [];
@@ -65,15 +60,11 @@ internal class WorldLoader(
         List<Chunk> sunlightChunks = [];
         foreach (var chunk in generatedChunks)
         {
+            chunk.EnsureLight();
+            
             if (chunkGenerator.IsSunlight(chunk))
             {
                 sunlightChunks.Add(chunk);
-            }
-
-            if (chunk.IsReady)
-            {
-                pipeline.AddToRegistry(chunk, ChunkStage.Meshed);
-                continue;
             }
             
             var n = neighbors[chunk.Index];

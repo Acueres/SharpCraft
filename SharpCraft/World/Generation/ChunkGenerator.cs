@@ -42,32 +42,41 @@ internal class ChunkGenerator(BlockRegistry blockRegistry)
         
         chunk.BuildPalette(buffer);
         
-        Vec2<int> cacheIndex = new(index.X, index.Z);
-        AdjustMaximumElevation(chunk, cacheIndex);
-
         return chunk;
     }
     
     public bool IsSunlight(Chunk chunk)
     {
-        if (!maxHeightCache.TryGetValue(new Vec2<int>(chunk.Index.X, chunk.Index.Z), out int maxElevation))
-        {
-            return false;
-        }
+        Vec2<int> column = new(chunk.Index.X, chunk.Index.Z);
+        int maxElevation = GetMaximumColumnElevation(column);
+        int surfaceChunkY = Chunk.WorldToChunkIndex(maxElevation);
 
-        int y = Chunk.WorldToChunkIndex(maxElevation);
-        return chunk.Index.Y == y || chunk.Index.Y == y + 1;
+        return chunk.Index.Y == surfaceChunkY ||
+               chunk.Index.Y == surfaceChunkY + 1;
     }
     
-    private void AdjustMaximumElevation(Chunk chunk, Vec2<int> cacheIndex)
+    private const int TerrainLevel = Chunk.Size / 2;
+    
+    private int GetMaximumColumnElevation(Vec2<int> chunkIndex)
     {
-        int? newMaxElevation = chunk.GetMaximumTerrainElevation();
-        if (!newMaxElevation.HasValue) return;
+        return maxHeightCache.GetOrAdd(chunkIndex, static index =>
+        {
+            int worldStartX = index.X * Chunk.Size;
+            int worldStartZ = index.Z * Chunk.Size;
+            int maximum = int.MinValue;
 
-        maxHeightCache.AddOrUpdate(
-            cacheIndex,
-            newMaxElevation.Value,
-            (_, existing) => Math.Max(existing, newMaxElevation.Value));
+            for (int x = 0; x < Chunk.Size; x++)
+            for (int z = 0; z < Chunk.Size; z++)
+            {
+                int worldX = worldStartX + x;
+                int worldZ = worldStartZ + z;
+
+                int elevation = TerrainLevel + GetTerrainHeight(worldX, worldZ);
+                maximum = Math.Max(maximum, elevation);
+            }
+
+            return maximum;
+        });
     }
 
     private static int GetTerrainHeight(int x, int z)
