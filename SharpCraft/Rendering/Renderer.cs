@@ -1,8 +1,8 @@
 ﻿using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics;
+using SharpCraft.Diagnostics;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
-using SharpCraft.Time;
 using SharpCraft.SharpMath;
 using SharpCraft.Rendering.Text;
 using SharpCraft.World.Meshing;
@@ -30,6 +30,7 @@ internal unsafe class Renderer : IDisposable
     private readonly TextTextureManager textTextureManager;
 
     private readonly GpuUploader uploader;
+    private readonly FrameProfiler profiler;
 
     private readonly FrameManager frameManager;
     private readonly DepthBuffer depthBuffer;
@@ -39,7 +40,6 @@ internal unsafe class Renderer : IDisposable
     private float uiScale;
     private float fontSize;
     private float padding;
-    private float lineHeight;
     private float crosshairSize;
 
     private uint currentWidth;
@@ -49,14 +49,14 @@ internal unsafe class Renderer : IDisposable
     private readonly uint defaultHeight;
     private const uint DefaultFontSize = 16;
     private const uint DefaultPadding = 8;
-    private const uint DefaultLineHeight = 18;
     private const uint DefaultCrosshairSize = 32;
 
     public Renderer(uint width, uint height, Window window, GpuDevice device,
-        AssetServer assetServer, ChunkMesher chunkMesher)
+        AssetServer assetServer, ChunkMesher chunkMesher, FrameProfiler profiler)
     {
         this.device = device;
         this.assetServer = assetServer;
+        this.profiler = profiler;
         defaultWidth = width;
         defaultHeight = height;
 
@@ -66,16 +66,16 @@ internal unsafe class Renderer : IDisposable
         crosshairTexture = assetServer.CrosshairTexture;
         var debugFont = assetServer.GetDebugFont(DefaultFontSize);
         
-        uploader = new GpuUploader(this.device);
+        uploader = new GpuUploader(this.device, profiler);
         
         textTextureManager = new TextTextureManager(device, uploader);
 
-        debugOverlay = new DebugOverlay(textTextureManager, debugFont);
+        debugOverlay = new DebugOverlay(textTextureManager, debugFont, device, uploader);
 
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
 
-        voxelFaceRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader, chunkMesher);
+        voxelFaceRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader, chunkMesher, profiler);
         spriteRenderer = new SpriteRenderer(device, uploader, spriteShader);
 
         RescaleUi(width, height);
@@ -87,10 +87,12 @@ internal unsafe class Renderer : IDisposable
     }
 
 
-    public void UpdateUi(in FrameTime time)
+    public void UpdateUi()
     {
-        debugOverlay.Update(time);
+        debugOverlay.Update(profiler.Snapshot);
     }
+
+    public void ToggleDebugOverlay() => debugOverlay.Toggle();
 
     public void LoadGpuResources()
     {
@@ -98,7 +100,7 @@ internal unsafe class Renderer : IDisposable
         uploader.Upload(crosshairTexture);
     }
     
-    public void Render(in FrameTime time, Camera camera)
+    public void Render(Camera camera)
     {
         if (!TryBeginFrame(out var frame))
         {
@@ -107,7 +109,7 @@ internal unsafe class Renderer : IDisposable
 
         camera.SetViewport(frame.Width, frame.Height);
         RescaleUi(frame.Width, frame.Height);
-        Draw(frame, time, camera);
+        Draw(frame, camera);
 
         textTextureManager.FlushDynamic();
     }
@@ -124,13 +126,13 @@ internal unsafe class Renderer : IDisposable
         return true;
     }
 
-    private void Draw(in FrameContext frame, in FrameTime time, Camera camera)
+    private void Draw(in FrameContext frame, Camera camera)
     {
-        DrawScene(frame, time, camera);
+        DrawScene(frame, camera);
         frameManager.SubmitFrame(frame);
     }
 
-    private void DrawScene(in FrameContext frame, in FrameTime time, Camera camera)
+    private void DrawScene(in FrameContext frame, Camera camera)
     {
         Matrix4x4 mvp = BuildMvp(camera);
 
@@ -187,12 +189,9 @@ internal unsafe class Renderer : IDisposable
 
         debugOverlay.Draw(
             spriteRenderer,
-            time,
-            device,
             frame.Width,
             frame.Height,
-            padding,
-            lineHeight
+            padding
         );
 
         spriteRenderer.Upload();
@@ -203,6 +202,7 @@ internal unsafe class Renderer : IDisposable
             frame.Width,
             frame.Height
         );
+        profiler.Rendering.UiDrawCalls = spriteRenderer.DrawCallCount;
 
         SDL_EndGPURenderPass(renderPass);
     }
@@ -223,7 +223,6 @@ internal unsafe class Renderer : IDisposable
         debugOverlay.Rescale(font);
 
         padding = MathF.Round(DefaultPadding * uiScale);
-        lineHeight = MathF.Round(DefaultLineHeight * uiScale);
         crosshairSize = MathF.Round(DefaultCrosshairSize * uiScale);
 
         currentWidth = newWidth;

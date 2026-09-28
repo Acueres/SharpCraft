@@ -1,5 +1,6 @@
 ﻿using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics;
+using SharpCraft.Diagnostics;
 using SharpCraft.Input;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
@@ -15,6 +16,7 @@ using SharpCraft.View;
 
 using SDL;
 using System.Numerics;
+using System.Diagnostics;
 using static SDL.SDL3;
 
 namespace SharpCraft;
@@ -38,6 +40,7 @@ internal unsafe class App : IDisposable
     private ICameraController activeViewController;
     
     private readonly FrameClock clock = new();
+    private readonly FrameProfiler profiler = new();
     private readonly FrameLimiter frameLimiter;
 
     private readonly WorldLoader worldLoader;
@@ -80,7 +83,7 @@ internal unsafe class App : IDisposable
         worldLoader = new WorldLoader(volume, chunkGenerator, chunkMesher);
         worldLoader.BulkGenerate(Vector3.Zero);
         
-        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher);
+        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher, profiler);
         renderer.LoadGpuResources();
         renderer.UpdateWorld(camera, volume);
     }
@@ -91,6 +94,7 @@ internal unsafe class App : IDisposable
         
         while (running)
         {
+            profiler.BeginFrame();
             FrameTime time = clock.Tick();
 
             input.Begin();
@@ -121,7 +125,13 @@ internal unsafe class App : IDisposable
             {
                 window.SetRelativeMouseMode(false);
             }
+
+            if (input.Keyboard.WasPressed(Keys.F3))
+            {
+                renderer.ToggleDebugOverlay();
+            }
             
+            long worldStarted = Stopwatch.GetTimestamp();
             Vec3<int> currentControllerIndex = Chunk.WorldToChunkCoords(activeViewController.GetPosition());
 
             if (activeViewController.GetIndex() != currentControllerIndex)
@@ -131,6 +141,8 @@ internal unsafe class App : IDisposable
             }
             
             bool worldUpdate = worldLoader.Tick();
+            profiler.Streaming = worldLoader.GetStatistics();
+            profiler.Timings.WorldMilliseconds = Stopwatch.GetElapsedTime(worldStarted).TotalMilliseconds;
             bool controllerUpdate = activeViewController.Update(input, time);
 
             if (controllerUpdate)
@@ -141,13 +153,21 @@ internal unsafe class App : IDisposable
 
             if (controllerUpdate || worldUpdate)
             {
+                long updateStarted = Stopwatch.GetTimestamp();
                 renderer.UpdateWorld(camera, volume);
+                profiler.Timings.RendererMilliseconds += Stopwatch.GetElapsedTime(updateStarted).TotalMilliseconds;
             }
             
-            renderer.UpdateUi(time);
-            renderer.Render(time, camera);
+            long renderStarted = Stopwatch.GetTimestamp();
+            renderer.UpdateUi();
+            renderer.Render(camera);
+            profiler.Timings.RendererMilliseconds += Stopwatch.GetElapsedTime(renderStarted).TotalMilliseconds;
 
+            profiler.EndWork();
+            long waitStarted = Stopwatch.GetTimestamp();
             frameLimiter.Wait();
+            profiler.Timings.LimiterMilliseconds = Stopwatch.GetElapsedTime(waitStarted).TotalMilliseconds;
+            profiler.EndFrame();
         }
     }
 

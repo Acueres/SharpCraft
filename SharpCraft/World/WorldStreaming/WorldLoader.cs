@@ -3,6 +3,7 @@ using SharpCraft.World.Generation;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.Lighting;
 using SharpCraft.SharpMath;
+using SharpCraft.Diagnostics;
 
 using System.Numerics;
 using System.Collections.Concurrent;
@@ -31,6 +32,8 @@ internal class WorldLoader(
     {
         return pipeline.Tick();
     }
+
+    public StreamingStatistics GetStatistics() => pipeline.GetStatistics();
 
     // Use to generate chunks in bulk
     public void BulkGenerate(Vector3 pos)

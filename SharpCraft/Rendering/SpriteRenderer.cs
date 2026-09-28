@@ -30,6 +30,8 @@ internal sealed unsafe class SpriteRenderer : IDisposable
 
     private bool disposed;
 
+    public int DrawCallCount => batches.Count;
+
     public SpriteRenderer(
         GpuDevice device,
         GpuUploader uploader,

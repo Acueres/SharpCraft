@@ -1,5 +1,6 @@
 using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics;
+using SharpCraft.Diagnostics;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.WorldStreaming;
@@ -8,6 +9,7 @@ using SharpCraft.World.Meshing;
 using SharpCraft.View;
 
 using System.Numerics;
+using System.Diagnostics;
 using SDL;
 using System.Runtime.InteropServices;
 using static SDL.SDL3;
@@ -15,7 +17,7 @@ using static SDL.SDL3;
 namespace SharpCraft.Rendering;
 
 internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
-    TextureArray textureArray, GraphicsShader shader, ChunkMesher chunkMesher) : IDisposable
+    TextureArray textureArray, GraphicsShader shader, ChunkMesher chunkMesher, FrameProfiler profiler) : IDisposable
 {
     private readonly Sampler sampler = Sampler.CreateNearestRepeat(device);
     
@@ -31,14 +33,17 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
 
     public void Update(ChunkVolume volume, Camera camera)
     {
+        long started = Stopwatch.GetTimestamp();
         visibleMeshes.Clear();
 
         int opaqueCount = 0;
         int transparentCount = 0;
+        int residentCount = 0;
 
         // Cull
         foreach (var chunk in volume.GetActiveChunks())
         {
+            residentCount++;
             if (chunk.IsEmpty || !chunk.IsReady) continue;
 
             Vector3 center = chunk.Position + new Vector3(Chunk.HalfSize);
@@ -53,6 +58,11 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             visibleMeshes.Add((opaqueArr, transparentArr));
         }
 
+        profiler.Timings.CullingMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        profiler.Rendering.ResidentChunks = residentCount;
+        profiler.Rendering.VisibleChunks = visibleMeshes.Count;
+        started = Stopwatch.GetTimestamp();
+
         // Ensure capacity
         faces.Clear();
         transparentFaces.Clear();
@@ -66,7 +76,16 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             transparentFaces.AddRange(transparentArr);
         }
 
+        profiler.Timings.AssemblyMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        started = Stopwatch.GetTimestamp();
+        
         Upload(faces, transparentFaces);
+        
+        profiler.Timings.TerrainUploadMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        profiler.Rendering.OpaqueFaces = opaqueBuffer.Count;
+        profiler.Rendering.TransparentFaces = transparentBuffer.Count;
+        profiler.Rendering.TerrainUsedBytes = ((long)opaqueBuffer.Count + transparentBuffer.Count) * sizeof(VoxelFace);
+        profiler.Rendering.TerrainBufferBytes = opaqueBuffer.CapacityBytes + transparentBuffer.CapacityBytes;
     }
 
     private void Upload(List<VoxelFace> data, List<VoxelFace> transparentData)
@@ -131,6 +150,7 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             first_vertex: 0,
             first_instance: 0
         );
+        profiler.Rendering.TerrainDrawCalls++;
     }
 
     private bool disposed;

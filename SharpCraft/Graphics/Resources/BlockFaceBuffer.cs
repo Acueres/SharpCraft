@@ -12,6 +12,7 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
     public SDL_GPUBuffer* Handle => buffer;
     
     public uint BytesCount => (uint)(Count * sizeof(VoxelFace));
+    public long CapacityBytes => capacity * sizeof(VoxelFace);
     public uint Count { get; private set; } = 1;
 
     private uint capacity = 1;

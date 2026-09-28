@@ -3,12 +3,13 @@
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
+using SharpCraft.Diagnostics;
 
 using static SDL.SDL3;
 
 namespace SharpCraft.Graphics;
 
-internal unsafe class GpuUploader(GpuDevice device)
+internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
 {
     public void Upload(BlockFaceBuffer blockFaceBuffer, ReadOnlySpan<VoxelFace> data)
     {
@@ -82,6 +83,8 @@ internal unsafe class GpuUploader(GpuDevice device)
             {
                 SdlRuntime.Throw("Failed to upload GPU command buffer");
             }
+            
+            profiler.Rendering.TerrainUploadBytes += vertexBytes;
         }
         finally
         {
@@ -245,6 +248,8 @@ internal unsafe class GpuUploader(GpuDevice device)
             {
                 SdlRuntime.Throw("Failed to submit sprite upload command buffer");
             }
+            
+            profiler.Rendering.UiUploadBytes += (long)vertexBytes + indexBytes;
         }
         finally
         {
@@ -467,6 +472,8 @@ internal unsafe class GpuUploader(GpuDevice device)
             }
 
             device.WaitIdle();
+            
+            profiler.Rendering.UiUploadBytes += expectedByteCount;
         }
         finally
         {

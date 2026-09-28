@@ -31,12 +31,9 @@ internal static unsafe class TextRasterizer
 
         fixed (byte* pText = textBytes)
         {
-            rawSurface = TTF_RenderText_Blended(
-                font.Handle,
-                pText,
-                (nuint)textBytes.Length,
-                white
-            );
+            rawSurface = text.Contains('\n')
+                ? TTF_RenderText_Blended_Wrapped(font.Handle, pText, (nuint)textBytes.Length, white, 0)
+                : TTF_RenderText_Blended(font.Handle, pText, (nuint)textBytes.Length, white);
         }
 
         if (rawSurface == null)

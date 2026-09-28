@@ -3,6 +3,7 @@ using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.Generation;
+using SharpCraft.Diagnostics;
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
@@ -86,6 +87,12 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         MarkForDeletion(toRemove);
         ProcessFresh(toGenerate);
     }
+
+    // Approximate concurrent queue depths; executing jobs are intentionally excluded
+    public StreamingStatistics GetStatistics() => new(
+        pendingGeneration.Count + genChannel.Reader.Count,
+        pendingLighting.Count + lightChannel.Reader.Count,
+        pendingMeshing.Count + meshChannel.Reader.Count);
 
     public bool Tick()
     {
