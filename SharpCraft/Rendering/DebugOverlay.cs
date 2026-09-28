@@ -11,8 +11,7 @@ namespace SharpCraft.Rendering;
 
 internal sealed class DebugOverlay : IDisposable
 {
-    private readonly TextTextureManager textTextureManager;
-    private readonly DynamicTextSlot text;
+    private readonly TextLayout text;
     private readonly Texture background;
     private readonly string deviceInfo;
     
@@ -27,12 +26,11 @@ internal sealed class DebugOverlay : IDisposable
     private int gen2;
     private bool disposed;
 
-    public DebugOverlay(TextTextureManager textTextureManager, Font font, GpuDevice device, GpuUploader uploader)
+    public DebugOverlay(GpuTextEngine textEngine, Font font, GpuDevice device, GpuUploader uploader)
     {
-        this.textTextureManager = textTextureManager;
         this.font = font;
         deviceInfo = $"{device.DriverName} | {device.DeviceName}";
-        text = textTextureManager.CreateDynamic(font, $"SharpCraft profiler | F3 hide\nCollecting samples...\n{deviceInfo}");
+        text = textEngine.CreateText(font, $"SharpCraft profiler | F3 hide\nCollecting samples...\n{deviceInfo}");
         background = new Texture(device, 1, 1, Colors.White);
         uploader.Upload(background);
     }
@@ -56,41 +54,45 @@ internal sealed class DebugOverlay : IDisposable
             memoryMeasuredAt = now;
         }
 
-        // One multiline texture per refresh avoids a separate upload for every value
         string content = CompactProfileText.Format(profile, managedMiB, processMiB, gen0, gen1, gen2);
-        textTextureManager.UpdateDynamic(font, $"{content}\n{deviceInfo}", text);
+        text.Set(font, $"{content}\n{deviceInfo}");
         displayedRevision = profile.Revision;
     }
 
     public void Rescale(Font newFont)
     {
         font = newFont;
-        textTextureManager.UpdateDynamic(newFont, text.Text, text);
+        text.Set(newFont, text.Content);
+    }
+
+    public void Prepare()
+    {
+        if (visible) text.Prepare();
     }
 
     public void Draw(SpriteRenderer spriteRenderer, uint screenWidth, uint screenHeight, float padding)
     {
         if (!visible) return;
 
-        // Preserve aspect ratio when the native text surface exceeds a small viewport
+        // Preserve aspect ratio when the text exceeds a small viewport.
         float availableWidth = Math.Max(1, screenWidth - padding * 4);
         float availableHeight = Math.Max(1, screenHeight - padding * 4);
-        float scale = Math.Min(1, Math.Min(availableWidth / text.Texture.Width, availableHeight / text.Texture.Height));
-        float width = text.Texture.Width * scale;
-        float height = text.Texture.Height * scale;
+        float scale = Math.Min(1, Math.Min(availableWidth / Math.Max(1, text.Width), availableHeight / Math.Max(1, text.Height)));
+        float width = text.Width * scale;
+        float height = text.Height * scale;
 
         spriteRenderer.Draw(background,
             new Rect(padding, padding, width + padding * 2, height + padding * 2),
             new Vector4(0.025f, 0.035f, 0.05f, 0.82f));
-        spriteRenderer.DrawText(text.Texture,
-            new Rect(padding * 2, padding * 2, width, height),
+        spriteRenderer.DrawText(text,
+            new Vector2(padding * 2, padding * 2), scale,
             Colors.WhiteSmoke.ToVector4());
     }
 
     public void Dispose()
     {
         if (disposed) return;
-        text.Texture.Dispose();
+        text.Dispose();
         background.Dispose();
         disposed = true;
     }

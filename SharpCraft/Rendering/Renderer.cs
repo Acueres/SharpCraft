@@ -27,7 +27,7 @@ internal unsafe class Renderer : IDisposable
     private readonly Texture crosshairTexture;
 
     private readonly DebugOverlay debugOverlay;
-    private readonly TextTextureManager textTextureManager;
+    private readonly GpuTextEngine textEngine;
 
     private readonly GpuUploader uploader;
     private readonly FrameProfiler profiler;
@@ -68,9 +68,9 @@ internal unsafe class Renderer : IDisposable
         
         uploader = new GpuUploader(this.device, profiler);
         
-        textTextureManager = new TextTextureManager(device, uploader);
+        textEngine = new GpuTextEngine(device);
 
-        debugOverlay = new DebugOverlay(textTextureManager, debugFont, device, uploader);
+        debugOverlay = new DebugOverlay(textEngine, debugFont, device, uploader);
 
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
@@ -110,8 +110,6 @@ internal unsafe class Renderer : IDisposable
         camera.SetViewport(frame.Width, frame.Height);
         RescaleUi(frame.Width, frame.Height);
         Draw(frame, camera);
-
-        textTextureManager.FlushDynamic();
     }
 
     private bool TryBeginFrame(out FrameContext frame)
@@ -134,6 +132,8 @@ internal unsafe class Renderer : IDisposable
 
     private void DrawScene(in FrameContext frame, Camera camera)
     {
+        PrepareUi(frame);
+        
         Matrix4x4 mvp = BuildMvp(camera);
 
         SDL_GPUColorTargetInfo colorTarget = new()
@@ -176,6 +176,20 @@ internal unsafe class Renderer : IDisposable
 
         voxelFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
 
+        spriteRenderer.Render(
+            frame.CommandBuffer,
+            renderPass,
+            frame.Width,
+            frame.Height
+        );
+        profiler.Rendering.UiDrawCalls = spriteRenderer.DrawCallCount;
+
+        SDL_EndGPURenderPass(renderPass);
+    }
+
+    private void PrepareUi(in FrameContext frame)
+    {
+        debugOverlay.Prepare();
         spriteRenderer.Begin();
 
         Rect crosshairRect = new(
@@ -195,16 +209,6 @@ internal unsafe class Renderer : IDisposable
         );
 
         spriteRenderer.Upload();
-
-        spriteRenderer.Render(
-            frame.CommandBuffer,
-            renderPass,
-            frame.Width,
-            frame.Height
-        );
-        profiler.Rendering.UiDrawCalls = spriteRenderer.DrawCallCount;
-
-        SDL_EndGPURenderPass(renderPass);
     }
 
     private void RescaleUi(uint newWidth, uint newHeight)
@@ -227,8 +231,6 @@ internal unsafe class Renderer : IDisposable
 
         currentWidth = newWidth;
         currentHeight = newHeight;
-
-        textTextureManager.ClearStatic();
     }
 
     private static Matrix4x4 BuildMvp(Camera camera)
@@ -251,7 +253,7 @@ internal unsafe class Renderer : IDisposable
         device.WaitIdle();
         
         debugOverlay.Dispose();
-        textTextureManager.Dispose();
+        textEngine.Dispose();
         voxelFaceRenderer.Dispose();
         spriteRenderer.Dispose();
         depthBuffer.Dispose();

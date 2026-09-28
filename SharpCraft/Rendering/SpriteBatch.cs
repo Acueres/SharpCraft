@@ -1,15 +1,16 @@
 using SharpCraft.Graphics.Resources;
+using SDL;
 
 namespace SharpCraft.Rendering;
 
-internal readonly struct SpriteBatch
+internal readonly unsafe struct SpriteBatch
 {
-    public readonly Texture Texture;
+    public readonly SDL_GPUTexture* Texture;
     public readonly Sampler Sampler;
     public readonly uint FirstIndex;
     public readonly uint IndexCount;
 
-    public SpriteBatch(Texture texture, Sampler sampler, uint firstIndex, uint indexCount)
+    public SpriteBatch(SDL_GPUTexture* texture, Sampler sampler, uint firstIndex, uint indexCount)
     {
         Texture = texture;
         Sampler = sampler;

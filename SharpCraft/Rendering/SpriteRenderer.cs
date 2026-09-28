@@ -1,6 +1,7 @@
 ﻿using SharpCraft.AssetProcessing;
 using SharpCraft.Graphics;
 using SharpCraft.Graphics.Resources;
+using SharpCraft.Rendering.Text;
 using SharpCraft.SharpMath;
 
 using SDL;
@@ -78,26 +79,45 @@ internal sealed unsafe class SpriteRenderer : IDisposable
             SamplerType.NearestClamp
         );
     }
-    public void DrawText(Texture texture, Rect destination)
-    {
-        Draw(
-            texture,
-            destination,
-            source: new Rect(0f, 0f, texture.Width, texture.Height),
-            color: Vector4.One,
-            SamplerType.LinearClamp
-        );
-    }
 
-    public void DrawText(Texture texture, Rect destination, Vector4 color)
+    public void DrawText(TextLayout text, Vector2 position, float scale, Vector4 color)
     {
-        Draw(
-            texture,
-            destination,
-            source: new Rect(0f, 0f, texture.Width, texture.Height),
-            color,
-            SamplerType.LinearClamp
-        );
+        if (scale <= 0f) return;
+
+        for (TTF_GPUAtlasDrawSequence* sequence = text.DrawData;
+             sequence != null;
+             sequence = sequence->next)
+        {
+            if (sequence->num_indices == 0) continue;
+
+            // The current font uses alpha bitmap glyphs and no solid decorations
+            if (sequence->atlas_texture == null || sequence->image_type != TTF_ImageType.TTF_IMAGE_ALPHA)
+            {
+                throw new NotSupportedException("Only alpha bitmap glyphs are supported by the sprite text renderer.");
+            }
+
+            AddBatch(sequence->atlas_texture, SamplerType.LinearClamp);
+            uint baseVertex = (uint)vertices.Count;
+
+            for (int i = 0; i < sequence->num_vertices; i++)
+            {
+                SDL_FPoint xy = sequence->xy[i];
+                SDL_FPoint uv = sequence->uv[i];
+                // SDL_ttf uses Y-up positions; sprites use Y-down screen pixels
+                vertices.Add(new SpriteVertex(
+                    position + new Vector2(xy.x, -xy.y) * scale,
+                    new Vector2(uv.x, uv.y),
+                    color
+                ));
+            }
+
+            for (int i = 0; i < sequence->num_indices; i++)
+            {
+                indices.Add(baseVertex + (uint)sequence->indices[i]);
+            }
+
+            GrowCurrentBatch((uint)sequence->num_indices);
+        }
     }
 
     private void Draw(
@@ -107,7 +127,7 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         Vector4 color,
         SamplerType samplerType)
     {
-        AddBatch(texture, samplerType);
+        AddBatch(texture.Handle, samplerType);
 
         uint baseVertex = (uint)vertices.Count;
 
@@ -214,7 +234,7 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         {
             SDL_GPUTextureSamplerBinding textureBinding = new()
             {
-                texture = batch.Texture.Handle,
+                texture = batch.Texture,
                 sampler = batch.Sampler.Handle
             };
 
@@ -236,24 +256,24 @@ internal sealed unsafe class SpriteRenderer : IDisposable
         }
     }
 
-    private void AddBatch(Texture texture, SamplerType samplerType)
+    private void AddBatch(SDL_GPUTexture* texture, SamplerType samplerType)
     {
-        if (batches.Count > 0)
-        {
-            SpriteBatch last = batches[^1];
-
-            if (ReferenceEquals(last.Texture, texture))
-            {
-                return;
-            }
-        }
-
         Sampler sampler = samplerType switch
         {
             SamplerType.LinearClamp => linearSampler,
             SamplerType.NearestClamp => nearestSampler,
             _ => throw new Exception("Unknown samplerType: " + samplerType)
         };
+
+        if (batches.Count > 0)
+        {
+            SpriteBatch last = batches[^1];
+
+            if (last.Texture == texture && ReferenceEquals(last.Sampler, sampler))
+            {
+                return;
+            }
+        }
 
         batches.Add(new SpriteBatch(
             texture,
