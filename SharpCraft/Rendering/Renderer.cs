@@ -70,7 +70,7 @@ internal unsafe class Renderer : IDisposable
         
         textEngine = new GpuTextEngine(device);
 
-        debugOverlay = new DebugOverlay(textEngine, debugFont, device, uploader);
+        debugOverlay = new DebugOverlay(textEngine, debugFont, device);
 
         frameManager = new FrameManager(this.device, window);
         depthBuffer = new DepthBuffer(this.device, width, height);
@@ -87,9 +87,9 @@ internal unsafe class Renderer : IDisposable
     }
 
 
-    public void UpdateUi()
+    public void UpdateUi(Camera camera)
     {
-        debugOverlay.Update(profiler.Snapshot);
+        debugOverlay.Update(profiler.Snapshot, camera.Position);
     }
 
     public void ToggleDebugOverlay() => debugOverlay.Toggle();

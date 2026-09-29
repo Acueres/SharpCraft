@@ -159,7 +159,7 @@ internal unsafe class App : IDisposable
             }
             
             long renderStarted = Stopwatch.GetTimestamp();
-            renderer.UpdateUi();
+            renderer.UpdateUi(camera);
             renderer.Render(camera);
             profiler.Timings.RendererMilliseconds += Stopwatch.GetElapsedTime(renderStarted).TotalMilliseconds;
 

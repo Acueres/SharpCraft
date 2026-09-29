@@ -1,28 +1,28 @@
+using System.Globalization;
+using System.Numerics;
+using SharpCraft.SharpMath;
+
 namespace SharpCraft.Diagnostics;
 
 internal static class CompactProfileText
 {
-    public static string Format(in FrameProfile profile, double managedMiB, double processMiB,
-        int gen0, int gen1, int gen2)
-    {
-        var timings = profile.Timings;
-        var rendering = profile.Rendering;
-        var streaming = profile.Streaming;
+    public static string Frame(in FrameProfile profile) =>
+        FormattableString.Invariant($"{profile.Fps:0} FPS · {profile.FrameMilliseconds:0.0} ms");
 
-        return FormattableString.Invariant($"""
-            SharpCraft profiler | F3 hide | averages ~250 ms
-            {profile.Fps:0} FPS | frame {profile.FrameMilliseconds:0.00} ms | recent P95 {profile.P95FrameMilliseconds:0.00} ms
-            Main work {timings.WorkMilliseconds:0.00} ms | limiter {timings.LimiterMilliseconds:0.00} ms
-            CPU world {timings.WorldMilliseconds:0.00} ms | renderer {timings.RendererMilliseconds:0.00} ms
-              Terrain: cull {timings.CullingMilliseconds:0.00} | assemble {timings.AssemblyMilliseconds:0.00} | upload {timings.TerrainUploadMilliseconds:0.00} ms
-            GPU time unavailable | draws: terrain {rendering.TerrainDrawCalls} / UI {rendering.UiDrawCalls}
-            Chunks: visible {rendering.VisibleChunks:N0} / resident {rendering.ResidentChunks:N0}
-            Faces: opaque {rendering.OpaqueFaces:N0} / transparent {rendering.TransparentFaces:N0}
-            Uploads/frame avg: terrain {profile.TerrainUploadBytesPerFrame / 1024:0.0} / UI {profile.UiUploadBytesPerFrame / 1024:0.0} KiB
-            Terrain buffers: used {rendering.TerrainUsedBytes / 1048576.0:0.0} / reserved {rendering.TerrainBufferBytes / 1048576.0:0.0} MiB
-            Queued jobs: gen {streaming.GenerationQueued} / light {streaming.LightingQueued} / mesh {streaming.MeshingQueued}
-            Alloc/main frame {profile.MainThreadAllocatedBytesPerFrame / 1024:0.0} KiB | GC {gen0}/{gen1}/{gen2}
-            Memory: managed {managedMiB:0.0} / process {processMiB:0.0} MiB
-            """);
-    }
+    public static string Position(Vector3 position) =>
+        FormattableString.Invariant($"{position.X:0.0}  {position.Y:0.0}  {position.Z:0.0}");
+
+    public static string ChunkIndex(Vec3<int> index) =>
+        FormattableString.Invariant($"{index.X}  {index.Y}  {index.Z}");
+
+    public static string Count(ulong count) => count switch
+    {
+        >= 1_000_000_000 => (count / 1_000_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + "B",
+        >= 1_000_000 => (count / 1_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + "M",
+        >= 1_000 => (count / 1_000.0).ToString("0.0", CultureInfo.InvariantCulture) + "K",
+        _ => count.ToString(CultureInfo.InvariantCulture)
+    };
+
+    public static string Truncate(string text, int maxCharacters) =>
+        text.Length <= maxCharacters ? text : text[..(maxCharacters - 1)] + "…";
 }

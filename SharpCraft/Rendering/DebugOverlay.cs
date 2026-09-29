@@ -1,9 +1,7 @@
 using SharpCraft.Diagnostics;
 using SharpCraft.Graphics;
-using SharpCraft.Graphics.Resources;
 using SharpCraft.Rendering.Text;
-using SharpCraft.SharpMath;
-
+using SharpCraft.World.Chunks;
 using System.Diagnostics;
 using System.Numerics;
 
@@ -11,89 +9,98 @@ namespace SharpCraft.Rendering;
 
 internal sealed class DebugOverlay : IDisposable
 {
-    private readonly TextLayout text;
-    private readonly Texture background;
-    private readonly string deviceInfo;
-    
-    private Font font;
+    private readonly DebugTextPanel view;
+    private readonly DebugTextPanel systems;
+    private readonly DebugTextPanel gpu;
     private bool visible = true;
     private long displayedRevision;
+    private long coordinatesMeasuredAt;
     private long memoryMeasuredAt;
-    private double managedMiB;
-    private double processMiB;
-    private int gen0;
-    private int gen1;
-    private int gen2;
     private bool disposed;
 
-    public DebugOverlay(GpuTextEngine textEngine, Font font, GpuDevice device, GpuUploader uploader)
+    public DebugOverlay(GpuTextEngine engine, Font font, GpuDevice device)
     {
-        this.font = font;
-        deviceInfo = $"{device.DriverName} | {device.DeviceName}";
-        text = textEngine.CreateText(font, $"SharpCraft profiler | F3 hide\nCollecting samples...\n{deviceInfo}");
-        background = new Texture(device, 1, 1, Colors.White);
-        uploader.Upload(background);
+        view = new(engine, font, "VIEW", ["", "XYZ", "Chunk"], 6, 37);
+        systems = new(engine, font, "WORLD / CPU", ["Chunks", "Queue", "Work", "Heap", "Process"], 8, 33);
+        gpu = new(engine, font, $"GPU · {device.DriverName}", ["", "Draws", "Faces", "Terrain", "Upload"], 8, 33);
+        gpu.SetValue(0, CompactProfileText.Truncate(device.DeviceName, 33));
     }
 
-    public void Toggle() => visible = !visible;
-
-    public void Update(in FrameProfile profile)
+    public void Toggle()
     {
-        if (!visible || profile.Revision == 0 || profile.Revision == displayedRevision) return;
+        visible = !visible;
+        if (!visible) return;
+        displayedRevision = 0;
+        coordinatesMeasuredAt = 0;
+        memoryMeasuredAt = 0;
+    }
 
+    public void Update(in FrameProfile profile, Vector3 cameraPosition)
+    {
+        if (!visible) return;
         long now = Stopwatch.GetTimestamp();
-        
+
+        if (coordinatesMeasuredAt == 0 || Stopwatch.GetElapsedTime(coordinatesMeasuredAt, now).TotalMilliseconds >= 100)
+        {
+            view.SetValue(1, CompactProfileText.Position(cameraPosition));
+            view.SetValue(2, CompactProfileText.ChunkIndex(Chunk.WorldToChunkCoords(cameraPosition)));
+            coordinatesMeasuredAt = now;
+        }
+
         if (memoryMeasuredAt == 0 || Stopwatch.GetElapsedTime(memoryMeasuredAt, now).TotalSeconds >= 1)
         {
-            managedMiB = GC.GetTotalMemory(forceFullCollection: false) / 1048576.0;
+            double managedMiB = GC.GetTotalMemory(forceFullCollection: false) / 1048576.0;
             using var process = Process.GetCurrentProcess();
-            processMiB = process.PrivateMemorySize64 / 1048576.0;
-            gen0 = GC.CollectionCount(0);
-            gen1 = GC.CollectionCount(1);
-            gen2 = GC.CollectionCount(2);
+            double processMiB = process.PrivateMemorySize64 / 1048576.0;
+            systems.SetValue(3, FormattableString.Invariant($"{managedMiB:0.0} MiB"));
+            systems.SetValue(4, FormattableString.Invariant($"{processMiB:0.0} MiB"));
             memoryMeasuredAt = now;
         }
 
-        string content = CompactProfileText.Format(profile, managedMiB, processMiB, gen0, gen1, gen2);
-        text.Set(font, $"{content}\n{deviceInfo}");
+        if (profile.Revision == 0 || profile.Revision == displayedRevision) return;
+        var rendering = profile.Rendering;
+        var streaming = profile.Streaming;
+        view.SetValue(0, CompactProfileText.Frame(profile));
+        systems.SetValue(0, FormattableString.Invariant($"{rendering.ResidentChunks:N0} loaded · {rendering.VisibleChunks:N0} visible"));
+        systems.SetValue(1, FormattableString.Invariant($"G {streaming.GenerationQueued} / L {streaming.LightingQueued} / M {streaming.MeshingQueued}"));
+        systems.SetValue(2, FormattableString.Invariant($"{profile.Timings.WorkMilliseconds:0.0} ms"));
+        gpu.SetValue(1, FormattableString.Invariant($"{rendering.TerrainDrawCalls} world / {rendering.UiDrawCalls} UI"));
+        gpu.SetValue(2, CompactProfileText.Count((ulong)rendering.OpaqueFaces + rendering.TransparentFaces));
+        gpu.SetValue(3, FormattableString.Invariant($"{rendering.TerrainUsedBytes / 1048576.0:0.0} / {rendering.TerrainBufferBytes / 1048576.0:0.0} MiB"));
+        gpu.SetValue(4, FormattableString.Invariant($"{profile.TerrainUploadBytesPerFrame / 1024:0.0} KiB/frame"));
         displayedRevision = profile.Revision;
     }
 
-    public void Rescale(Font newFont)
+    public void Rescale(Font font)
     {
-        font = newFont;
-        text.Set(newFont, text.Content);
+        view.Rescale(font);
+        systems.Rescale(font);
+        gpu.Rescale(font);
     }
 
     public void Prepare()
     {
-        if (visible) text.Prepare();
+        if (!visible) return;
+        view.Prepare();
+        systems.Prepare();
+        gpu.Prepare();
     }
 
-    public void Draw(SpriteRenderer spriteRenderer, uint screenWidth, uint screenHeight, float padding)
+    public void Draw(SpriteRenderer renderer, uint width, uint height, float padding)
     {
         if (!visible) return;
-
-        // Preserve aspect ratio when the text exceeds a small viewport.
-        float availableWidth = Math.Max(1, screenWidth - padding * 4);
-        float availableHeight = Math.Max(1, screenHeight - padding * 4);
-        float scale = Math.Min(1, Math.Min(availableWidth / Math.Max(1, text.Width), availableHeight / Math.Max(1, text.Height)));
-        float width = text.Width * scale;
-        float height = text.Height * scale;
-
-        spriteRenderer.Draw(background,
-            new Rect(padding, padding, width + padding * 2, height + padding * 2),
-            new Vector4(0.025f, 0.035f, 0.05f, 0.82f));
-        spriteRenderer.DrawText(text,
-            new Vector2(padding * 2, padding * 2), scale,
-            Colors.WhiteSmoke.ToVector4());
+        var layout = CompactOverlayLayout.Calculate(new(width, height), padding, view.Size, systems.Size, gpu.Size);
+        view.Draw(renderer, layout.View, layout.Scale);
+        systems.Draw(renderer, layout.Systems, layout.Scale);
+        gpu.Draw(renderer, layout.Gpu, layout.Scale);
     }
 
     public void Dispose()
     {
         if (disposed) return;
-        text.Dispose();
-        background.Dispose();
+        view.Dispose();
+        systems.Dispose();
+        gpu.Dispose();
         disposed = true;
     }
 }
