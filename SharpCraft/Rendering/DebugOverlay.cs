@@ -2,6 +2,7 @@ using SharpCraft.Diagnostics;
 using SharpCraft.Graphics;
 using SharpCraft.Rendering.Text;
 using SharpCraft.World.Chunks;
+
 using System.Diagnostics;
 using System.Numerics;
 
@@ -22,7 +23,7 @@ internal sealed class DebugOverlay : IDisposable
     {
         view = new(engine, font, "VIEW", ["", "XYZ", "Chunk"], 6, 37);
         systems = new(engine, font, "WORLD / CPU", ["Chunks", "Queue", "Work", "Heap", "Process"], 8, 33);
-        gpu = new(engine, font, $"GPU · {device.DriverName}", ["", "Draws", "Faces", "Terrain", "Upload"], 8, 33);
+        gpu = new(engine, font, $"GPU · {device.DriverName}", ["", "Tracked", "Faces", "Terrain", "Upload"], 8, 33);
         gpu.SetValue(0, CompactProfileText.Truncate(device.DeviceName, 33));
     }
 
@@ -64,7 +65,7 @@ internal sealed class DebugOverlay : IDisposable
         systems.SetValue(0, FormattableString.Invariant($"{rendering.ResidentChunks:N0} loaded · {rendering.VisibleChunks:N0} visible"));
         systems.SetValue(1, FormattableString.Invariant($"G {streaming.GenerationQueued} / L {streaming.LightingQueued} / M {streaming.MeshingQueued}"));
         systems.SetValue(2, FormattableString.Invariant($"{profile.Timings.WorkMilliseconds:0.0} ms"));
-        gpu.SetValue(1, FormattableString.Invariant($"{rendering.TerrainDrawCalls} world / {rendering.UiDrawCalls} UI"));
+        gpu.SetValue(1, FormattableString.Invariant($"{profile.GpuResources.TotalBytes / 1048576.0:0.0} MiB"));
         gpu.SetValue(2, CompactProfileText.Count((ulong)rendering.OpaqueFaces + rendering.TransparentFaces));
         gpu.SetValue(3, FormattableString.Invariant($"{rendering.TerrainUsedBytes / 1048576.0:0.0} / {rendering.TerrainBufferBytes / 1048576.0:0.0} MiB"));
         gpu.SetValue(4, FormattableString.Invariant($"{profile.TerrainUploadBytesPerFrame / 1024:0.0} KiB/frame"));

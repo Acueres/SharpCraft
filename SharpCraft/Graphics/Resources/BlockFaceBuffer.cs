@@ -3,8 +3,6 @@ using SDL;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
 
-using static SDL.SDL3;
-
 namespace SharpCraft.Graphics.Resources;
 
 internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
@@ -23,18 +21,19 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
     {
         if (count > capacity)
         {
-            capacity = Math.Max(capacity, 1);
+            uint newCapacity = Math.Max(capacity, 1);
             
-            while (capacity < count)
+            while (newCapacity < count)
             {
-                capacity *= 2;
+                newCapacity *= 2;
             }
             
-            var newBuffer = CreateBuffer(capacity, device);
+            var newBuffer = CreateBuffer(newCapacity, device);
             
-            SDL_ReleaseGPUBuffer(device.Handle, buffer);
+            device.ReleaseBuffer(buffer);
             
             buffer = newBuffer;
+            capacity = newCapacity;
         }
         
         Count = count;
@@ -48,7 +47,7 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
             size = capacity * (uint)sizeof(VoxelFace)
         };
 
-        var buffer = SDL_CreateGPUBuffer(device.Handle, &vertexBufferInfo);
+        var buffer = device.CreateBuffer(&vertexBufferInfo);
         if (buffer == null)
         {
             SdlRuntime.Throw("Failed to create block face buffer");
@@ -62,7 +61,7 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
     {
         if (disposed) return;
 
-        SDL_ReleaseGPUBuffer(device.Handle, buffer);
+        device.ReleaseBuffer(buffer);
 
         disposed = true;
     }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using SharpCraft.Graphics;
 
 namespace SharpCraft.Diagnostics;
 
@@ -42,14 +43,15 @@ internal sealed class FrameProfiler
         Timings.WorkMilliseconds = Stopwatch.GetElapsedTime(frameStarted).TotalMilliseconds;
     }
 
-    public void EndFrame()
+    public void EndFrame(Func<GpuResourceUsage> readGpuResources)
     {
         RecordFrame(Stopwatch.GetElapsedTime(frameStarted).TotalMilliseconds,
-            GC.GetAllocatedBytesForCurrentThread() - allocationStarted);
+            GC.GetAllocatedBytesForCurrentThread() - allocationStarted, readGpuResources);
     }
 
     // Kept independent of the clock so aggregation can be verified with known samples
-    private void RecordFrame(double frameMilliseconds, long mainThreadAllocatedBytes)
+    private void RecordFrame(double frameMilliseconds, long mainThreadAllocatedBytes,
+        Func<GpuResourceUsage> readGpuResources)
     {
         frameHistory[historyCursor] = frameMilliseconds;
         historyCursor = (historyCursor + 1) % frameHistory.Length;
@@ -94,7 +96,8 @@ internal sealed class FrameProfiler
             Streaming,
             terrainUploadBytes * scale,
             uiUploadBytes * scale,
-            allocatedBytes * scale);
+            allocatedBytes * scale,
+            readGpuResources());
 
         totals = default;
         sampleCount = 0;

@@ -17,13 +17,16 @@ it is not CPU utilization and can include graphics API waits. Queued counts are
 approximate during concurrent consumption and exclude jobs already executing.
 The memory values refresh about once per second and are shown in MiB.
 
-The **GPU** panel shows the graphics device, terrain/UI draw calls, total opaque
-and transparent face instances, used/reserved terrain face-buffer capacity, and
-average terrain uploads per frame. Draw calls are from the latest sampled frame;
-uploads include zero-upload frames. Terrain buffer capacity excludes textures,
-staging buffers, and SDL's internal resources, so it is not a total VRAM figure.
-GPU execution time is not measured or shown. The device name is shortened when
-needed to keep the panel compact.
+The **GPU** panel shows the graphics device, tracked persistent resource bytes,
+total opaque and transparent face instances, used/reserved terrain face-buffer
+capacity, and average terrain uploads per frame. Tracked bytes sum the requested
+sizes of live SharpCraft-created GPU buffers and textures, including both the
+individual block textures and their texture array. The total excludes temporary
+transfer buffers, SDL_ttf's glyph atlas, swapchain images, pipelines, samplers,
+and driver overhead. It is not physical VRAM use. Terrain buffer capacity is a
+subset of that total; its used value is the face payload size. Upload averages
+include zero-upload frames. GPU execution time is not measured or shown. The
+device name is shortened when needed to keep the panel compact.
 
 `FrameProfiler` still collects the more detailed timings, P95 frame time,
 allocation, and upload data for a future expanded report. Its fixed history and

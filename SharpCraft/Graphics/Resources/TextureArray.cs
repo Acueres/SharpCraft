@@ -1,6 +1,5 @@
 using SharpCraft.Platform;
 using SDL;
-using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
@@ -42,7 +41,7 @@ internal unsafe class TextureArray : IDisposable
             sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
         };
 
-        texture = SDL_CreateGPUTexture(device.Handle, &createInfo);
+        texture = device.CreateTexture(&createInfo);
         if (texture == null)
         {
             SdlRuntime.Throw("Failed to create GPU texture");

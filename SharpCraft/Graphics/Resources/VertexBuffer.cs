@@ -3,8 +3,6 @@
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
 
-using static SDL.SDL3;
-
 namespace SharpCraft.Graphics.Resources;
 
 internal unsafe class VertexBuffer : IDisposable
@@ -26,7 +24,7 @@ internal unsafe class VertexBuffer : IDisposable
             size = count * (uint)sizeof(Vertex)
         };
 
-        buffer = SDL_CreateGPUBuffer(device.Handle, &vertexBufferInfo);
+        buffer = device.CreateBuffer(&vertexBufferInfo);
         if (buffer == null)
         {
             SdlRuntime.Throw("Failed to create vertex buffer");
@@ -38,7 +36,7 @@ internal unsafe class VertexBuffer : IDisposable
     {
         if (disposed) return;
 
-        SDL_ReleaseGPUBuffer(device.Handle, buffer);
+        device.ReleaseBuffer(buffer);
 
         disposed = true;
     }

@@ -1,9 +1,6 @@
 ﻿using SDL;
 
 using SharpCraft.Platform;
-using SharpCraft.Rendering;
-
-using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
 
@@ -26,7 +23,7 @@ internal unsafe class IndexBuffer : IDisposable
             size = count * sizeof(uint)
         };
 
-        buffer = SDL_CreateGPUBuffer(device.Handle, &indexBufferInfo);
+        buffer = device.CreateBuffer(&indexBufferInfo);
         if (buffer == null)
         {
             SdlRuntime.Throw("Failed to create index buffer");
@@ -38,7 +35,7 @@ internal unsafe class IndexBuffer : IDisposable
     {
         if (disposed) return;
 
-        SDL_ReleaseGPUBuffer(device.Handle, buffer);
+        device.ReleaseBuffer(buffer);
 
         disposed = true;
     }

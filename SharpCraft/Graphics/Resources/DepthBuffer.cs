@@ -2,8 +2,6 @@
 
 using SharpCraft.Platform;
 
-using static SDL.SDL3;
-
 namespace SharpCraft.Graphics.Resources;
 
 internal unsafe class DepthBuffer : IDisposable
@@ -63,7 +61,7 @@ internal unsafe class DepthBuffer : IDisposable
             sample_count = SDL_GPUSampleCount.SDL_GPU_SAMPLECOUNT_1
         };
 
-        SDL_GPUTexture* depthTexture = SDL_CreateGPUTexture(device.Handle, &depthTextureInfo);
+        SDL_GPUTexture* depthTexture = device.CreateTexture(&depthTextureInfo);
         if (depthTexture == null)
         {
             SdlRuntime.Throw("Failed to create depth texture");

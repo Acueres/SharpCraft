@@ -41,6 +41,7 @@ internal unsafe class App : IDisposable
     
     private readonly FrameClock clock = new();
     private readonly FrameProfiler profiler = new();
+    private readonly Func<GpuResourceUsage> readGpuResources;
     private readonly FrameLimiter frameLimiter;
 
     private readonly WorldLoader worldLoader;
@@ -51,6 +52,7 @@ internal unsafe class App : IDisposable
         sdlRuntime = new SdlRuntime();
         window = new Window("SharpCraft", (int)DefaultWidth, (int)DefaultHeight);
         device = new GpuDevice("vulkan", window, debugInfo: true);
+        readGpuResources = () => device.ResourceUsage;
         fontSystem = new FontSystem();
 
         assetServer = new AssetServer(device);
@@ -166,8 +168,9 @@ internal unsafe class App : IDisposable
             profiler.EndWork();
             long waitStarted = Stopwatch.GetTimestamp();
             frameLimiter.Wait();
+            
             profiler.Timings.LimiterMilliseconds = Stopwatch.GetElapsedTime(waitStarted).TotalMilliseconds;
-            profiler.EndFrame();
+            profiler.EndFrame(readGpuResources);
         }
     }
 

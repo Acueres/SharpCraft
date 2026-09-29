@@ -3,8 +3,6 @@ using SharpCraft.Rendering;
 
 using SDL;
 
-using static SDL.SDL3;
-
 namespace SharpCraft.Graphics.Resources;
 
 internal sealed unsafe class SpriteBuffer : IDisposable
@@ -33,7 +31,15 @@ internal sealed unsafe class SpriteBuffer : IDisposable
         spriteCapacity = Math.Max(initialSpriteCapacity, 1);
 
         vertexBuffer = CreateVertexBuffer(device, spriteCapacity * 4);
-        indexBuffer = CreateIndexBuffer(device, spriteCapacity * 6);
+        try
+        {
+            indexBuffer = CreateIndexBuffer(device, spriteCapacity * 6);
+        }
+        catch
+        {
+            device.ReleaseBuffer(vertexBuffer);
+            throw;
+        }
     }
 
     public void EnsureSize(uint spriteCount)
@@ -50,11 +56,19 @@ internal sealed unsafe class SpriteBuffer : IDisposable
             SDL_GPUBuffer* newVertexBuffer =
                 CreateVertexBuffer(device, newCapacity * 4);
 
-            SDL_GPUBuffer* newIndexBuffer =
-                CreateIndexBuffer(device, newCapacity * 6);
+            SDL_GPUBuffer* newIndexBuffer;
+            try
+            {
+                newIndexBuffer = CreateIndexBuffer(device, newCapacity * 6);
+            }
+            catch
+            {
+                device.ReleaseBuffer(newVertexBuffer);
+                throw;
+            }
 
-            SDL_ReleaseGPUBuffer(device.Handle, vertexBuffer);
-            SDL_ReleaseGPUBuffer(device.Handle, indexBuffer);
+            device.ReleaseBuffer(vertexBuffer);
+            device.ReleaseBuffer(indexBuffer);
 
             vertexBuffer = newVertexBuffer;
             indexBuffer = newIndexBuffer;
@@ -72,7 +86,7 @@ internal sealed unsafe class SpriteBuffer : IDisposable
             size = vertexCount * (uint)sizeof(SpriteVertex)
         };
 
-        SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device.Handle, &info);
+        SDL_GPUBuffer* buffer = device.CreateBuffer(&info);
         if (buffer == null)
         {
             SdlRuntime.Throw("Failed to create sprite vertex buffer");
@@ -89,7 +103,7 @@ internal sealed unsafe class SpriteBuffer : IDisposable
             size = indexCount * sizeof(uint)
         };
 
-        SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device.Handle, &info);
+        SDL_GPUBuffer* buffer = device.CreateBuffer(&info);
         if (buffer == null)
         {
             SdlRuntime.Throw("Failed to create sprite index buffer");
@@ -104,8 +118,8 @@ internal sealed unsafe class SpriteBuffer : IDisposable
     {
         if (disposed) return;
 
-        SDL_ReleaseGPUBuffer(device.Handle, vertexBuffer);
-        SDL_ReleaseGPUBuffer(device.Handle, indexBuffer);
+        device.ReleaseBuffer(vertexBuffer);
+        device.ReleaseBuffer(indexBuffer);
 
         disposed = true;
     }

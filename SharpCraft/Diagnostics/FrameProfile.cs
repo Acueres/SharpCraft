@@ -1,3 +1,5 @@
+using SharpCraft.Graphics;
+
 namespace SharpCraft.Diagnostics;
 
 // Main-thread wall-clock durations. Renderer includes its terrain-update subtimings;
@@ -40,4 +42,5 @@ internal readonly record struct FrameProfile(
     StreamingStatistics Streaming,
     double TerrainUploadBytesPerFrame,
     double UiUploadBytesPerFrame,
-    double MainThreadAllocatedBytesPerFrame);
+    double MainThreadAllocatedBytesPerFrame,
+    GpuResourceUsage GpuResources);
