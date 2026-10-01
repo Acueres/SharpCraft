@@ -7,12 +7,18 @@ using SharpCraft.Diagnostics;
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using System.Diagnostics;
 
 namespace SharpCraft.World.WorldStreaming;
 
 internal class ChunkPipeline : IDisposable, IAsyncDisposable
 {
     private const int ChunkBudget = 500;
+    private readonly JobProfiler generationProfile = new();
+    private readonly JobProfiler lightingProfile = new();
+    private readonly JobProfiler meshingProfile = new();
+    private long staleResults;
+    public double CompletionMilliseconds { get; private set; }
     private ulong NextVersion => Interlocked.Increment(ref field);
 
     private readonly ChunkVolume volume;
@@ -77,6 +83,10 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         int lightWorkersCount = Math.Max(1, computeBudget / 4);
         int meshWorkersCount  = Math.Max(1, computeBudget - genWorkersCount - lightWorkersCount);
 
+        generationProfile.Workers = genWorkersCount;
+        lightingProfile.Workers = lightWorkersCount;
+        meshingProfile.Workers = meshWorkersCount;
+
         genWorkers = Enumerable.Range(0, genWorkersCount).Select(_ => Task.Run(() => GenerateChunkAsync(ct), ct)).ToArray();
         lightingWorkers = Enumerable.Range(0, lightWorkersCount).Select(_ => Task.Run(() => LightChunkAsync(ct), ct)).ToArray();
         meshingWorkers = Enumerable.Range(0, meshWorkersCount).Select(_ => Task.Run(() => MeshChunkAsync(ct), ct)).ToArray();
@@ -92,11 +102,28 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     public StreamingStatistics GetStatistics() => new(
         pendingGeneration.Count + genChannel.Reader.Count,
         pendingLighting.Count + lightChannel.Reader.Count,
-        pendingMeshing.Count + meshChannel.Reader.Count);
+        pendingMeshing.Count + meshChannel.Reader.Count)
+    {
+        Generation = generationProfile.Snapshot(Oldest(pendingGeneration, genChannel)),
+        Lighting = lightingProfile.Snapshot(Oldest(pendingLighting, lightChannel)),
+        Meshing = meshingProfile.Snapshot(Oldest(pendingMeshing, meshChannel)),
+        ResultsQueued = resultChannel.Reader.Count,
+        StaleResults = staleResults
+    };
+
+    private static double Oldest(Queue<WorkItem> pending, Channel<WorkItem> channel)
+    {
+        long earliest = long.MaxValue;
+        if (pending.TryPeek(out var p)) earliest = p.QueuedAt;
+        if (channel.Reader.TryPeek(out var c)) earliest = Math.Min(earliest, c.QueuedAt);
+        return earliest == long.MaxValue ? 0 : Stopwatch.GetElapsedTime(earliest).TotalMilliseconds;
+    }
 
     public bool Tick()
     {
+        long completionStarted = Stopwatch.GetTimestamp();
         int chunksMeshed = DrainResults();
+        CompletionMilliseconds = Stopwatch.GetElapsedTime(completionStarted).TotalMilliseconds;
         
         Flush();
         
@@ -149,12 +176,16 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private void ProcessResult(WorkResult result)
     {
         if (!registry.TryGetValue(result.Index, out var record))
+        {
+            staleResults++;
             return;
+        }
 
         record.InFlight = null;
 
         if (result.Version != record.Version)
         {
+            staleResults++;
             if (!record.Flags.HasFlag(ChunkFlags.Wanted) && record.Chunk is null)
             {
                 registry.TryRemove(result.Index, out _);
@@ -464,6 +495,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         await foreach (var item in genChannel.Reader.ReadAllAsync(ct))
         {
+            using var measurement = generationProfile.Start(item.QueuedAt);
             var result = new WorkResult(item.Index, item.Version, JobType.Generation, ResultStatus.Skip, null, null);
             try
             {
@@ -477,19 +509,23 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 result.Status = ResultStatus.Fail;
             }
 
+            generationProfile.Outcome(result.Status == ResultStatus.Success, result.Status == ResultStatus.Fail);
             await resultChannel.Writer.WriteAsync(result, ct);
         }
     }
 
     private async Task LightChunkAsync(CancellationToken ct)
     {
-        await foreach (var (index, version, chunk, neighborSet) in lightChannel.Reader.ReadAllAsync(ct))
+        await foreach (var item in lightChannel.Reader.ReadAllAsync(ct))
         {
+            using var measurement = lightingProfile.Start(item.QueuedAt);
+            var (index, version, chunk, neighborSet) = item;
             var result = new WorkResult(index, version, JobType.Lighting, ResultStatus.Skip, chunk, null);
             try
             {
                 if (chunk is null || neighborSet is null)
                 {
+                    lightingProfile.Outcome(result.Status == ResultStatus.Success, result.Status == ResultStatus.Fail);
                     await resultChannel.Writer.WriteAsync(result, ct);
                     continue;
                 }
@@ -531,6 +567,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 result.Status = ResultStatus.Fail;
             }
 
+            lightingProfile.Outcome(result.Status == ResultStatus.Success, result.Status == ResultStatus.Fail);
             await resultChannel.Writer.WriteAsync(result, ct);
         }
     }
@@ -539,11 +576,13 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         await foreach (var item in meshChannel.Reader.ReadAllAsync(ct))
         {
+            using var measurement = meshingProfile.Start(item.QueuedAt);
             var result = new WorkResult(item.Index, item.Version, JobType.Meshing, ResultStatus.Skip, item.Chunk, null);
             try
             {
                 if (item.Chunk is null || item.Neighbors is null || item.Neighbors is { All: false })
                 {
+                    meshingProfile.Outcome(result.Status == ResultStatus.Success, result.Status == ResultStatus.Fail);
                     await resultChannel.Writer.WriteAsync(result, ct);
                     continue;
                 }
@@ -558,6 +597,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 result.Status = ResultStatus.Fail;
             }
 
+            meshingProfile.Outcome(result.Status == ResultStatus.Success, result.Status == ResultStatus.Fail);
             await resultChannel.Writer.WriteAsync(result, ct);
         }
     }
@@ -611,12 +651,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     public void Dispose()
     {
         if (disposed) return;
-        disposed = true;
-
-        cts.Cancel();
-        cts.Dispose();
-
-        GC.SuppressFinalize(this);
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
     public async ValueTask DisposeAsync()
@@ -642,7 +677,10 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    private record struct WorkItem(Vec3<int> Index, ulong Version, Chunk? Chunk, NeighborSet? Neighbors);
+    private record struct WorkItem(Vec3<int> Index, ulong Version, Chunk? Chunk, NeighborSet? Neighbors)
+    {
+        public long QueuedAt { get; init; } = Stopwatch.GetTimestamp();
+    }
     
     private record struct WorkResult(Vec3<int> Index, ulong Version, JobType JobType, ResultStatus Status, Chunk? Chunk, Exception? Exception);
 

@@ -6,6 +6,8 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Graphics;
 
+internal enum GpuPass { Opaque, Transparent, Ui }
+
 internal unsafe class GpuDevice : IDisposable
 {
     public SDL_GPUDevice* Handle => device;
@@ -13,14 +15,30 @@ internal unsafe class GpuDevice : IDisposable
 
     public string DriverName { get; }
     public string DeviceName { get; }
+    public string PresentationMode { get; private set; } = "VSync";
     public GpuResourceUsage ResourceUsage => resources.Snapshot;
+    // SDL_GPU currently has no timestamp query interface
+    // Future asynchronous queries come in here
+    public string TimingStatus => "Unavailable: SDL GPU timestamp queries not exposed";
+    
+    public static void BeginGpuPass(SDL_GPUCommandBuffer* commandBuffer, GpuPass pass) =>
+        SDL_PushGPUDebugGroup(commandBuffer, pass switch
+        {
+            GpuPass.Opaque => "Terrain opaque",
+            GpuPass.Transparent => "Terrain transparent",
+            GpuPass.Ui => "UI",
+            _ => throw new ArgumentOutOfRangeException(nameof(pass))
+        });
+
+    public static void EndGpuPass(SDL_GPUCommandBuffer* commandBuffer) => SDL_PopGPUDebugGroup(commandBuffer);
 
     private readonly SDL_GPUDevice* device;
     private readonly GpuResourceTracker resources = new();
 
     private readonly Window window;
 
-    public GpuDevice(string driverName, Window window, bool debugInfo = false, bool debugMode = false)
+    public GpuDevice(string driverName, Window window, bool debugInfo = false, bool debugMode = false,
+        bool preferImmediate = false)
     {
         this.window = window;
 
@@ -41,6 +59,13 @@ internal unsafe class GpuDevice : IDisposable
         }
 
         SwapchainFormat = SDL_GetGPUSwapchainTextureFormat(device, window.Handle);
+        if (preferImmediate && SDL_WindowSupportsGPUPresentMode(device, window.Handle, SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_IMMEDIATE))
+        {
+            if (!SDL_SetGPUSwapchainParameters(device, window.Handle, SDL_GPUSwapchainComposition.SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+                    SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_IMMEDIATE))
+                SdlRuntime.Throw("Failed to configure immediate presentation");
+            PresentationMode = "Immediate";
+        }
 
         DriverName = SDL_GetGPUDeviceDriver(device)!;
 

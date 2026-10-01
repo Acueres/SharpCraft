@@ -1,4 +1,5 @@
 ﻿using SDL;
+using System.Diagnostics;
 
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
@@ -17,6 +18,7 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
         
         try
         {
+            long stagingStarted = Stopwatch.GetTimestamp();
             uint faceCount = (uint)data.Length;
             
             blockFaceBuffer.EnsureSize(faceCount);
@@ -53,6 +55,8 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             }
 
             SDL_UnmapGPUTransferBuffer(device.Handle, vertexTransfer);
+            profiler.Timings.UploadStagingMilliseconds += Stopwatch.GetElapsedTime(stagingStarted).TotalMilliseconds;
+            long recordingStarted = Stopwatch.GetTimestamp();
 
             SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device.Handle);
             if (cmd == null)
@@ -78,11 +82,15 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             SDL_UploadToGPUBuffer(copyPass, &vertexSource, &vertexDestination, true);
 
             SDL_EndGPUCopyPass(copyPass);
+            profiler.Timings.UploadCommandsMilliseconds += Stopwatch.GetElapsedTime(recordingStarted).TotalMilliseconds;
+            long submitStarted = Stopwatch.GetTimestamp();
 
             if (!SDL_SubmitGPUCommandBuffer(cmd))
             {
                 SdlRuntime.Throw("Failed to upload GPU command buffer");
             }
+            profiler.Timings.SubmitMilliseconds += Stopwatch.GetElapsedTime(submitStarted).TotalMilliseconds;
+            profiler.Rendering.UploadJobs++;
             
             profiler.Rendering.TerrainUploadBytes += vertexBytes;
         }
@@ -131,6 +139,7 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
 
         try
         {
+            long stagingStarted = Stopwatch.GetTimestamp();
             SDL_GPUTransferBufferCreateInfo vertexTransferInfo = new()
             {
                 usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
@@ -190,6 +199,8 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             }
 
             SDL_UnmapGPUTransferBuffer(device.Handle, indexTransfer);
+            profiler.Timings.UploadStagingMilliseconds += Stopwatch.GetElapsedTime(stagingStarted).TotalMilliseconds;
+            long recordingStarted = Stopwatch.GetTimestamp();
 
             SDL_GPUCommandBuffer* commandBuffer =
                 SDL_AcquireGPUCommandBuffer(device.Handle);
@@ -243,11 +254,15 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             );
 
             SDL_EndGPUCopyPass(copyPass);
+            profiler.Timings.UploadCommandsMilliseconds += Stopwatch.GetElapsedTime(recordingStarted).TotalMilliseconds;
+            long submitStarted = Stopwatch.GetTimestamp();
 
             if (!SDL_SubmitGPUCommandBuffer(commandBuffer))
             {
                 SdlRuntime.Throw("Failed to submit sprite upload command buffer");
             }
+            profiler.Timings.SubmitMilliseconds += Stopwatch.GetElapsedTime(submitStarted).TotalMilliseconds;
+            profiler.Rendering.UploadJobs++;
             
             profiler.Rendering.UiUploadBytes += (long)vertexBytes + indexBytes;
         }
@@ -282,6 +297,7 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
 
         try
         {
+            long stagingStarted = Stopwatch.GetTimestamp();
             SDL_GPUTransferBufferCreateInfo transferInfo = new()
             {
                 usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
@@ -311,6 +327,8 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             }
 
             SDL_UnmapGPUTransferBuffer(device.Handle, transferBuffer);
+            profiler.Timings.UploadStagingMilliseconds += Stopwatch.GetElapsedTime(stagingStarted).TotalMilliseconds;
+            long recordingStarted = Stopwatch.GetTimestamp();
 
             SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(device.Handle);
             if (commandBuffer == null)
@@ -354,11 +372,16 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             }
 
             SDL_EndGPUCopyPass(copyPass);
+            profiler.Timings.UploadCommandsMilliseconds += Stopwatch.GetElapsedTime(recordingStarted).TotalMilliseconds;
+            long submitStarted = Stopwatch.GetTimestamp();
 
             if (!SDL_SubmitGPUCommandBuffer(commandBuffer))
             {
                 SdlRuntime.Throw("Failed to submit texture upload command buffer");
             }
+            profiler.Timings.SubmitMilliseconds += Stopwatch.GetElapsedTime(submitStarted).TotalMilliseconds;
+            profiler.Rendering.UploadJobs++;
+            profiler.Rendering.UiUploadBytes += expectedByteCount;
         }
         finally
         {
@@ -388,6 +411,7 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
 
         try
         {
+            long stagingStarted = Stopwatch.GetTimestamp();
             SDL_GPUTransferBufferCreateInfo transferInfo = new()
             {
                 usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
@@ -422,6 +446,8 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             }
 
             SDL_UnmapGPUTransferBuffer(device.Handle, transferBuffer);
+            profiler.Timings.UploadStagingMilliseconds += Stopwatch.GetElapsedTime(stagingStarted).TotalMilliseconds;
+            long recordingStarted = Stopwatch.GetTimestamp();
 
             SDL_GPUCommandBuffer* commandBuffer =
                 SDL_AcquireGPUCommandBuffer(device.Handle);
@@ -465,11 +491,15 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             );
 
             SDL_EndGPUCopyPass(copyPass);
+            profiler.Timings.UploadCommandsMilliseconds += Stopwatch.GetElapsedTime(recordingStarted).TotalMilliseconds;
+            long submitStarted = Stopwatch.GetTimestamp();
 
             if (!SDL_SubmitGPUCommandBuffer(commandBuffer))
             {
                 SdlRuntime.Throw("Failed to submit texture upload command buffer");
             }
+            profiler.Timings.SubmitMilliseconds += Stopwatch.GetElapsedTime(submitStarted).TotalMilliseconds;
+            profiler.Rendering.UploadJobs++;
 
             device.WaitIdle();
             

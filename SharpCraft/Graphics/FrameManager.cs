@@ -1,12 +1,13 @@
-﻿using SDL;
+﻿using SharpCraft.Platform;
+using SharpCraft.Diagnostics;
 
-using SharpCraft.Platform;
-
+using System.Diagnostics;
+using SDL;
 using static SDL.SDL3;
 
 namespace SharpCraft.Graphics;
 
-internal unsafe class FrameManager(GpuDevice device, Window window)
+internal unsafe class FrameManager(GpuDevice device, Window window, FrameProfiler profiler)
 {
     public bool TryBeginFrame(out FrameContext context)
     {
@@ -29,13 +30,13 @@ internal unsafe class FrameManager(GpuDevice device, Window window)
                 &swapchainWidth,
                 &swapchainHeight))
         {
-            SDL_SubmitGPUCommandBuffer(cmd);
+            SubmitEmpty(cmd);
             return false;
         }
 
         if (swapchainTexture == null)
         {
-            SDL_SubmitGPUCommandBuffer(cmd);
+            SubmitEmpty(cmd);
             return false;
         }
 
@@ -50,5 +51,13 @@ internal unsafe class FrameManager(GpuDevice device, Window window)
         {
             SdlRuntime.Throw("Failed to submit command buffer");
         }
+    }
+
+    private void SubmitEmpty(SDL_GPUCommandBuffer* commandBuffer)
+    {
+        long started = Stopwatch.GetTimestamp();
+        bool submitted = SDL_SubmitGPUCommandBuffer(commandBuffer);
+        profiler.Timings.SubmitMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        if (!submitted) SdlRuntime.Throw("Failed to submit empty command buffer");
     }
 }

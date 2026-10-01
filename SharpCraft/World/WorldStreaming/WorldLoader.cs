@@ -33,6 +33,8 @@ internal class WorldLoader(
         return pipeline.Tick();
     }
 
+    public double CompletionMilliseconds => pipeline.CompletionMilliseconds;
+
     public StreamingStatistics GetStatistics() => pipeline.GetStatistics();
 
     // Use to generate chunks in bulk

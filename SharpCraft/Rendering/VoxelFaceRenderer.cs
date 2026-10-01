@@ -106,8 +106,14 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             (uint)sizeof(Matrix4x4)
         );
         
+        GpuDevice.BeginGpuPass(commandBuffer, GpuPass.Opaque);
         DrawBuffer(opaqueBuffer, opaquePipeline, renderPass);
+        GpuDevice.EndGpuPass(commandBuffer);
+        profiler.Rendering.SubmittedOpaqueFaces = opaqueBuffer.Count;
+        GpuDevice.BeginGpuPass(commandBuffer, GpuPass.Transparent);
         DrawBuffer(transparentBuffer, transparentPipeline, renderPass);
+        GpuDevice.EndGpuPass(commandBuffer);
+        profiler.Rendering.SubmittedTransparentFaces = transparentBuffer.Count;
     }
     
     private void DrawBuffer(

@@ -6,7 +6,7 @@ using System.Collections.Concurrent;
 
 namespace SharpCraft.World.Generation;
 
-internal class ChunkGenerator(BlockRegistry blockRegistry)
+internal class ChunkGenerator(BlockRegistry blockRegistry, BenchmarkTerrain? benchmark = null)
 {
     private readonly ConcurrentDictionary<Vec2<int>, int> maxHeightCache = [];
     
@@ -21,6 +21,17 @@ internal class ChunkGenerator(BlockRegistry blockRegistry)
         int chunkWorldY = index.Y * Chunk.Size;
         int chunkWorldZ = index.Z * Chunk.Size;
         
+        if (benchmark is not null)
+        {
+            for (int x = 0; x < Chunk.Size; x++)
+            for (int z = 0; z < Chunk.Size; z++)
+            for (int y = 0; y < Chunk.Size; y++)
+                if (benchmark.IsSolid(chunkWorldX + x, chunkWorldY + y, chunkWorldZ + z))
+                    buffer[x, y, z] = new Block(block);
+            chunk.BuildPalette(buffer);
+            return chunk;
+        }
+
         const int terrainLevel = Chunk.Size / 2;
 
         for (int x = 0; x < Chunk.Size; x++)
@@ -59,7 +70,7 @@ internal class ChunkGenerator(BlockRegistry blockRegistry)
     
     private int GetMaximumColumnElevation(Vec2<int> chunkIndex)
     {
-        return maxHeightCache.GetOrAdd(chunkIndex, static index =>
+        return maxHeightCache.GetOrAdd(chunkIndex, index =>
         {
             int worldStartX = index.X * Chunk.Size;
             int worldStartZ = index.Z * Chunk.Size;
@@ -71,7 +82,7 @@ internal class ChunkGenerator(BlockRegistry blockRegistry)
                 int worldX = worldStartX + x;
                 int worldZ = worldStartZ + z;
 
-                int elevation = TerrainLevel + GetTerrainHeight(worldX, worldZ);
+                int elevation = benchmark?.SurfaceHeight(worldX, worldZ) ?? TerrainLevel + GetTerrainHeight(worldX, worldZ);
                 maximum = Math.Max(maximum, elevation);
             }
 
