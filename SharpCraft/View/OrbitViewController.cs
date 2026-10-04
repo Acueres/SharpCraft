@@ -1,6 +1,7 @@
 ﻿using SharpCraft.Input;
 using SharpCraft.SharpMath;
 using SharpCraft.Time;
+using SharpCraft.World.Chunks;
 
 using System.Numerics;
 
@@ -13,7 +14,8 @@ internal sealed class OrbitViewController : ICameraController
     private const float MouseRotationSensitivity = 0.003f;
     private const float PitchLimit = MathF.PI / 2f - 0.01f;
 
-    private Vector3 target;
+    private Vec3<int> targetIndex;
+    private Vector3 targetLocalPosition;
 
     private float yaw;
     private float pitch;
@@ -22,11 +24,12 @@ internal sealed class OrbitViewController : ICameraController
     private readonly float minimumDistance;
     private readonly float maximumDistance;
 
-    private Vec3<int> index;
+    private Viewpoint viewpoint;
     private bool updatePending = true;
 
     public OrbitViewController(
-        Vector3 target,
+        Vec3<int> targetIndex,
+        Vector3 targetLocalPosition,
         in Viewpoint initialViewpoint,
         float minimumDistance = 1f,
         float maximumDistance = 500f)
@@ -43,11 +46,12 @@ internal sealed class OrbitViewController : ICameraController
                 "The maximum orbit distance must not be smaller than the minimum distance"
             );
 
-        this.target = target;
+        (this.targetIndex, this.targetLocalPosition) = NormalizePosition(targetIndex, targetLocalPosition);
         this.minimumDistance = minimumDistance;
         this.maximumDistance = maximumDistance;
 
-        SetOrbitFromPosition(initialViewpoint.Position);
+        SetOrbitFromPosition(initialViewpoint);
+        UpdateViewpoint();
     }
 
     public bool Update(InputHandler input, FrameTime time)
@@ -58,10 +62,18 @@ internal sealed class OrbitViewController : ICameraController
         updated |= UpdateRotation(input, time);
         updated |= UpdateZoom(input);
 
+        if (updated) UpdateViewpoint();
+
         return updated;
     }
 
-    public Vector3 GetPosition()
+    public Vector3 GetLocalPosition() => viewpoint.LocalPosition;
+
+    public Viewpoint GetViewpoint() => viewpoint;
+
+    public Vec3<int> GetIndex() => viewpoint.Index;
+
+    private void UpdateViewpoint()
     {
         float cosPitch = MathF.Cos(pitch);
 
@@ -71,38 +83,33 @@ internal sealed class OrbitViewController : ICameraController
             MathF.Cos(yaw) * cosPitch
         );
 
-        return target + offset * distance;
-    }
-
-    public Viewpoint GetViewpoint()
-    {
-        return Viewpoint.LookAt(
-            GetPosition(),
-            target,
+        var position = NormalizePosition(targetIndex, targetLocalPosition + offset * distance);
+        viewpoint = Viewpoint.LookAt(
+            position.Index,
+            position.LocalPosition,
+            targetIndex,
+            targetLocalPosition,
             MathUtilities.Vector3Up
         );
     }
 
-    public Vec3<int> GetIndex() => index;
-
-    public void SetIndex(Vec3<int> index)
+    public void SetTarget(Vec3<int> targetIndex, Vector3 targetLocalPosition)
     {
-        this.index = index;
-    }
-
-    public void SetTarget(Vector3 target)
-    {
-        if (this.target == target)
+        var target = NormalizePosition(targetIndex, targetLocalPosition);
+        if (this.targetIndex == target.Index && this.targetLocalPosition == target.LocalPosition)
             return;
 
-        this.target = target;
+        this.targetIndex = target.Index;
+        this.targetLocalPosition = target.LocalPosition;
+        UpdateViewpoint();
         updatePending = true;
     }
 
-    public void Reset(Vector3 target, in Viewpoint viewpoint)
+    public void Reset(Vec3<int> targetIndex, Vector3 targetLocalPosition, in Viewpoint viewpoint)
     {
-        this.target = target;
-        SetOrbitFromPosition(viewpoint.Position);
+        (this.targetIndex, this.targetLocalPosition) = NormalizePosition(targetIndex, targetLocalPosition);
+        SetOrbitFromPosition(viewpoint);
+        UpdateViewpoint();
         updatePending = true;
     }
 
@@ -184,9 +191,11 @@ internal sealed class OrbitViewController : ICameraController
         return true;
     }
 
-    private void SetOrbitFromPosition(Vector3 position)
+    private void SetOrbitFromPosition(in Viewpoint position)
     {
-        Vector3 offset = position - target;
+        Vec3<long> chunkOffset = position.Index.Into<long>() - targetIndex.Into<long>();
+        Vector3 offset = new Vector3(chunkOffset.X, chunkOffset.Y, chunkOffset.Z) * Chunk.Size
+                         + (position.LocalPosition - targetLocalPosition);
         float offsetLength = offset.Length();
 
         if (offsetLength <= float.Epsilon)
@@ -209,5 +218,27 @@ internal sealed class OrbitViewController : ICameraController
             -PitchLimit,
             PitchLimit
         );
+    }
+
+    private static (Vec3<int> Index, Vector3 LocalPosition) NormalizePosition(
+        Vec3<int> index, Vector3 localPosition)
+    {
+        var x = NormalizeAxis(index.X, localPosition.X);
+        var y = NormalizeAxis(index.Y, localPosition.Y);
+        var z = NormalizeAxis(index.Z, localPosition.Z);
+        return (new Vec3<int>(x.Index, y.Index, z.Index), new Vector3(x.Local, y.Local, z.Local));
+    }
+
+    private static (int Index, float Local) NormalizeAxis(int chunkIndex, float localPosition)
+    {
+        int carry = checked((int)Math.Floor((double)localPosition / Chunk.Size));
+        float local = (float)(localPosition - (double)carry * Chunk.Size);
+        if (local >= Chunk.Size)
+        {
+            local = 0;
+            carry = checked(carry + 1);
+        }
+
+        return (checked(chunkIndex + carry), local);
     }
 }

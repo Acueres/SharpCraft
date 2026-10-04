@@ -46,8 +46,14 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             residentCount++;
             if (chunk.IsEmpty || !chunk.IsReady) continue;
 
-            Vector3 center = chunk.Position + new Vector3(Chunk.HalfSize);
-            if (!camera.Frustum.Intersects(new CubeBound(center, Chunk.HalfSize))) continue;
+            var relativeIndex = (chunk.Index - camera.Index) * Chunk.Size;
+            var relativePosition = new Vector3(relativeIndex.X, relativeIndex.Y, relativeIndex.Z);
+            relativePosition -= camera.LocalPosition;
+
+            const float localCenter = Chunk.Last * 0.5f;
+            
+            Vector3 boundsCenter = relativePosition + new Vector3(localCenter);
+            if (!camera.Frustum.Intersects(new CubeBound(boundsCenter, Chunk.HalfSize))) continue;
             
             var opaqueArr = chunkMesher.GetFaces(chunk.Index);
             opaqueCount += opaqueArr.Length;
@@ -97,13 +103,23 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     public void Draw(
         SDL_GPUCommandBuffer* commandBuffer,
         SDL_GPURenderPass* renderPass,
-        Matrix4x4 mvp)
+        Matrix4x4 mvp, Vec3<int> cameraPositionIndex, Vector3 cameraLocalPosition)
     {
+        // Upload camera buffer
+        CameraUniformGpu uniform = new()
+        {
+            Mvp = mvp,
+            ChunkX = cameraPositionIndex.X,
+            ChunkY = cameraPositionIndex.Y,
+            ChunkZ = cameraPositionIndex.Z,
+            LocalPosition = cameraLocalPosition
+        };
+
         SDL_PushGPUVertexUniformData(
             commandBuffer,
             0,
-            (nint)(&mvp),
-            (uint)sizeof(Matrix4x4)
+            (nint)(&uniform),
+            (uint)sizeof(CameraUniformGpu)
         );
         
         GpuDevice.BeginGpuPass(commandBuffer, GpuPass.Opaque);

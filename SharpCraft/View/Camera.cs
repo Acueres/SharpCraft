@@ -12,7 +12,8 @@ internal class Camera
     public Matrix4x4 Projection { get; private set; }
     public Frustum Frustum { get; private set; }
     
-    public Vector3 Position  { get; private set; }
+    public Vec3<int> Index  { get; private set; }
+    public Vector3 LocalPosition  { get; private set; }
     public Vector3 Direction  { get; private set; }
     
     private uint viewportWidth;
@@ -21,8 +22,8 @@ internal class Camera
     public Camera(in Viewpoint viewpoint, uint viewportWidth, uint viewportHeight)
     {
         View = Matrix4x4.CreateLookAt(
-            viewpoint.Position,
-            viewpoint.Position + viewpoint.Direction,
+            Vector3.Zero,
+            viewpoint.Direction,
             viewpoint.Up
         );
         
@@ -32,18 +33,19 @@ internal class Camera
     
     public void SetViewpoint(in Viewpoint viewpoint)
     {
-        if (Position == viewpoint.Position && Direction == viewpoint.Direction)
+        if (Index == viewpoint.Index && Direction == viewpoint.Direction && LocalPosition == viewpoint.LocalPosition)
         {
             UpdateOccurred = false;
             return;
         }
 
-        Position = viewpoint.Position;
+        Index = viewpoint.Index;
+        LocalPosition = viewpoint.LocalPosition;
         Direction = Vector3.Normalize(viewpoint.Direction);
         
         View = Matrix4x4.CreateLookAt(
-            Position,
-            Position + Direction,
+            Vector3.Zero,
+            Direction,
             viewpoint.Up
         );
 

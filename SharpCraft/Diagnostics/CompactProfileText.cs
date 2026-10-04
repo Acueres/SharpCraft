@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Numerics;
 using SharpCraft.SharpMath;
 
 namespace SharpCraft.Diagnostics;
@@ -9,7 +8,7 @@ internal static class CompactProfileText
     public static string Frame(in FrameProfile profile) =>
         FormattableString.Invariant($"{profile.Fps:0} FPS · {profile.FrameMilliseconds:0.0} ms");
 
-    public static string Position(Vector3 position) =>
+    public static string Position(Vec3<double> position) =>
         FormattableString.Invariant($"{position.X:0.0}  {position.Y:0.0}  {position.Z:0.0}");
 
     public static string ChunkIndex(Vec3<int> index) =>

@@ -9,11 +9,10 @@ namespace SharpCraft.World.Chunks;
 internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
 {
     public const byte Size = 16;
-    public const float HalfSize = Size * 0.5f;
     public const byte Last = Size - 1;
+    public const float HalfSize = Size * 0.5f;
 
     public Vec3<int> Index { get; } = index;
-    public Vector3 Position { get; } = Size * new Vector3(index.X, index.Y, index.Z);
 
     public bool IsEmpty => palette is null;
     public int PaletteCount => palette?.Count ?? 0;
@@ -78,7 +77,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
             return;
         }
         
-        Block[,,] buffer = GetBuffer();
+        Block[,,] bf = GetBuffer();
         bool anyNonEmpty = false;
 
         for (int y = 0; y < Size; y++)
@@ -86,7 +85,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         for (int z = 0; z < Size; z++)
         {
             Block b = this[x, y, z];
-            buffer[x, y, z] = b;
+            bf[x, y, z] = b;
             if (!b.IsEmpty) anyNonEmpty = true;
         }
 
@@ -99,10 +98,10 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
             return;
         }
         
-        BuildPalette(buffer);
+        BuildPalette(bf);
     }
 
-    private static HashSet<Block> GetUniqueBlocks(Block[,,] buffer)
+    private static HashSet<Block> GetUniqueBlocks(Block[,,] bf)
     {
         // Extract unique block types
         HashSet<Block> uniqueBlocks = [];
@@ -110,7 +109,7 @@ internal class Chunk(Vec3<int> index, BlockRegistry blockRegistry)
         for (int x = 0; x < Size; x++)
         for (int z = 0; z < Size; z++)
         {
-            uniqueBlocks.Add(buffer[x, y, z]);
+            uniqueBlocks.Add(bf[x, y, z]);
         }
 
         return uniqueBlocks;

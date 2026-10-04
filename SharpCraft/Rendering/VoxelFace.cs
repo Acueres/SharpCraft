@@ -1,4 +1,5 @@
-using System.Numerics;
+using SharpCraft.SharpMath;
+
 using System.Runtime.InteropServices;
 
 namespace SharpCraft.Rendering;
@@ -6,20 +7,21 @@ namespace SharpCraft.Rendering;
 [StructLayout(LayoutKind.Sequential)]
 internal struct VoxelFace
 {
-    public Vector3 Center;
+    public Vec3<int> ChunkIndex;
+    public uint PackedBlockIndex;
     public uint Direction;
     public uint TextureLayer;
     public uint PackedLight;
 
     public VoxelFace(
-        float x,
-        float y,
-        float z,
+        Vec3<int> chunkIndex,
+        Vec3<byte> blockIndex,
         uint direction,
         uint textureLayer,
         uint packedLight)
     {
-        Center = new Vector3(x, y, z);
+        ChunkIndex = chunkIndex;
+        PackedBlockIndex = ((uint)blockIndex.X << 16) | ((uint)blockIndex.Y << 8) | blockIndex.Z;
         Direction = direction;
         TextureLayer = textureLayer;
         PackedLight = packedLight;

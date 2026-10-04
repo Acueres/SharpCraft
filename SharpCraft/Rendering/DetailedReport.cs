@@ -3,6 +3,7 @@ using SharpCraft.Graphics;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Rendering.Text;
 using SharpCraft.SharpMath;
+using SharpCraft.World.Chunks;
 
 using System.Globalization;
 using System.Numerics;
@@ -42,7 +43,7 @@ internal sealed class DetailedReport : IDisposable
     private int historyCount;
     private float lineHeight;
     private float chartMaximum;
-    private Vector3 position;
+    private Vec3<double> position;
     private uint width, height;
     private float padding;
     private DetailedReportLayout layout;
@@ -64,7 +65,9 @@ internal sealed class DetailedReport : IDisposable
         uploader.Upload(pixel);
     }
 
-    public void Update(Vector3 cameraPosition) => position = cameraPosition;
+    public void Update(Vec3<int> cameraPositionIndex, Vector3 cameraLocalPosition) =>
+        position = new Vec3<double>(cameraPositionIndex.X, cameraPositionIndex.Y, cameraPositionIndex.Z) * Chunk.Size
+                   + new Vec3<double>(cameraLocalPosition.X, cameraLocalPosition.Y, cameraLocalPosition.Z);
 
     public void Rescale(Font newFont)
     {

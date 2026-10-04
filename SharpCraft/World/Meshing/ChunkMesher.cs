@@ -43,13 +43,13 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
         List<VoxelFace> faces = [];
         List<VoxelFace> transparentFaces = [];
 
-        foreach ((Vec3<byte> index, FacesState visibleFaces) in chunk.GetVisibleBlocks(neighbors))
+        foreach ((Vec3<byte> blockIndex, FacesState visibleFaces) in chunk.GetVisibleBlocks(neighbors))
         {
-            int x = index.X;
-            int y = index.Y;
-            int z = index.Z;
+            int x = blockIndex.X;
+            int y = blockIndex.Y;
+            int z = blockIndex.Z;
 
-            Vector3 position = new Vector3(x, y, z) + chunk.Position;
+            //Vector3 position = new Vector3(x, y, z) + chunk.Position;
 
             FacesData<LightValue> lightValues = chunk.Light!.GetFacesLight(visibleFaces, neighbors, x, y, z);
             Block block = chunk[x, y, z];
@@ -61,9 +61,8 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
                 LightValue light = lightValues.GetValue(face);
                 
                 var voxelFace = new VoxelFace(
-                    position.X,
-                    position.Y,
-                    position.Z,
+                    chunk.Index,
+                    blockIndex,
                     (uint)face,
                     blockRegistry.GetFaceTextureLayer(block, face),
                     light.Value

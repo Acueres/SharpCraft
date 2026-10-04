@@ -2,6 +2,7 @@ using SharpCraft.Diagnostics;
 using SharpCraft.Graphics;
 using SharpCraft.Rendering.Text;
 using SharpCraft.World.Chunks;
+using SharpCraft.SharpMath;
 
 using System.Diagnostics;
 using System.Numerics;
@@ -36,15 +37,17 @@ internal sealed class DebugOverlay : IDisposable
         memoryMeasuredAt = 0;
     }
 
-    public void Update(in FrameProfile profile, Vector3 cameraPosition)
+    public void Update(in FrameProfile profile, Vec3<int> cameraPositionIndex, Vector3 cameraLocalPosition)
     {
         if (!visible) return;
         long now = Stopwatch.GetTimestamp();
 
         if (coordinatesMeasuredAt == 0 || Stopwatch.GetElapsedTime(coordinatesMeasuredAt, now).TotalMilliseconds >= 100)
         {
-            view.SetValue(1, CompactProfileText.Position(cameraPosition));
-            view.SetValue(2, CompactProfileText.ChunkIndex(Chunk.WorldToChunkCoords(cameraPosition)));
+            var position = new Vec3<double>(cameraPositionIndex.X, cameraPositionIndex.Y, cameraPositionIndex.Z) * Chunk.Size
+                + new Vec3<double>(cameraLocalPosition.X, cameraLocalPosition.Y, cameraLocalPosition.Z);
+            view.SetValue(1, CompactProfileText.Position(position));
+            view.SetValue(2, CompactProfileText.ChunkIndex(cameraPositionIndex));
             coordinatesMeasuredAt = now;
         }
 

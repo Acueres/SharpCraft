@@ -9,8 +9,7 @@ namespace SharpCraft.View;
 internal interface ICameraController
 {
     bool Update(InputHandler input, FrameTime time);
-    Vector3 GetPosition();
+    Vector3 GetLocalPosition();
     Viewpoint GetViewpoint();
     Vec3<int> GetIndex();
-    void SetIndex(Vec3<int> index);
 }

@@ -95,8 +95,8 @@ internal unsafe class Renderer : IDisposable
 
     public void UpdateUi(Camera camera)
     {
-        if (debugState.Detailed) detailedReport.Update(camera.Position);
-        else debugOverlay.Update(profiler.Snapshot, camera.Position);
+        if (debugState.Detailed) detailedReport.Update(camera.Index, camera.LocalPosition);
+        else debugOverlay.Update(profiler.Snapshot, camera.Index, camera.LocalPosition);
     }
 
     public void HandleDebugInput(Keyboard keyboard)
@@ -194,7 +194,7 @@ internal unsafe class Renderer : IDisposable
             &depthTarget
         );
 
-        voxelFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp);
+        voxelFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp, camera.Index, camera.LocalPosition);
 
         GpuDevice.BeginGpuPass(frame.CommandBuffer, GpuPass.Ui);
         spriteRenderer.Render(

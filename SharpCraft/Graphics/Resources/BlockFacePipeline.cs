@@ -1,9 +1,9 @@
 ﻿using SharpCraft.Platform;
 using SharpCraft.Rendering;
+using SharpCraft.SharpMath;
 
 using SDL;
 using System.Numerics;
-
 using static SDL.SDL3;
 
 namespace SharpCraft.Graphics.Resources;
@@ -92,47 +92,60 @@ internal unsafe class BlockFacePipeline : IDisposable
             blend_state = *blendState
         };
         
-        SDL_GPUVertexAttribute centerAttribute = new()
+        SDL_GPUVertexAttribute chunkIndexAttribute = new()
         {
             location = 0,
             buffer_slot = 0,
-            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_INT3,
             offset = 0
         };
-
-        SDL_GPUVertexAttribute directionAttribute = new()
+        
+        uint offset = (uint)sizeof(Vec3<int>);
+        
+        SDL_GPUVertexAttribute packedBlockIndexAttribute = new()
         {
             location = 1,
             buffer_slot = 0,
             format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
-            offset = (uint)sizeof(Vector3)
+            offset = offset
         };
 
-        SDL_GPUVertexAttribute textureLayerAttribute = new()
+        offset += sizeof(uint);
+        
+        SDL_GPUVertexAttribute directionAttribute = new()
         {
             location = 2,
             buffer_slot = 0,
             format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
-            offset = (uint)(sizeof(Vector3) + sizeof(uint))
+            offset = offset
         };
         
-        SDL_GPUVertexAttribute packedLightAttribute = new()
+        offset += sizeof(uint);
+
+        SDL_GPUVertexAttribute textureLayerAttribute = new()
         {
             location = 3,
             buffer_slot = 0,
             format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
-            offset = (uint)(
-                sizeof(Vector3) +
-                sizeof(uint) +
-                sizeof(uint)
-            )
+            offset = offset
         };
         
-        SDL_GPUVertexAttribute* faceAttributes = stackalloc SDL_GPUVertexAttribute[4];
-        faceAttributes[0] = centerAttribute;
-        faceAttributes[1] = directionAttribute;
-        faceAttributes[2] = textureLayerAttribute;
-        faceAttributes[3] = packedLightAttribute;
+        offset += sizeof(uint);
+        
+        SDL_GPUVertexAttribute packedLightAttribute = new()
+        {
+            location = 4,
+            buffer_slot = 0,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
+            offset = offset
+        };
+        
+        SDL_GPUVertexAttribute* faceAttributes = stackalloc SDL_GPUVertexAttribute[5];
+        faceAttributes[0] = chunkIndexAttribute;
+        faceAttributes[1] = packedBlockIndexAttribute;
+        faceAttributes[2] = directionAttribute;
+        faceAttributes[3] = textureLayerAttribute;
+        faceAttributes[4] = packedLightAttribute;
 
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = new()
         {
@@ -146,7 +159,7 @@ internal unsafe class BlockFacePipeline : IDisposable
                 vertex_buffer_descriptions = &faceBufferDescription,
                 num_vertex_buffers = 1,
                 vertex_attributes = faceAttributes,
-                num_vertex_attributes = 4
+                num_vertex_attributes = 5
             },
 
             rasterizer_state = new SDL_GPURasterizerState

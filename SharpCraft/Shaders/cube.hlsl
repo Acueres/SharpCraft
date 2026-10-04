@@ -3,6 +3,8 @@
 struct Camera
 {
     float4x4 Mvp;
+    int3 PositionIndex;
+    float3 LocalPosition;
 };
 
 [[vk::binding(0, 1)]]
@@ -10,6 +12,8 @@ ConstantBuffer<Camera> camera : register(b0, space1);
 
 Texture2DArray cubeTextures : register(t0, space2);
 SamplerState cubeSampler : register(s0, space2);
+
+static const int ChunkSize = 16;
 
 static const uint QuadCornerIndices[6] =
 {
@@ -28,16 +32,19 @@ static const float2 FaceUvs[4] =
 struct VSInput
 {
     [[vk::location(0)]]
-    float3 Center : TEXCOORD0;
-
-    [[vk::location(1)]]
-    uint Direction : TEXCOORD1;
+    int3 ChunkIndex : TEXCOORD0;
     
+    [[vk::location(1)]]
+    uint PackedBlockIndex : TEXCOORD1;
+
     [[vk::location(2)]]
-    uint TextureLayer : TEXCOORD2;
+    uint Direction : TEXCOORD2;
     
     [[vk::location(3)]]
-    uint PackedLight : TEXCOORD3;
+    uint TextureLayer : TEXCOORD3;
+    
+    [[vk::location(4)]]
+    uint PackedLight : TEXCOORD4;
     
     uint VertexId : SV_VertexID;
 };
@@ -118,9 +125,21 @@ VSOutput MainVS(VSInput input)
     VSOutput output;
     
     uint corner = QuadCornerIndices[input.VertexId];
-    float3 worldPosition = input.Center + GetFaceCorner(input.Direction, corner);
+    
+    int3 relativeOffset = input.ChunkIndex - camera.PositionIndex;
+    relativeOffset = mul(relativeOffset, ChunkSize);
+    
+    float3 cameraRelativePosition = float3(relativeOffset);
+    cameraRelativePosition = cameraRelativePosition - camera.LocalPosition;
+    
+    uint localX = (input.PackedBlockIndex >> 16u) & 0xFFu;
+    uint localY = (input.PackedBlockIndex >> 8u)  & 0xFFu;
+    uint localZ = input.PackedBlockIndex          & 0xFFu;
+    
+    cameraRelativePosition = cameraRelativePosition + float3(localX, localY, localZ);
+    cameraRelativePosition = cameraRelativePosition + GetFaceCorner(input.Direction, corner);
 
-    output.Position = mul(float4(worldPosition, 1.0), camera.Mvp);
+    output.Position = mul(float4(cameraRelativePosition, 1.0), camera.Mvp);
     output.TexCoord = FaceUvs[corner];
     output.TextureLayer = input.TextureLayer;
     output.Light = ComputeLight(input.PackedLight);

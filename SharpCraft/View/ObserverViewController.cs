@@ -1,6 +1,7 @@
 using SharpCraft.Input;
 using SharpCraft.Time;
 using SharpCraft.SharpMath;
+using SharpCraft.World.Chunks;
 
 using System.Numerics;
 
@@ -8,42 +9,72 @@ namespace SharpCraft.View;
 
 internal class ObserverViewController(in Viewpoint viewpoint) : ICameraController
 {
-    private Vector3 position = viewpoint.Position;
+    private Vec3<int> index = viewpoint.Index;
+    private Vector3 localPosition = viewpoint.LocalPosition;
     private Vector3 direction = viewpoint.Direction;
     private Vector3 horizontalDirection;
-
-    private Vec3<int> index;
-
+    
     private const float MovementSpeed = 5f;
     private const float RotationSpeed = 1.5f;
 
     public bool Update(InputHandler input, FrameTime time)
     {
-        Vector3 previousPosition = position;
+        Vec3<int> previousIndex = index;
+        Vector3 previousLocalPosition = localPosition;
         Vector3 previousDirection = direction;
 
         UpdateLook(input);
         UpdateMovement(input, time);
+        NormalizeLocalPosition();
 
-        return position != previousPosition || direction != previousDirection;
+        return index != previousIndex
+               || localPosition != previousLocalPosition
+               || direction != previousDirection;
     }
     
-    public Vector3 GetPosition() => position;
+    public Vector3 GetLocalPosition() => localPosition;
 
     public Viewpoint GetViewpoint()
     {
         return new Viewpoint(
-            position,
+            index,
+            localPosition,
             direction,
             MathUtilities.Vector3Up
         );
     }
     
     public Vec3<int> GetIndex() => index;
-
-    public void SetIndex(Vec3<int> idx)
+    
+    private void NormalizeLocalPosition()
     {
-        index = idx;
+        var x = NormalizeAxis(index.X, localPosition.X);
+        var y = NormalizeAxis(index.Y, localPosition.Y);
+        var z = NormalizeAxis(index.Z, localPosition.Z);
+
+        index = new Vec3<int>(x.Index, y.Index, z.Index);
+        localPosition = new Vector3(x.Local, y.Local, z.Local);
+    }
+
+    private static (int Index, float Local) NormalizeAxis(
+        int chunkIndex,
+        float localPosition)
+    {
+        int carry = checked(
+            (int)Math.Floor((double)localPosition / Chunk.Size)
+        );
+
+        float local = (float)(
+            localPosition - (double)carry * Chunk.Size
+        );
+
+        if (local >= Chunk.Size)
+        {
+            local = 0f;
+            carry = checked(carry + 1);
+        }
+
+        return (checked(chunkIndex + carry), local);
     }
 
     private void UpdateLook(InputHandler input)
@@ -102,21 +133,21 @@ internal class ObserverViewController(in Viewpoint viewpoint) : ICameraControlle
         }
 
         if (ks.IsDown(Keys.W))
-            position += horizontalDirection * MovementSpeed * time.DeltaSeconds;
+            localPosition += horizontalDirection * MovementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.S))
-            position -= horizontalDirection * MovementSpeed * time.DeltaSeconds;
+            localPosition -= horizontalDirection * MovementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.A))
-            position -= right * MovementSpeed * time.DeltaSeconds;
+            localPosition -= right * MovementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.D))
-            position += right * MovementSpeed * time.DeltaSeconds;
+            localPosition += right * MovementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.Space))
-            position += MathUtilities.Vector3Up * MovementSpeed * time.DeltaSeconds;
+            localPosition += MathUtilities.Vector3Up * MovementSpeed * time.DeltaSeconds;
 
         if (ks.IsDown(Keys.LeftShift))
-            position -= MathUtilities.Vector3Up * MovementSpeed * time.DeltaSeconds;
+            localPosition -= MathUtilities.Vector3Up * MovementSpeed * time.DeltaSeconds;
     }
 }

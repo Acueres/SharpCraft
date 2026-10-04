@@ -5,23 +5,26 @@ using SharpCraft.World.Lighting;
 using SharpCraft.SharpMath;
 using SharpCraft.Diagnostics;
 
-using System.Numerics;
 using System.Collections.Concurrent;
 
 namespace SharpCraft.World.WorldStreaming;
 
 internal class WorldLoader(
+    Vec3<int> initialCenter,
     ChunkVolume volume,
     ChunkGenerator chunkGenerator,
     ChunkMesher chunkMesher) : IDisposable
 {
     private readonly ChunkPipeline pipeline = new(volume, chunkGenerator, chunkMesher);
 
-    public void Recenter(Vector3 pos)
-    {
-        Vec3<int> center = Chunk.WorldToChunkCoords(pos);
+    private Vec3<int> center = initialCenter;
 
-        volume.SetCenter(center);
+    public void Recenter(Vec3<int> newCenter)
+    {
+        if (newCenter == center) return;
+        
+        center = newCenter;
+        volume.SetCenter(newCenter);
         var indexesForGeneration = volume.CollectIndexesForGeneration();
         var indexesForRemoval = volume.CollectIndexesForRemoval();
 
@@ -38,10 +41,8 @@ internal class WorldLoader(
     public StreamingStatistics GetStatistics() => pipeline.GetStatistics();
 
     // Use to generate chunks in bulk
-    public void BulkGenerate(Vector3 pos)
+    public void BulkGenerate()
     {
-        Vec3<int> center = Chunk.WorldToChunkCoords(pos);
-        
         volume.SetCenter(center);
 
         ConcurrentBag<Chunk> generatedChunks = [];

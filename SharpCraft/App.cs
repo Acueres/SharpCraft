@@ -11,7 +11,6 @@ using SharpCraft.SharpMath;
 using SharpCraft.World.Generation;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.WorldStreaming;
-using SharpCraft.World.Chunks;
 using SharpCraft.View;
 
 using SDL;
@@ -79,12 +78,14 @@ internal unsafe class App : IDisposable
 
         assetServer = new AssetServer(device);
         var blockRegistry = new BlockRegistry(assetServer);
-        
+
         input = new InputHandler();
 
         var initialViewpoint = Viewpoint.LookAt(
-            position: new Vector3(0f, 40f, 4f),
-            target: Vector3.Zero,
+            index: new Vec3<int>(0, 2, 0),
+            localPosition: Vector3.Zero,
+            targetIndex: Vec3<int>.Zero,
+            targetLocalPosition: new Vector3(0f, 8f, 4f),
             up: MathUtilities.Vector3Up
         );
 
@@ -98,19 +99,20 @@ internal unsafe class App : IDisposable
             maximumDistance: 500f
         );*/
         activeViewController = new ObserverViewController(initialViewpoint);
-        activeViewController.SetIndex(Chunk.WorldToChunkCoords(initialViewpoint.Position));
-        
+
         camera = new Camera(initialViewpoint, DefaultWidth, DefaultHeight);
 
         frameLimiter = options.FpsLimit == 0 ? null : new FrameLimiter(options.FpsLimit);
 
         volume = new ChunkVolume(options.Radius);
-        var chunkGenerator = new ChunkGenerator(blockRegistry, options.Scene.HasValue ? new BenchmarkTerrain(options.Scene.Value, options.Seed) : null);
+        var chunkGenerator = new ChunkGenerator(blockRegistry,
+            options.Scene.HasValue ? new BenchmarkTerrain(options.Scene.Value, options.Seed) : null);
         var chunkMesher = new ChunkMesher(blockRegistry);
-        worldLoader = new WorldLoader(volume, chunkGenerator, chunkMesher);
-        worldLoader.BulkGenerate(options.Scene.HasValue ? initialViewpoint.Position : Vector3.Zero);
-        
-        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher, profiler, options, benchmark);
+        worldLoader = new WorldLoader(initialViewpoint.Index, volume, chunkGenerator, chunkMesher);
+        worldLoader.BulkGenerate();
+
+        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher, profiler,
+            options, benchmark);
         renderer.LoadGpuResources();
         renderer.UpdateWorld(camera, volume);
     }
@@ -156,19 +158,14 @@ internal unsafe class App : IDisposable
             renderer.HandleDebugInput(input.Keyboard);
             
             long worldStarted = Stopwatch.GetTimestamp();
-            Vec3<int> currentControllerIndex = Chunk.WorldToChunkCoords(activeViewController.GetPosition());
-
-            if (activeViewController.GetIndex() != currentControllerIndex)
-            {
-                worldLoader.Recenter(activeViewController.GetPosition());
-                activeViewController.SetIndex(currentControllerIndex);
-            }
             
             bool worldUpdate = worldLoader.Tick();
             profiler.Streaming = worldLoader.GetStatistics();
             profiler.Timings.CompletionMilliseconds = worldLoader.CompletionMilliseconds;
             profiler.Timings.WorldMilliseconds = Stopwatch.GetElapsedTime(worldStarted).TotalMilliseconds;
             bool controllerUpdate = activeViewController.Update(input, time);
+            
+            worldLoader.Recenter(activeViewController.GetIndex());
 
             if (controllerUpdate)
             {
