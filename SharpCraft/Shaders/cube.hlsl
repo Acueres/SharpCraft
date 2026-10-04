@@ -1,5 +1,29 @@
 #pragma pack_matrix(row_major)
 
+struct SlotRecordGpu
+{
+    // Bytes 0–15
+    int ChunkX;
+    int ChunkY;
+    int ChunkZ;
+    uint Flags;
+
+    // Bytes 16–31
+    uint Aux0;
+    uint Aux1;
+    uint Aux2;
+    uint Aux3;
+
+    // Bytes 32–47
+    float BoundsX;
+    float BoundsY;
+    float BoundsZ;
+    float BoundsRadius;
+};
+
+[[vk::binding(0, 0)]]
+StructuredBuffer<SlotRecordGpu> slots : register(t0, space0);
+
 struct Camera
 {
     float4x4 Mvp;
@@ -32,19 +56,16 @@ static const float2 FaceUvs[4] =
 struct VSInput
 {
     [[vk::location(0)]]
-    int3 ChunkIndex : TEXCOORD0;
+    uint Uint0 : TEXCOORD0;
     
     [[vk::location(1)]]
-    uint PackedBlockIndex : TEXCOORD1;
+    uint Uint1 : TEXCOORD1;
 
     [[vk::location(2)]]
-    uint Direction : TEXCOORD2;
+    uint Uint2 : TEXCOORD2;
     
     [[vk::location(3)]]
-    uint TextureLayer : TEXCOORD3;
-    
-    [[vk::location(4)]]
-    uint PackedLight : TEXCOORD4;
+    uint Uint3 : TEXCOORD3;
     
     uint VertexId : SV_VertexID;
 };
@@ -108,8 +129,8 @@ float3 GetFaceCorner(uint direction, uint corner)
 
 float ComputeLight(uint packedLight)
 {
-    uint skylightLevel = packedLight & 0xF;
-    uint blockLightLevel = (packedLight >> 4) & 0xF;
+    uint blockLightLevel = packedLight & 0xF;
+    uint skylightLevel = (packedLight >> 4) & 0xF;
 
     float skylight =
         pow((float)skylightLevel / 15.0f, 1.4f);
@@ -126,23 +147,31 @@ VSOutput MainVS(VSInput input)
     
     uint corner = QuadCornerIndices[input.VertexId];
     
-    int3 relativeOffset = input.ChunkIndex - camera.PositionIndex;
+    uint slotId = input.Uint2 >> 16;
+    SlotRecordGpu slot = slots[slotId];
+    
+    int3 chunkIndex = int3(slot.ChunkX, slot.ChunkY, slot.ChunkZ);
+    int3 relativeOffset = chunkIndex - camera.PositionIndex;
     relativeOffset = mul(relativeOffset, ChunkSize);
     
     float3 cameraRelativePosition = float3(relativeOffset);
     cameraRelativePosition = cameraRelativePosition - camera.LocalPosition;
     
-    uint localX = (input.PackedBlockIndex >> 16u) & 0xFFu;
-    uint localY = (input.PackedBlockIndex >> 8u)  & 0xFFu;
-    uint localZ = input.PackedBlockIndex          & 0xFFu;
+    uint localX = input.Uint0          & 0xFFu;
+    uint localY = (input.Uint0 >> 8u)  & 0xFFu;
+    uint localZ = (input.Uint0 >> 16u) & 0xFFu;
+    
+    uint direction = (input.Uint0 >> 24u) & 0x7u;
+    uint textureId = input.Uint2 & 0xFFFFu;
+    uint packedLight = input.Uint3 & 0xFFu;
     
     cameraRelativePosition = cameraRelativePosition + float3(localX, localY, localZ);
-    cameraRelativePosition = cameraRelativePosition + GetFaceCorner(input.Direction, corner);
+    cameraRelativePosition = cameraRelativePosition + GetFaceCorner(direction, corner);
 
     output.Position = mul(float4(cameraRelativePosition, 1.0), camera.Mvp);
     output.TexCoord = FaceUvs[corner];
-    output.TextureLayer = input.TextureLayer;
-    output.Light = ComputeLight(input.PackedLight);
+    output.TextureLayer = textureId;
+    output.Light = ComputeLight(packedLight);
 
     return output;
 }

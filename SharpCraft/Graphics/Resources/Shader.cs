@@ -27,7 +27,8 @@ internal unsafe class Shader : IDisposable
         SDL_GPUShaderStage stage,
         uint uniformBuffers,
         uint samplers,
-        string entrypoint)
+        string entrypoint,
+        uint storageBuffers = 0)
     {
         this.device = device;
 
@@ -46,7 +47,7 @@ internal unsafe class Shader : IDisposable
 
                 num_samplers = samplers,
                 num_storage_textures = 0,
-                num_storage_buffers = 0,
+                num_storage_buffers = storageBuffers,
                 num_uniform_buffers = uniformBuffers
             };
 

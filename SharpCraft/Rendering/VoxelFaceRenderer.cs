@@ -27,14 +27,18 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     private readonly BlockFacePipeline transparentPipeline = BlockFacePipeline.CreateTransparent(device, shader.Vertex, shader.Fragment);
     private readonly BlockFaceBuffer transparentBuffer = new(device);
     
+    private readonly SlotRecordBuffer slotRecordBuffer = new(device);
+    
     private readonly List<VoxelFace> faces = [];
     private readonly List<VoxelFace> transparentFaces = [];
-    private readonly List<(VoxelFace[] opaque, VoxelFace[] transparent)> visibleMeshes = [];
+    private readonly List<(VoxelFace[] opaque, VoxelFace[] transparent, ushort slotId)> visibleMeshes = [];
+    private readonly List<SlotRecord> slotRecords = [];
 
     public void Update(ChunkVolume volume, Camera camera)
     {
         long started = Stopwatch.GetTimestamp();
         visibleMeshes.Clear();
+        slotRecords.Clear();
 
         int opaqueCount = 0;
         int transparentCount = 0;
@@ -51,17 +55,23 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             relativePosition -= camera.LocalPosition;
 
             const float localCenter = Chunk.Last * 0.5f;
-            
+
             Vector3 boundsCenter = relativePosition + new Vector3(localCenter);
             if (!camera.Frustum.Intersects(new CubeBound(boundsCenter, Chunk.HalfSize))) continue;
             
+            if (slotRecords.Count > ushort.MaxValue)
+                throw new InvalidOperationException("Slot table capacity exceeded");
+
+            ushort slotId = (ushort)slotRecords.Count;
+            slotRecords.Add(new SlotRecord(chunk.Index));
+
             var opaqueArr = chunkMesher.GetFaces(chunk.Index);
             opaqueCount += opaqueArr.Length;
 
             var transparentArr = chunkMesher.GetTransparentFaces(chunk.Index);
             transparentCount += transparentArr.Length;
-
-            visibleMeshes.Add((opaqueArr, transparentArr));
+            
+            visibleMeshes.Add((opaqueArr, transparentArr, slotId));
         }
 
         profiler.Timings.CullingMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -76,26 +86,44 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
         if (transparentFaces.Capacity < transparentCount) transparentFaces.Capacity = transparentCount;
 
         // Fill
-        foreach (var (opaqueArr, transparentArr) in visibleMeshes)
+        foreach (var (opaqueArr, transparentArr, slotId) in visibleMeshes)
         {
-            faces.AddRange(opaqueArr);
-            transparentFaces.AddRange(transparentArr);
+            foreach (var f in opaqueArr)
+            {
+                var face = f;
+                face.SetSlotId(slotId);
+                faces.Add(face);
+            }
+
+            foreach (var f in transparentArr)
+            {
+                var face = f;
+                face.SetSlotId(slotId);
+                transparentFaces.Add(face);
+            }
         }
 
         profiler.Timings.AssemblyMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         started = Stopwatch.GetTimestamp();
-        
-        Upload(faces, transparentFaces);
-        
+
+        Upload(faces, transparentFaces, slotRecords);
+
         profiler.Timings.TerrainUploadMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
         profiler.Rendering.OpaqueFaces = opaqueBuffer.Count;
         profiler.Rendering.TransparentFaces = transparentBuffer.Count;
-        profiler.Rendering.TerrainUsedBytes = ((long)opaqueBuffer.Count + transparentBuffer.Count) * sizeof(VoxelFace);
-        profiler.Rendering.TerrainBufferBytes = opaqueBuffer.CapacityBytes + transparentBuffer.CapacityBytes;
+
+        profiler.Rendering.TerrainUsedBytes =
+            ((long)opaqueBuffer.Count + transparentBuffer.Count) * sizeof(VoxelFace);
+        profiler.Rendering.TerrainUsedBytes += slotRecordBuffer.Count * sizeof(SlotRecord);
+
+        profiler.Rendering.TerrainBufferBytes = opaqueBuffer.CapacityBytes + transparentBuffer.CapacityBytes +
+                                                slotRecordBuffer.CapacityBytes;
     }
 
-    private void Upload(List<VoxelFace> data, List<VoxelFace> transparentData)
+    private void Upload(List<VoxelFace> data, List<VoxelFace> transparentData, List<SlotRecord> slots)
     {
+        uploader.Upload(slotRecordBuffer, CollectionsMarshal.AsSpan(slots));
         uploader.Upload(opaqueBuffer, CollectionsMarshal.AsSpan(data));
         uploader.Upload(transparentBuffer, CollectionsMarshal.AsSpan(transparentData));
     }
@@ -164,6 +192,11 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             &textureBinding,
             1
         );
+        
+        SDL_GPUBuffer** buffers =  stackalloc SDL_GPUBuffer*[1];
+        buffers[0] = slotRecordBuffer.Handle;
+        
+        SDL_BindGPUVertexStorageBuffers(renderPass, 0, buffers, 1);
 
         SDL_DrawGPUPrimitives(
             renderPass,
@@ -172,6 +205,7 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             first_vertex: 0,
             first_instance: 0
         );
+        
         profiler.Rendering.TerrainDrawCalls++;
     }
 
@@ -186,6 +220,8 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
         
         transparentBuffer.Dispose();
         transparentPipeline.Dispose();
+        
+        slotRecordBuffer.Dispose();
         
         sampler.Dispose();
         

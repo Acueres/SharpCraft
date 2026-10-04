@@ -142,25 +142,27 @@ private static TextureArray CreateTextureArray(GpuDevice device, IReadOnlyList<T
 
     private void LoadShader(string name)
     {
-        var vertexShader = LoadShaderPart(GetShaderPath($"{name}.vert.spv"), ShaderType.Vertex);
-        var fragmentShader = LoadShaderPart(GetShaderPath($"{name}.frag.spv"), ShaderType.Fragment);
+        var vertexShader = LoadShaderPart(name, GetShaderPath($"{name}.vert.spv"), ShaderType.Vertex);
+        var fragmentShader = LoadShaderPart(name, GetShaderPath($"{name}.frag.spv"), ShaderType.Fragment);
         var shader = new GraphicsShader(vertexShader, fragmentShader);
 
         shaders.Add(name, shader);
     }
 
-    private Shader LoadShaderPart(string path, ShaderType shaderType)
+    private Shader LoadShaderPart(string name, string path, ShaderType shaderType)
     {
         byte[] code = File.ReadAllBytes(path);
         Shader shader;
-
+        
         if (shaderType == ShaderType.Vertex)
         {
-            shader = new(device, code, SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, uniformBuffers: 1, samplers: 0, "MainVS");
+            shader = new(device, code, SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, uniformBuffers: 1, samplers: 0,
+                "MainVS", storageBuffers: name == "cube" ? 1u : 0);
         }
         else
         {
-            shader = new(device, code, SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, uniformBuffers: 0, samplers: 1, "MainFS");
+            shader = new(device, code, SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, uniformBuffers: 0, samplers: 1,
+                "MainFS");
         }
 
         return shader;

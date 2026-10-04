@@ -55,19 +55,18 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
             Block block = chunk[x, y, z];
             bool transparent = blockRegistry.IsTransparent(block);
             var target = transparent ? transparentFaces : faces;
-            
+
             foreach (FaceDirection face in visibleFaces.GetFaces())
             {
                 LightValue light = lightValues.GetValue(face);
-                
+
                 var voxelFace = new VoxelFace(
-                    chunk.Index,
                     blockIndex,
-                    (uint)face,
-                    blockRegistry.GetFaceTextureLayer(block, face),
+                    (byte)face,
+                    (ushort)blockRegistry.GetFaceTextureLayer(block, face),
                     light.Value
                 );
-                
+
                 target.Add(voxelFace);
             }
         }

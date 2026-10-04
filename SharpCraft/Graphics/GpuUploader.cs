@@ -40,7 +40,7 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             
             if (vertexTransfer == null)
             {
-                SdlRuntime.Throw("Failed to create transfer buffer");
+                SdlRuntime.Throw("Failed to create face transfer buffer");
             }
 
             nint vertexDst = SDL_MapGPUTransferBuffer(device.Handle, vertexTransfer, false);
@@ -99,6 +99,97 @@ internal unsafe class GpuUploader(GpuDevice device, FrameProfiler profiler)
             if (vertexTransfer != null)
             {
                 SDL_ReleaseGPUTransferBuffer(device.Handle, vertexTransfer);
+            }
+        }
+    }
+    
+    public void Upload(SlotRecordBuffer slotRecordBuffer, ReadOnlySpan<SlotRecord> data)
+    {
+        SDL_GPUTransferBuffer* transfer = null;
+        
+        try
+        {
+            long stagingStarted = Stopwatch.GetTimestamp();
+            uint slotCount = (uint)data.Length;
+            
+            slotRecordBuffer.EnsureSize(slotCount);
+            
+            if (slotCount == 0)
+            {
+                return;
+            }
+            
+            uint bytes = slotRecordBuffer.BytesCount;
+
+            SDL_GPUTransferBufferCreateInfo transferInfo = new()
+            {
+                usage = SDL_GPUTransferBufferUsage.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+                size = bytes
+            };
+
+            transfer = SDL_CreateGPUTransferBuffer(device.Handle, &transferInfo);
+            
+            if (transfer == null)
+            {
+                SdlRuntime.Throw("Failed to create slot transfer buffer");
+            }
+
+            nint vertexDst = SDL_MapGPUTransferBuffer(device.Handle, transfer, false);
+            if (vertexDst == IntPtr.Zero)
+            {
+                SdlRuntime.Throw("Failed to map slot transfer buffer");
+            }
+
+            fixed (SlotRecord* src = data)
+            {
+                Buffer.MemoryCopy(src, (void*)vertexDst, bytes, bytes);
+            }
+
+            SDL_UnmapGPUTransferBuffer(device.Handle, transfer);
+            profiler.Timings.UploadStagingMilliseconds += Stopwatch.GetElapsedTime(stagingStarted).TotalMilliseconds;
+            long recordingStarted = Stopwatch.GetTimestamp();
+
+            SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device.Handle);
+            if (cmd == null)
+            {
+                SdlRuntime.Throw("Failed to acquire GPU command buffer");
+            }
+
+            SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmd);
+
+            SDL_GPUTransferBufferLocation vertexSource = new()
+            {
+                transfer_buffer = transfer,
+                offset = 0
+            };
+
+            SDL_GPUBufferRegion vertexDestination = new()
+            {
+                buffer = slotRecordBuffer.Handle,
+                offset = 0,
+                size = bytes
+            };
+
+            SDL_UploadToGPUBuffer(copyPass, &vertexSource, &vertexDestination, true);
+
+            SDL_EndGPUCopyPass(copyPass);
+            profiler.Timings.UploadCommandsMilliseconds += Stopwatch.GetElapsedTime(recordingStarted).TotalMilliseconds;
+            long submitStarted = Stopwatch.GetTimestamp();
+
+            if (!SDL_SubmitGPUCommandBuffer(cmd))
+            {
+                SdlRuntime.Throw("Failed to upload GPU command buffer");
+            }
+            profiler.Timings.SubmitMilliseconds += Stopwatch.GetElapsedTime(submitStarted).TotalMilliseconds;
+            profiler.Rendering.UploadJobs++;
+            
+            profiler.Rendering.TerrainUploadBytes += bytes;
+        }
+        finally
+        {
+            if (transfer != null)
+            {
+                SDL_ReleaseGPUTransferBuffer(device.Handle, transfer);
             }
         }
     }

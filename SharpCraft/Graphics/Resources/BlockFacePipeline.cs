@@ -92,17 +92,17 @@ internal unsafe class BlockFacePipeline : IDisposable
             blend_state = *blendState
         };
         
-        SDL_GPUVertexAttribute chunkIndexAttribute = new()
+        SDL_GPUVertexAttribute uint0Attribute = new()
         {
             location = 0,
             buffer_slot = 0,
-            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_INT3,
+            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
             offset = 0
         };
         
-        uint offset = (uint)sizeof(Vec3<int>);
+        uint offset = sizeof(uint);
         
-        SDL_GPUVertexAttribute packedBlockIndexAttribute = new()
+        SDL_GPUVertexAttribute uint1Attribute = new()
         {
             location = 1,
             buffer_slot = 0,
@@ -112,7 +112,7 @@ internal unsafe class BlockFacePipeline : IDisposable
 
         offset += sizeof(uint);
         
-        SDL_GPUVertexAttribute directionAttribute = new()
+        SDL_GPUVertexAttribute uint2Attribute = new()
         {
             location = 2,
             buffer_slot = 0,
@@ -122,30 +122,21 @@ internal unsafe class BlockFacePipeline : IDisposable
         
         offset += sizeof(uint);
 
-        SDL_GPUVertexAttribute textureLayerAttribute = new()
+        SDL_GPUVertexAttribute uint3Attribute = new()
         {
             location = 3,
             buffer_slot = 0,
             format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
             offset = offset
         };
+
+        const int nAttributes = 4;
         
-        offset += sizeof(uint);
-        
-        SDL_GPUVertexAttribute packedLightAttribute = new()
-        {
-            location = 4,
-            buffer_slot = 0,
-            format = SDL_GPUVertexElementFormat.SDL_GPU_VERTEXELEMENTFORMAT_UINT,
-            offset = offset
-        };
-        
-        SDL_GPUVertexAttribute* faceAttributes = stackalloc SDL_GPUVertexAttribute[5];
-        faceAttributes[0] = chunkIndexAttribute;
-        faceAttributes[1] = packedBlockIndexAttribute;
-        faceAttributes[2] = directionAttribute;
-        faceAttributes[3] = textureLayerAttribute;
-        faceAttributes[4] = packedLightAttribute;
+        SDL_GPUVertexAttribute* faceAttributes = stackalloc SDL_GPUVertexAttribute[nAttributes];
+        faceAttributes[0] = uint0Attribute;
+        faceAttributes[1] = uint1Attribute;
+        faceAttributes[2] = uint2Attribute;
+        faceAttributes[3] = uint3Attribute;
 
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo = new()
         {
@@ -159,7 +150,7 @@ internal unsafe class BlockFacePipeline : IDisposable
                 vertex_buffer_descriptions = &faceBufferDescription,
                 num_vertex_buffers = 1,
                 vertex_attributes = faceAttributes,
-                num_vertex_attributes = 5
+                num_vertex_attributes = nAttributes
             },
 
             rasterizer_state = new SDL_GPURasterizerState
