@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 using SharpCraft.SharpMath;
 
@@ -25,10 +26,15 @@ internal struct SlotRecord
     public float BoundsRadius;
 
     public SlotRecord(
-        Vec3<int> chunkIndex)
+        Vec3<int> chunkIndex, Vector3 boundsCenter, float radius)
     {
        ChunkX = chunkIndex.X;
        ChunkY  = chunkIndex.Y;
        ChunkZ = chunkIndex.Z;
+       
+       BoundsX = boundsCenter.X;
+       BoundsY = boundsCenter.Y;
+       BoundsZ = boundsCenter.Z;
+       BoundsRadius = radius;
     }
 }

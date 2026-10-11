@@ -62,8 +62,10 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             if (slotRecords.Count > ushort.MaxValue)
                 throw new InvalidOperationException("Slot table capacity exceeded");
 
+            const float radius = Chunk.HalfSize * MathUtilities.SquareRootOfThree;
+            
             ushort slotId = (ushort)slotRecords.Count;
-            slotRecords.Add(new SlotRecord(chunk.Index));
+            slotRecords.Add(new SlotRecord(chunk.Index, new Vector3(localCenter), radius));
 
             var opaqueArr = chunkMesher.GetFaces(chunk.Index);
             opaqueCount += opaqueArr.Length;
