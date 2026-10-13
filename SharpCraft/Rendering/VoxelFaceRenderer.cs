@@ -5,8 +5,8 @@ using SharpCraft.Graphics.Resources;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.WorldStreaming;
 using SharpCraft.SharpMath;
-using SharpCraft.World.Meshing;
 using SharpCraft.View;
+using SharpCraft.World.Meshing;
 
 using System.Numerics;
 using System.Diagnostics;
@@ -17,7 +17,7 @@ using static SDL.SDL3;
 namespace SharpCraft.Rendering;
 
 internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
-    TextureArray textureArray, GraphicsShader shader, ChunkMesher chunkMesher, FrameProfiler profiler) : IDisposable
+    TextureArray textureArray, GraphicsShader shader, MeshSink meshSink, FrameProfiler profiler) : IDisposable
 {
     private readonly Sampler sampler = Sampler.CreateNearestRepeat(device);
     
@@ -28,15 +28,18 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     private readonly BlockFaceBuffer transparentBuffer = new(device);
     
     private readonly SlotRecordBuffer slotRecordBuffer = new(device);
+
+    private readonly Dictionary<Vec3<int>, MeshEntry> meshCache = [];
     
     private readonly List<VoxelFace> faces = [];
     private readonly List<VoxelFace> transparentFaces = [];
     private readonly List<(VoxelFace[] opaque, VoxelFace[] transparent, ushort slotId)> visibleMeshes = [];
     private readonly List<SlotRecord> slotRecords = [];
-
+    
     public void Update(ChunkVolume volume, Camera camera)
     {
         long started = Stopwatch.GetTimestamp();
+
         visibleMeshes.Clear();
         slotRecords.Clear();
 
@@ -67,10 +70,12 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             ushort slotId = (ushort)slotRecords.Count;
             slotRecords.Add(new SlotRecord(chunk.Index, new Vector3(localCenter), radius));
 
-            var opaqueArr = chunkMesher.GetFaces(chunk.Index);
+            var meshEntry = meshCache[chunk.Index];
+            
+            var opaqueArr = meshEntry.Opaque;
             opaqueCount += opaqueArr.Length;
 
-            var transparentArr = chunkMesher.GetTransparentFaces(chunk.Index);
+            var transparentArr = meshEntry.Transparent;
             transparentCount += transparentArr.Length;
             
             visibleMeshes.Add((opaqueArr, transparentArr, slotId));
@@ -121,6 +126,22 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
 
         profiler.Rendering.TerrainBufferBytes = opaqueBuffer.CapacityBytes + transparentBuffer.CapacityBytes +
                                                 slotRecordBuffer.CapacityBytes;
+    }
+
+    public void ProcessMeshUpdates()
+    {
+        while (meshSink.ReadMesh(out var meshUpdate))
+        {
+            if (meshUpdate.State == MeshUpdateState.Obsolete)
+            {
+                meshCache.Remove(meshUpdate.Index);
+
+                continue;
+            }
+
+            meshCache[meshUpdate.Index] = new MeshEntry(meshUpdate.Index, meshUpdate.Opaque,
+                meshUpdate.Transparent);
+        }
     }
 
     private void Upload(List<VoxelFace> data, List<VoxelFace> transparentData, List<SlotRecord> slots)

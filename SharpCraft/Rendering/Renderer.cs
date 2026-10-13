@@ -5,15 +5,14 @@ using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.SharpMath;
 using SharpCraft.Rendering.Text;
-using SharpCraft.World.Meshing;
 using SharpCraft.World.WorldStreaming;
 using SharpCraft.View;
 using SharpCraft.Input;
+using SharpCraft.World.Meshing;
 
 using System.Numerics;
 using System.Diagnostics;
 using SDL;
-
 using static SDL.SDL3;
 
 namespace SharpCraft.Rendering;
@@ -21,13 +20,13 @@ namespace SharpCraft.Rendering;
 internal unsafe class Renderer : IDisposable
 {
     private readonly GpuDevice device;
-    private readonly VoxelFaceRenderer voxelFaceRenderer;
+    private readonly VoxelFaceRenderer voxelRenderer;
     private readonly SpriteRenderer spriteRenderer;
 
     private readonly AssetServer assetServer;
     private readonly TextureArray textureArray;
     private readonly Texture crosshairTexture;
-
+    
     private readonly DebugOverlay debugOverlay;
     private readonly DetailedReport detailedReport;
     private readonly DebugPanelState debugState = new();
@@ -56,7 +55,8 @@ internal unsafe class Renderer : IDisposable
     private const uint DefaultCrosshairSize = 32;
 
     public Renderer(uint width, uint height, Window window, GpuDevice device,
-        AssetServer assetServer, ChunkMesher chunkMesher, FrameProfiler profiler, BenchmarkOptions options, BenchmarkRun benchmark)
+        AssetServer assetServer, MeshSink meshSink, FrameProfiler profiler, BenchmarkOptions options,
+        BenchmarkRun benchmark)
     {
         this.device = device;
         this.assetServer = assetServer;
@@ -69,29 +69,34 @@ internal unsafe class Renderer : IDisposable
         textureArray = assetServer.TextureArray;
         crosshairTexture = assetServer.CrosshairTexture;
         var debugFont = assetServer.GetDebugFont(DefaultFontSize);
-        
+
         uploader = new GpuUploader(this.device, profiler);
-        
+
         textEngine = new GpuTextEngine(device);
 
         debugOverlay = new DebugOverlay(textEngine, debugFont, device);
-        detailedReport = new DetailedReport(textEngine, debugFont, device, uploader, profiler, debugState, options, benchmark);
+        detailedReport = new DetailedReport(textEngine, debugFont, device, uploader, profiler, debugState, options,
+            benchmark);
         if (options.Scene.HasValue) debugState.OpenBenchmarks();
 
         frameManager = new FrameManager(this.device, window, profiler);
         depthBuffer = new DepthBuffer(this.device, width, height);
 
-        voxelFaceRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader, chunkMesher, profiler);
+        voxelRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader, meshSink, profiler);
         spriteRenderer = new SpriteRenderer(device, uploader, spriteShader);
 
         RescaleUi(width, height);
     }
-    
-    public void UpdateWorld(Camera camera, ChunkVolume volume)
+
+    public void Update()
     {
-        voxelFaceRenderer.Update(volume, camera);
+        voxelRenderer.ProcessMeshUpdates();
     }
 
+    public void UpdateWorld(Camera camera, ChunkVolume volume)
+    {
+        voxelRenderer.Update(volume, camera);
+    }
 
     public void UpdateUi(Camera camera)
     {
@@ -194,7 +199,7 @@ internal unsafe class Renderer : IDisposable
             &depthTarget
         );
 
-        voxelFaceRenderer.Draw(frame.CommandBuffer, renderPass, mvp, camera.Index, camera.LocalPosition);
+        voxelRenderer.Draw(frame.CommandBuffer, renderPass, mvp, camera.Index, camera.LocalPosition);
 
         GpuDevice.BeginGpuPass(frame.CommandBuffer, GpuPass.Ui);
         spriteRenderer.Render(
@@ -276,7 +281,7 @@ internal unsafe class Renderer : IDisposable
         detailedReport.Dispose();
         debugOverlay.Dispose();
         textEngine.Dispose();
-        voxelFaceRenderer.Dispose();
+        voxelRenderer.Dispose();
         spriteRenderer.Dispose();
         depthBuffer.Dispose();
 

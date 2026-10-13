@@ -13,9 +13,10 @@ internal class WorldLoader(
     Vec3<int> initialCenter,
     ChunkVolume volume,
     ChunkGenerator chunkGenerator,
-    ChunkMesher chunkMesher) : IDisposable
+    ChunkMesher chunkMesher,
+    MeshSink meshSink) : IDisposable
 {
-    private readonly ChunkPipeline pipeline = new(volume, chunkGenerator, chunkMesher);
+    private readonly ChunkPipeline pipeline = new(volume, chunkGenerator, chunkMesher, meshSink);
 
     private Vec3<int> center = initialCenter;
 
@@ -67,12 +68,12 @@ internal class WorldLoader(
         foreach (var chunk in generatedChunks)
         {
             chunk.EnsureLight();
-            
+
             if (chunkGenerator.IsSunlight(chunk))
             {
                 sunlightChunks.Add(chunk);
             }
-            
+
             var n = neighbors[chunk.Index];
             if (n.All)
             {
@@ -102,7 +103,11 @@ internal class WorldLoader(
         {
             var n = neighbors[chunk.Index];
             
-            chunkMesher.Build(chunk, n);
+            var (opaque, transparent) = chunkMesher.Build(chunk, n);
+            
+            var meshUpdate = new MeshUpdate(chunk.Index, MeshUpdateState.Updated, opaque, transparent);
+            meshSink.AddMesh(meshUpdate);
+
             chunk.IsReady = true;
             pipeline.AddToRegistry(chunk, ChunkStage.Meshed);
         });

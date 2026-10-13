@@ -108,12 +108,15 @@ internal unsafe class App : IDisposable
         var chunkGenerator = new ChunkGenerator(blockRegistry,
             options.Scene.HasValue ? new BenchmarkTerrain(options.Scene.Value, options.Seed) : null);
         var chunkMesher = new ChunkMesher(blockRegistry);
-        worldLoader = new WorldLoader(initialViewpoint.Index, volume, chunkGenerator, chunkMesher);
+        var meshSink = new MeshSink();
+        
+        worldLoader = new WorldLoader(initialViewpoint.Index, volume, chunkGenerator, chunkMesher, meshSink);
         worldLoader.BulkGenerate();
-
-        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, chunkMesher, profiler,
+        
+        renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, meshSink, profiler,
             options, benchmark);
         renderer.LoadGpuResources();
+        renderer.Update();
         renderer.UpdateWorld(camera, volume);
     }
 
@@ -173,6 +176,8 @@ internal unsafe class App : IDisposable
                 camera.SetViewpoint(viewpoint);
             }
 
+            renderer.Update();
+            
             if (controllerUpdate || worldUpdate)
             {
                 long updateStarted = Stopwatch.GetTimestamp();

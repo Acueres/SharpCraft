@@ -4,6 +4,7 @@ using SharpCraft.World.Chunks;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.Generation;
 using SharpCraft.Diagnostics;
+using SharpCraft.Rendering;
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
@@ -14,6 +15,7 @@ namespace SharpCraft.World.WorldStreaming;
 internal class ChunkPipeline : IDisposable, IAsyncDisposable
 {
     private const int ChunkBudget = 500;
+    
     private readonly JobProfiler generationProfile = new();
     private readonly JobProfiler lightingProfile = new();
     private readonly JobProfiler meshingProfile = new();
@@ -24,6 +26,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private readonly ChunkVolume volume;
     private readonly ChunkGenerator chunkGenerator;
     private readonly ChunkMesher chunkMesher;
+    private readonly MeshSink meshSink;
 
     private readonly CancellationTokenSource cts = new();
 
@@ -35,61 +38,72 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private readonly Queue<Vec3<int>> deletionQueue = [];
 
     private const int StrandedCleanupPeriodTicks = 500;
-    
+
     private int ticksSinceLastStrandedCleanup;
 
-    private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
-    {
-        SingleReader = false,
-        SingleWriter = true
-    });
-    private readonly Channel<WorkItem> lightChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
-    {
-        SingleReader = false,
-        SingleWriter = true
-    });
-    private readonly Channel<WorkItem> meshChannel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(ChunkBudget)
-    {
-        SingleReader = false,
-        SingleWriter = true
-    });
+    private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(
+        new BoundedChannelOptions(ChunkBudget)
+        {
+            SingleReader = false,
+            SingleWriter = true
+        });
 
-    private readonly Channel<WorkResult> resultChannel = Channel.CreateBounded<WorkResult>(new BoundedChannelOptions(ChunkBudget)
-    {
-        SingleReader = true,
-        SingleWriter = false
-    });
+    private readonly Channel<WorkItem> lightChannel = Channel.CreateBounded<WorkItem>(
+        new BoundedChannelOptions(ChunkBudget)
+        {
+            SingleReader = false,
+            SingleWriter = true
+        });
 
-    private readonly Channel<RelightRequest> relightChannel = Channel.CreateBounded<RelightRequest>(new BoundedChannelOptions(ChunkBudget)
-    {
-        SingleReader = true,
-        SingleWriter = false
-    });
+    private readonly Channel<WorkItem> meshChannel = Channel.CreateBounded<WorkItem>(
+        new BoundedChannelOptions(ChunkBudget)
+        {
+            SingleReader = false,
+            SingleWriter = true
+        });
+
+    private readonly Channel<WorkResult> resultChannel = Channel.CreateBounded<WorkResult>(
+        new BoundedChannelOptions(ChunkBudget)
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
+
+    private readonly Channel<RelightRequest> relightChannel = Channel.CreateBounded<RelightRequest>(
+        new BoundedChannelOptions(ChunkBudget)
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
 
     private readonly Task[] genWorkers;
     private readonly Task[] lightingWorkers;
     private readonly Task[] meshingWorkers;
 
-    public ChunkPipeline(ChunkVolume volume, ChunkGenerator chunkGenerator, ChunkMesher chunkMesher)
+    public ChunkPipeline(ChunkVolume volume, ChunkGenerator chunkGenerator, ChunkMesher chunkMesher, MeshSink meshSink)
     {
         this.volume = volume;
         this.chunkGenerator = chunkGenerator;
         this.chunkMesher = chunkMesher;
-        
+        this.meshSink = meshSink;
+
         CancellationToken ct = cts.Token;
-        
+
         int computeBudget = Math.Max(1, Environment.ProcessorCount - 2);
-        int genWorkersCount   = Math.Max(1, computeBudget / 2);
+        int genWorkersCount = Math.Max(1, computeBudget / 2);
         int lightWorkersCount = Math.Max(1, computeBudget / 4);
-        int meshWorkersCount  = Math.Max(1, computeBudget - genWorkersCount - lightWorkersCount);
+        int meshWorkersCount = Math.Max(1, computeBudget - genWorkersCount - lightWorkersCount);
 
         generationProfile.Workers = genWorkersCount;
         lightingProfile.Workers = lightWorkersCount;
         meshingProfile.Workers = meshWorkersCount;
 
-        genWorkers = Enumerable.Range(0, genWorkersCount).Select(_ => Task.Run(() => GenerateChunkAsync(ct), ct)).ToArray();
-        lightingWorkers = Enumerable.Range(0, lightWorkersCount).Select(_ => Task.Run(() => LightChunkAsync(ct), ct)).ToArray();
-        meshingWorkers = Enumerable.Range(0, meshWorkersCount).Select(_ => Task.Run(() => MeshChunkAsync(ct), ct)).ToArray();
+        genWorkers = Enumerable.Range(0, genWorkersCount).Select(_ => Task.Run(() => GenerateChunkAsync(ct), ct))
+            .ToArray();
+        lightingWorkers = Enumerable.Range(0, lightWorkersCount).Select(_ => Task.Run(() => LightChunkAsync(ct), ct))
+            .ToArray();
+        meshingWorkers = Enumerable.Range(0, meshWorkersCount).Select(_ => Task.Run(() => MeshChunkAsync(ct), ct))
+            .ToArray();
     }
 
     public void Schedule(List<Vec3<int>> toGenerate, List<Vec3<int>> toRemove)
@@ -124,9 +138,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         long completionStarted = Stopwatch.GetTimestamp();
         int chunksMeshed = DrainResults();
         CompletionMilliseconds = Stopwatch.GetElapsedTime(completionStarted).TotalMilliseconds;
-        
+
         Flush();
-        
+
         int chunksDeleted = ProcessDeletion();
 
         if (++ticksSinceLastStrandedCleanup >= StrandedCleanupPeriodTicks)
@@ -194,6 +208,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             {
                 TryDispatch(result.Index);
             }
+
             return;
         }
 
@@ -222,7 +237,15 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     break;
                 case JobType.Meshing:
                     record.Stage = ChunkStage.Meshed;
-                    record.Chunk?.IsReady = true;
+
+                    if (result.Mesh.HasValue)
+                    {
+                        var meshUpdate = new MeshUpdate(result.Index, MeshUpdateState.Updated,
+                            result.Mesh.Value.Opaque, result.Mesh.Value.Transparent);
+                        meshSink.AddMesh(meshUpdate);
+                        record.Chunk?.IsReady = true;
+                    }
+
                     break;
             }
 
@@ -262,9 +285,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         JobType? job = record.Stage switch
         {
-            ChunkStage.Fresh     => JobType.Generation,
+            ChunkStage.Fresh => JobType.Generation,
             ChunkStage.Generated => JobType.Lighting,
-            ChunkStage.Lit       => JobType.Meshing,
+            ChunkStage.Lit => JobType.Meshing,
             _ => null
         };
 
@@ -294,7 +317,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         if (job == JobType.Meshing && !(allNeighborsExist && AllNeighborsLit(records)))
             return;
-        
+
         Dispatch(record, index, job.Value, neighbors);
     }
 
@@ -339,10 +362,10 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         {
             if (!registry.TryGetValue(id, out var record))
                 continue;
-            
+
             if (record.Flags.HasFlag(ChunkFlags.DeleteRequested))
                 continue;
-            
+
             pendingDeletion.Add(id);
 
             record.Flags &= ~ChunkFlags.Wanted;
@@ -379,7 +402,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
             if (record.Chunk is { } chunk)
             {
-                chunkMesher.Remove(chunk.Index);
+                meshSink.RemoveMesh(chunk.Index);
                 volume.RemoveChunk(chunk.Index);
                 chunk.IsReady = false;
             }
@@ -417,6 +440,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             if (nRecord.InFlight != null)
                 return true;
         }
+
         return false;
     }
 
@@ -426,10 +450,12 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         {
             FlushQueue(pendingGeneration, JobType.Generation);
         }
+
         if (pendingLighting.Count > 0)
         {
             FlushQueue(pendingLighting, JobType.Lighting);
         }
+
         if (pendingMeshing.Count > 0)
         {
             FlushQueue(pendingMeshing, JobType.Meshing);
@@ -496,7 +522,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         await foreach (var item in genChannel.Reader.ReadAllAsync(ct))
         {
             using var measurement = generationProfile.Start(item.QueuedAt);
-            var result = new WorkResult(item.Index, item.Version, JobType.Generation, ResultStatus.Skip, null, null);
+            var result = new WorkResult(item.Index, item.Version, JobType.Generation, ResultStatus.Skip, null, null,null);
             try
             {
                 result.Chunk = chunkGenerator.GenerateChunk(item.Index);
@@ -520,7 +546,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         {
             using var measurement = lightingProfile.Start(item.QueuedAt);
             var (index, version, chunk, neighborSet) = item;
-            var result = new WorkResult(index, version, JobType.Lighting, ResultStatus.Skip, chunk, null);
+            var result = new WorkResult(index, version, JobType.Lighting, ResultStatus.Skip, chunk, null, null);
             try
             {
                 if (chunk is null || neighborSet is null)
@@ -529,7 +555,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     await resultChannel.Writer.WriteAsync(result, ct);
                     continue;
                 }
-                
+
                 if (chunkGenerator.IsSunlight(chunk))
                 {
                     chunk.Light!.SeedSkylight();
@@ -539,11 +565,11 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 {
                     chunk.Light!.SeedBlockLight();
                 }
-                
+
                 chunk.Light!.SeedNeighborsLight(neighborSet.Value);
 
                 FacesState changed = chunk.Light!.Flood();
-                
+
                 if (changed.ZPos)
                     await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(0, 0, 1)), ct);
                 if (changed.ZNeg)
@@ -577,7 +603,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         await foreach (var item in meshChannel.Reader.ReadAllAsync(ct))
         {
             using var measurement = meshingProfile.Start(item.QueuedAt);
-            var result = new WorkResult(item.Index, item.Version, JobType.Meshing, ResultStatus.Skip, item.Chunk, null);
+            var result = new WorkResult(item.Index, item.Version, JobType.Meshing, ResultStatus.Skip, item.Chunk,  null,null);
             try
             {
                 if (item.Chunk is null || item.Neighbors is null || item.Neighbors is { All: false })
@@ -587,7 +613,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     continue;
                 }
 
-                chunkMesher.Build(item.Chunk, item.Neighbors.Value);
+                var (opaque, transparent) = chunkMesher.Build(item.Chunk, item.Neighbors.Value);
+                var meshingResult = new MeshingResult(opaque, transparent);
+                result.Mesh = meshingResult;
                 result.Status = ResultStatus.Success;
             }
             catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
@@ -634,7 +662,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
         return neighbors.All;
     }
-    
+
     private static bool AllNeighborsLit(FacesData<ChunkRecord> records)
     {
         return records.ZPos.Stage >= ChunkStage.Lit
@@ -666,7 +694,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             var allWorkers = genWorkers.Concat(lightingWorkers).Concat(meshingWorkers);
             await Task.WhenAll(allWorkers);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+        }
         catch (Exception ex)
         {
             Console.WriteLine($"Worker faulted during disposal: {ex}");
@@ -679,10 +709,19 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     private record struct WorkItem(Vec3<int> Index, ulong Version, Chunk? Chunk, NeighborSet? Neighbors)
     {
-        public long QueuedAt { get; init; } = Stopwatch.GetTimestamp();
+        public long QueuedAt { get; } = Stopwatch.GetTimestamp();
     }
+
+    private record struct WorkResult(
+        Vec3<int> Index,
+        ulong Version,
+        JobType JobType,
+        ResultStatus Status,
+        Chunk? Chunk,
+        MeshingResult? Mesh,
+        Exception? Exception);
     
-    private record struct WorkResult(Vec3<int> Index, ulong Version, JobType JobType, ResultStatus Status, Chunk? Chunk, Exception? Exception);
+    private record struct MeshingResult(VoxelFace[] Opaque, VoxelFace[] Transparent);
 
     private record struct RelightRequest(Vec3<int> Index);
 

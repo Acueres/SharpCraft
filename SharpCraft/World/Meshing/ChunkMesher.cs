@@ -4,44 +4,14 @@ using SharpCraft.Rendering;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Lighting;
 
-using System.Collections.Concurrent;
-using System.Numerics;
-
 namespace SharpCraft.World.Meshing;
 
 internal class ChunkMesher(BlockRegistry blockRegistry)
 {
-    private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> facesCache = [];
-    private readonly ConcurrentDictionary<Vec3<int>, VoxelFace[]> transparentFacesCache = [];
-    
-    public VoxelFace[] GetFaces(in Vec3<int> index)
+    public (VoxelFace[] Opaque, VoxelFace[] Transparent) Build(Chunk chunk, in NeighborSet neighbors)
     {
-        return facesCache[index];
-    }
-
-    public VoxelFace[] GetTransparentFaces(in Vec3<int> index)
-    {
-        return transparentFacesCache[index];
-    }
-
-    public void Build(Chunk chunk, in NeighborSet neighbors)
-    {
-        var (faces, transparentFaces) = BuildMesh(chunk, neighbors);
-
-        facesCache[chunk.Index] = faces;
-        transparentFacesCache[chunk.Index] = transparentFaces;
-    }
-
-    public void Remove(Vec3<int> index)
-    {
-        facesCache.TryRemove(index, out _);
-        transparentFacesCache.TryRemove(index, out _);
-    }
-
-    private (VoxelFace[], VoxelFace[]) BuildMesh(Chunk chunk, in NeighborSet neighbors)
-    {
-        List<VoxelFace> faces = [];
-        List<VoxelFace> transparentFaces = [];
+        List<VoxelFace> opaque = [];
+        List<VoxelFace> transparent = [];
 
         foreach ((Vec3<byte> blockIndex, FacesState visibleFaces) in chunk.GetVisibleBlocks(neighbors))
         {
@@ -53,8 +23,8 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
 
             FacesData<LightValue> lightValues = chunk.Light!.GetFacesLight(visibleFaces, neighbors, x, y, z);
             Block block = chunk[x, y, z];
-            bool transparent = blockRegistry.IsTransparent(block);
-            var target = transparent ? transparentFaces : faces;
+            bool isTransparent = blockRegistry.IsTransparent(block);
+            var target = isTransparent ? transparent : opaque;
 
             foreach (FaceDirection face in visibleFaces.GetFaces())
             {
@@ -71,6 +41,6 @@ internal class ChunkMesher(BlockRegistry blockRegistry)
             }
         }
 
-        return ([.. faces], [.. transparentFaces]);
+        return ([.. opaque], [.. transparent]);
     }
 }
