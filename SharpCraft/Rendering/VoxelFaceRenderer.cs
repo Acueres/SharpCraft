@@ -29,13 +29,18 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     
     private readonly SlotRecordBuffer slotRecordBuffer = new(device);
 
+    private const uint pageCapacity = 1 << 16;
+    
+    private readonly Arena opaqueArena = new(pageCapacity);
+    private readonly Arena transparentArena = new(pageCapacity);
+    
     private readonly Dictionary<Vec3<int>, MeshEntry> meshCache = [];
     
     private readonly List<VoxelFace> faces = [];
     private readonly List<VoxelFace> transparentFaces = [];
-    private readonly List<(VoxelFace[] opaque, VoxelFace[] transparent, ushort slotId)> visibleMeshes = [];
+    private readonly List<(List<CpuAllocation> opaque, List<CpuAllocation> transparent, ushort slotId)> visibleMeshes = [];
     private readonly List<SlotRecord> slotRecords = [];
-    
+
     public void Update(ChunkVolume volume, Camera camera)
     {
         long started = Stopwatch.GetTimestamp();
@@ -43,8 +48,8 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
         visibleMeshes.Clear();
         slotRecords.Clear();
 
-        int opaqueCount = 0;
-        int transparentCount = 0;
+        uint opaqueCount = 0;
+        uint transparentCount = 0;
         int residentCount = 0;
 
         // Cull
@@ -61,24 +66,24 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
 
             Vector3 boundsCenter = relativePosition + new Vector3(localCenter);
             if (!camera.Frustum.Intersects(new CubeBound(boundsCenter, Chunk.HalfSize))) continue;
-            
+
             if (slotRecords.Count > ushort.MaxValue)
                 throw new InvalidOperationException("Slot table capacity exceeded");
 
             const float radius = Chunk.HalfSize * MathUtilities.SquareRootOfThree;
-            
+
             ushort slotId = (ushort)slotRecords.Count;
             slotRecords.Add(new SlotRecord(chunk.Index, new Vector3(localCenter), radius));
 
             var meshEntry = meshCache[chunk.Index];
-            
-            var opaqueArr = meshEntry.Opaque;
-            opaqueCount += opaqueArr.Length;
 
-            var transparentArr = meshEntry.Transparent;
-            transparentCount += transparentArr.Length;
-            
-            visibleMeshes.Add((opaqueArr, transparentArr, slotId));
+            var opaqueAllocations = meshEntry.OpaqueAllocations;
+            opaqueCount += meshEntry.OpaqueCount;
+
+            var transparentAllocations = meshEntry.TransparentAllocations;
+            transparentCount += meshEntry.TransparentCount;
+
+            visibleMeshes.Add((opaqueAllocations, transparentAllocations, slotId));
         }
 
         profiler.Timings.CullingMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -89,24 +94,34 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
         // Ensure capacity
         faces.Clear();
         transparentFaces.Clear();
-        if (faces.Capacity < opaqueCount) faces.Capacity = opaqueCount;
-        if (transparentFaces.Capacity < transparentCount) transparentFaces.Capacity = transparentCount;
+        if (faces.Capacity < opaqueCount) faces.Capacity = (int)opaqueCount;
+        if (transparentFaces.Capacity < transparentCount) transparentFaces.Capacity = (int)transparentCount;
 
         // Fill
-        foreach (var (opaqueArr, transparentArr, slotId) in visibleMeshes)
+        foreach (var (opaqueAllocations, transparentAllocations, slotId) in visibleMeshes)
         {
-            foreach (var f in opaqueArr)
+            foreach (var opaqueAllocation in opaqueAllocations)
             {
-                var face = f;
-                face.SetSlotId(slotId);
-                faces.Add(face);
+                var pageOpaqueFaces = opaqueAllocation.Page.GetFaces(opaqueAllocation);
+
+                foreach (var f in pageOpaqueFaces)
+                {
+                    var face = f;
+                    face.SetSlotId(slotId);
+                    faces.Add(face);
+                }
             }
 
-            foreach (var f in transparentArr)
+            foreach (var transparentAllocation in transparentAllocations)
             {
-                var face = f;
-                face.SetSlotId(slotId);
-                transparentFaces.Add(face);
+                var pageTransparentFaces = transparentAllocation.Page.GetFaces(transparentAllocation);
+                
+                foreach (var f in pageTransparentFaces)
+                {
+                    var face = f;
+                    face.SetSlotId(slotId);
+                    transparentFaces.Add(face);
+                }
             }
         }
 
@@ -132,15 +147,53 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     {
         while (meshSink.ReadMesh(out var meshUpdate))
         {
+            bool entryExists = meshCache.TryGetValue(meshUpdate.Index, out var entry);
+            
             if (meshUpdate.State == MeshUpdateState.Obsolete)
             {
+                if (!entryExists) continue;
+                
                 meshCache.Remove(meshUpdate.Index);
-
+                ReleaseAllocations(entry!.OpaqueAllocations, entry.TransparentAllocations);
                 continue;
             }
 
-            meshCache[meshUpdate.Index] = new MeshEntry(meshUpdate.Index, meshUpdate.Opaque,
-                meshUpdate.Transparent);
+            var opaqueAllocations = new List<CpuAllocation>();
+            var transparentAllocations = new List<CpuAllocation>();
+            try
+            {
+                opaqueAllocations = opaqueArena.Allocate(meshUpdate.Opaque);
+                transparentAllocations = transparentArena.Allocate(meshUpdate.Transparent);
+                
+                meshCache[meshUpdate.Index] = new MeshEntry(opaqueAllocations, transparentAllocations,
+                    (uint)meshUpdate.Opaque.Length, (uint)meshUpdate.Transparent.Length);
+            }
+            catch
+            {
+                ReleaseAllocations(opaqueAllocations, transparentAllocations);
+                throw;
+            }
+            
+            if (entryExists)
+            {
+                ReleaseAllocations(entry!.OpaqueAllocations, entry.TransparentAllocations);
+            }
+        }
+        
+        opaqueArena.ReclaimMemory();
+        transparentArena.ReclaimMemory();
+    }
+
+    private void ReleaseAllocations(List<CpuAllocation> opaqueAllocations, List<CpuAllocation> transparentAllocations)
+    {
+        foreach (var opaqueAllocation in opaqueAllocations)
+        {
+            opaqueArena.Release(opaqueAllocation);
+        }
+
+        foreach (var transparentAllocation in transparentAllocations)
+        {
+            transparentArena.Release(transparentAllocation);
         }
     }
 

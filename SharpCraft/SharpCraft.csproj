@@ -9,9 +9,13 @@
   </PropertyGroup>
     
     <ItemGroup>
-    <PackageReference Include="ppy.SDL3-CS" Version="2026.520.0" />
-    <PackageReference Include="ppy.SDL3_ttf-CS" Version="2026.520.0" />
-    <PackageReference Include="StbiSharp" Version="1.2.1" />
+    <PackageReference Include="ppy.SDL3-CS" Version="2026.1002.1" />
+    <PackageReference Include="ppy.SDL3_ttf-CS" Version="2026.1002.1" />
+    <PackageReference Include="StbiSharp" Version="1.2.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Tests" />
     </ItemGroup>
 
 	<ItemGroup>

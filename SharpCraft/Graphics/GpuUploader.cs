@@ -1,10 +1,10 @@
-﻿using SDL;
-using System.Diagnostics;
-
-using SharpCraft.Graphics.Resources;
+﻿using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.Rendering;
 using SharpCraft.Diagnostics;
+
+using SDL;
+using System.Diagnostics;
 
 using static SDL.SDL3;
 
