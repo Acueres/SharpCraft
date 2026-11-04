@@ -18,6 +18,8 @@ internal class SdlRuntime : IDisposable
         string error = SDL_GetError() ?? "unknown SDL error";
         throw new InvalidOperationException($"{message}: {error}");
     }
+    
+    public static string? GetError() => SDL_GetError();
 
     private bool disposed;
     public void Dispose()

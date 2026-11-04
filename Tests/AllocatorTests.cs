@@ -5,20 +5,20 @@ namespace Tests;
 public class AllocatorTests
 {
     [Fact]
-    public void AllocationPreservesPageAndCountAndRoundsCapacityUp()
+    public void AllocationPreservesCountAndRoundsCapacityUp()
     {
         const uint capacity = 16;
         
-        Page page = new(capacity);
-        var allocator = new CpuAllocator(page, capacity);
+        var allocator = new CpuAllocator(capacity);
 
         var allocation = Allocate(allocator, 3);
-
-        Assert.Same(page, allocation.Page);
+        
         Assert.Equal(3u, allocation.Count);
         Assert.Equal(4u, allocation.Capacity);
         Assert.Equal(0u, allocation.First % allocation.Capacity);
         Assert.InRange(allocation.First, 0u, capacity - allocation.Capacity);
+        Assert.Equal(1, allocator.AllocationCount);
+        Assert.True(allocator.IsActive(allocation));
     }
 
     [Theory]
@@ -26,9 +26,8 @@ public class AllocatorTests
     [InlineData(12u)]
     public void ConstructorRejectsCapacityThatIsNotAPositivePowerOfTwo(uint capacity)
     {
-        var validPage = new Page(2);
         var exception = Assert.Throws<ArgumentOutOfRangeException>(
-            () => new CpuAllocator(validPage, capacity));
+            () => new CpuAllocator(capacity));
 
         Assert.Equal("totalCapacity", exception.ParamName);
     }
@@ -38,7 +37,7 @@ public class AllocatorTests
     {
         const uint capacity = 16;
         
-        var allocator = new CpuAllocator(new Page(capacity), capacity);
+        var allocator = new CpuAllocator(capacity);
 
         AssertUnavailable(allocator, 0);
         AssertUnavailable(allocator, 17);
@@ -60,7 +59,7 @@ public class AllocatorTests
     {
         const uint capacity = 16;
         
-        var allocator = new CpuAllocator(new Page(capacity), capacity);
+        var allocator = new CpuAllocator(capacity);
         var first = Allocate(allocator, 3);
         var second = Allocate(allocator, 3);
         var otherHalf = Allocate(allocator, 8);
@@ -85,7 +84,7 @@ public class AllocatorTests
     {
         const uint capacity = 16;
         
-        var allocator = new CpuAllocator(new Page(capacity), capacity);
+        var allocator = new CpuAllocator(capacity);
         var blocks = Enumerable.Range(0, 4)
             .Select(_ => Allocate(allocator, 4))
             .OrderBy(allocation => allocation.First)
@@ -106,12 +105,11 @@ public class AllocatorTests
     {
         const uint capacity = 16;
         
-        Page page = new(capacity);
-        var allocator = new CpuAllocator(page, capacity);
-        var foreignAllocator = new CpuAllocator(page, capacity);
+        var allocator = new CpuAllocator(capacity);
+        var foreignAllocator = new CpuAllocator(capacity);
         var original = Allocate(allocator, capacity);
         var foreign = Allocate(foreignAllocator, capacity);
-        var fabricated = new CpuAllocation(page, original.Capacity, original.First, original.Count);
+        var fabricated = new CpuAllocation(original.Capacity, original.First, original.Count);
 
         Assert.Throws<ArgumentNullException>(() => allocator.Release(null!));
         Assert.Throws<InvalidOperationException>(() => allocator.Release(foreign));
@@ -119,6 +117,8 @@ public class AllocatorTests
         AssertUnavailable(allocator, 1);
 
         allocator.Release(original);
+        Assert.False(allocator.IsActive(original));
+        Assert.Equal(0, allocator.AllocationCount);
         Assert.Throws<InvalidOperationException>(() => allocator.Release(original));
 
         var replacement = Allocate(allocator, capacity);
@@ -135,8 +135,8 @@ public class AllocatorTests
     public void MixedAllocationAndReleasePreservesRangesAndRecoversWholePage()
     {
         const int capacity = 128;
-        Page page = new(capacity);
-        var allocator = new CpuAllocator(page, capacity);
+
+        var allocator = new CpuAllocator(capacity);
         var random = new Random(1337);
         List<CpuAllocation> active = [];
         bool[] occupied = new bool[capacity];
@@ -170,7 +170,7 @@ public class AllocatorTests
             }
 
             var allocated = Assert.IsType<CpuAllocation>(allocationResult);
-            Assert.Same(page, allocated.Page);
+
             Assert.Equal(count, allocated.Count);
             Assert.Equal((uint)reserved, allocated.Capacity);
             Assert.Equal(0u, allocated.First % allocated.Capacity);

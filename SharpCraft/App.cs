@@ -117,7 +117,7 @@ internal unsafe class App : IDisposable
             options, benchmark);
         renderer.LoadGpuResources();
         renderer.Update();
-        renderer.UpdateWorld(camera, volume);
+        renderer.UpdateWorld(camera);
     }
 
     public void Run()
@@ -128,6 +128,8 @@ internal unsafe class App : IDisposable
         {
             profiler.BeginFrame();
             FrameTime time = clock.Tick();
+            
+            renderer.BeginFrame();
 
             input.Begin();
 
@@ -181,7 +183,7 @@ internal unsafe class App : IDisposable
             if (controllerUpdate || worldUpdate)
             {
                 long updateStarted = Stopwatch.GetTimestamp();
-                renderer.UpdateWorld(camera, volume);
+                renderer.UpdateWorld(camera);
                 profiler.Timings.RendererMilliseconds += Stopwatch.GetElapsedTime(updateStarted).TotalMilliseconds;
             }
             

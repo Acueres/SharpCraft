@@ -4,15 +4,12 @@ namespace SharpCraft.Graphics.Resources;
 
 internal class CpuAllocation
 {
-    public Page Page { get; }
     public uint Capacity { get; }
     public uint Count { get; }
     public uint First { get; }
 
-    public CpuAllocation(Page page, uint capacity, uint first, uint count)
+    public CpuAllocation(uint capacity, uint first, uint count)
     {
-        ArgumentNullException.ThrowIfNull(page);
-
         if (!MathUtilities.IsPowerOfTwo(capacity))
         {
             throw new ArgumentOutOfRangeException(
@@ -36,8 +33,7 @@ internal class CpuAllocation
                 count,
                 $"Record count must be between 1 and {capacity}, inclusive.");
         }
-
-        Page = page;
+        
         Capacity = capacity;
         First = first;
         Count = count;

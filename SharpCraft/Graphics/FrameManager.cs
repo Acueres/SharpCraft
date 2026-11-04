@@ -7,7 +7,7 @@ using static SDL.SDL3;
 
 namespace SharpCraft.Graphics;
 
-internal unsafe class FrameManager(GpuDevice device, Window window, FrameProfiler profiler)
+internal unsafe class FrameManager(GpuDevice device, Window window, SubmissionTracker submissionTracker, FrameProfiler profiler)
 {
     public bool TryBeginFrame(out FrameContext context)
     {
@@ -45,19 +45,15 @@ internal unsafe class FrameManager(GpuDevice device, Window window, FrameProfile
         return true;
     }
 
-    public void SubmitFrame(FrameContext context)
+    public ulong SubmitFrame(FrameContext context)
     {
-        if (!SDL_SubmitGPUCommandBuffer(context.CommandBuffer))
-        {
-            SdlRuntime.Throw("Failed to submit command buffer");
-        }
+        return submissionTracker.Submit(context.CommandBuffer);
     }
 
     private void SubmitEmpty(SDL_GPUCommandBuffer* commandBuffer)
     {
         long started = Stopwatch.GetTimestamp();
-        bool submitted = SDL_SubmitGPUCommandBuffer(commandBuffer);
+        submissionTracker.Submit(commandBuffer);
         profiler.Timings.SubmitMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-        if (!submitted) SdlRuntime.Throw("Failed to submit empty command buffer");
     }
 }

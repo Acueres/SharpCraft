@@ -8,7 +8,7 @@ namespace SharpCraft.Graphics;
 
 internal enum GpuPass { Opaque, Transparent, Ui }
 
-internal unsafe class GpuDevice : IDisposable
+internal unsafe class GpuDevice : IGpuBufferDevice, IDisposable
 {
     public SDL_GPUDevice* Handle => device;
     public SDL_GPUTextureFormat SwapchainFormat { get; private set; }
@@ -157,7 +157,10 @@ internal unsafe class GpuDevice : IDisposable
 
     public void WaitIdle()
     {
-        SDL_WaitForGPUIdle(device);
+        if (!SDL_WaitForGPUIdle(device))
+        {
+            SdlRuntime.Throw("Failed to get GPU idle state");
+        }
     }
 
     private bool disposed;

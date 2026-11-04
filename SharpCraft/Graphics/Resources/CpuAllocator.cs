@@ -9,19 +9,14 @@ internal class CpuAllocator
     
     private readonly record struct FreeBlock(uint FirstRecord);
     
-    private readonly Page page;
     private readonly uint totalCapacity;
 
     private readonly Dictionary<uint, HashSet<FreeBlock>> freeBlocksByCapacity;
 
     private readonly HashSet<CpuAllocation> allocations = [];
 
-    public CpuAllocator(Page page, uint totalCapacity)
+    public CpuAllocator(uint totalCapacity)
     {
-        ArgumentNullException.ThrowIfNull(page);
-
-        this.page = page;
-
         if (!MathUtilities.IsPowerOfTwo(totalCapacity))
         {
             throw new ArgumentOutOfRangeException(
@@ -58,7 +53,7 @@ internal class CpuAllocator
 
         var (block, fittingCapacity) = SplitBlockToCapacity(freeCapacity, targetCapacity, freeBlock);
 
-        allocation = new CpuAllocation(page, fittingCapacity, block.FirstRecord, count);
+        allocation = new CpuAllocation(fittingCapacity, block.FirstRecord, count);
         allocations.Add(allocation);
 
         return true;

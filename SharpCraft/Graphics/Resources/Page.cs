@@ -5,95 +5,141 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal class Page
+internal unsafe class Page : IDisposable
 {
-    public uint Capacity { get; }
+    public uint FaceCapacity { get; }
+    public uint SlotCapacity { get; }
     public bool IsEmpty => allocator.AllocationCount == 0;
     public int AllocationCount => allocator.AllocationCount;
-    
-    private readonly VoxelFace[] storage;
-    private readonly CpuAllocator allocator;
 
-    public Page(uint capacity)
+    public BlockFaceBuffer FaceBuffer => faceBuffer;
+    public SlotRecordBuffer SlotBuffer => slotBuffer;
+    
+    private readonly CpuAllocator allocator;
+    
+    private readonly BlockFaceBuffer faceBuffer;
+    private readonly SlotRecordBuffer slotBuffer;
+    
+    private readonly HashSet<GpuAllocation> allocations = [];
+
+    private uint currentSlotId;
+    private readonly Stack<uint> freeSlotIds = [];
+
+    public Page(uint faceCapacity, uint slotCapacity, IGpuBufferDevice device)
     {
-        if (!MathUtilities.IsPowerOfTwo(capacity))
+        if (!MathUtilities.IsPowerOfTwo(faceCapacity))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(capacity),
-                capacity,
-                "Page capacity must be a positive power of two.");
+                nameof(faceCapacity),
+                faceCapacity,
+                "Page face capacity must be a positive power of two.");
         }
 
-        Capacity = capacity;
+        FaceCapacity = faceCapacity;
 
-        if (capacity > Array.MaxLength)
+        long faceBufferCapacity = checked(faceCapacity * sizeof(VoxelFace));
+        if (faceBufferCapacity > uint.MaxValue)
         {
-            throw new ArgumentOutOfRangeException(nameof(capacity),
-                capacity, "Page capacity must be less than array length limit.");
+            throw new ArgumentOutOfRangeException(nameof(faceCapacity),
+                faceCapacity, "Page face capacity must fit into uint.");
         }
+        
+        SlotCapacity = slotCapacity;
+        
+        if (slotCapacity is > ushort.MaxValue + 1 or < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slotCapacity),
+                slotCapacity, "Page slot capacity must fit into ushort.");
+        }
+        
+        faceBuffer = new BlockFaceBuffer(faceCapacity, device);
 
-        storage = new VoxelFace[capacity];
-        allocator = new CpuAllocator(this, capacity);
+        try
+        {
+            slotBuffer = new SlotRecordBuffer(slotCapacity, device);
+        }
+        catch
+        {
+            faceBuffer.Dispose();
+            throw;
+        }
+        
+        allocator = new CpuAllocator(faceCapacity);
     }
 
-    public ReadOnlySpan<VoxelFace> GetFaces(CpuAllocation allocation)
+    public void Release(GpuAllocation allocation)
     {
         ValidateAllocation(allocation);
-        
-        return storage.AsSpan((int)allocation.First, (int)allocation.Count);
+        allocator.Release(allocation.CpuAllocation);
+        allocations.Remove(allocation);
+        freeSlotIds.Push(allocation.SlotId);
     }
 
-    public void Release(CpuAllocation allocation)
+    public bool TryAllocate(ReadOnlySpan<VoxelFace> faces, [MaybeNullWhen(false)] out GpuAllocation allocation)
     {
-        ValidateAllocation(allocation);
-        
-        allocator.Release(allocation);
-    }
-
-    public bool TryAllocate(ReadOnlySpan<VoxelFace> faces, [MaybeNullWhen(false)] out CpuAllocation allocation)
-    {
+        allocation = null;
         var count = (uint)faces.Length;
-        bool success = allocator.TryAllocate(count, out allocation);
-
-        if (!success) return false;
+        if (!TryGetSlotId(out var slotId))
+        {
+            return false;
+        }
         
-        WriteFaces(allocation!.First, allocation.Count, faces);
-
+        if (!allocator.TryAllocate(count, out var cpuAllocation))
+        {
+            freeSlotIds.Push(slotId);
+            return false;
+        }
+        
+        allocation = new GpuAllocation(this, slotId, cpuAllocation);
+        allocations.Add(allocation);
+        
         return true;
     }
 
-    private void WriteFaces(uint first, uint count, ReadOnlySpan<VoxelFace> faces)
-    {
-        if (first >= Capacity)
-        {
-            throw new ArgumentOutOfRangeException(nameof(first), first, "First allocation index is greater than capacity.");
-        }
-
-        if (first + count > Capacity)
-        {
-            throw new ArgumentOutOfRangeException(nameof(count), count, "Number of faces is greater than capacity.");
-        }
-        
-        uint end = first + count;
-        for (int targetIndex = (int)first, sourceIndex = 0; targetIndex < end; targetIndex++, sourceIndex++)
-        {
-            VoxelFace face = faces[sourceIndex];
-            storage[targetIndex] = face;
-        }
-    }
-
-    private void ValidateAllocation(CpuAllocation allocation)
+    private void ValidateAllocation(GpuAllocation allocation)
     {
         ArgumentNullException.ThrowIfNull(allocation);
+
+        if (!allocations.Contains(allocation))
+        {
+            throw new InvalidOperationException("Allocation is not active.");
+        }
         
         if (allocation.Page != this)
         {
             throw new InvalidOperationException("Allocation does not belong to page.");
         }
 
-        if (!allocator.IsActive(allocation))
+        if (!allocator.IsActive(allocation.CpuAllocation))
         {
-            throw new InvalidOperationException("Allocation is not active.");
+            throw new InvalidOperationException("Allocation range is not active.");
         }
+    }
+
+    private bool TryGetSlotId(out uint slotId)
+    {
+        if (freeSlotIds.TryPop(out slotId))
+        {
+            return true;
+        }
+
+        if (currentSlotId >= SlotCapacity)
+        {
+            return false;
+        }
+        
+        slotId = currentSlotId++;
+        return true;
+    }
+    
+    private bool disposed;
+    public void Dispose()
+    {
+        if (disposed) return;
+
+        faceBuffer.Dispose();
+        slotBuffer.Dispose();
+        
+        disposed = true;
     }
 }

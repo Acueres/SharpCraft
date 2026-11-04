@@ -5,7 +5,7 @@ using SharpCraft.Rendering;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
+internal unsafe class BlockFaceBuffer(uint capacity, IGpuBufferDevice device) : IDisposable
 {
     public SDL_GPUBuffer* Handle => buffer;
     
@@ -13,9 +13,9 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
     public long CapacityBytes => capacity * sizeof(VoxelFace);
     public uint Count { get; private set; } = 1;
 
-    private uint capacity = 1;
+    private uint capacity = capacity;
 
-    private SDL_GPUBuffer* buffer = CreateBuffer(1, device);
+    private SDL_GPUBuffer* buffer = CreateBuffer(capacity, device);
 
     public void EnsureSize(uint count)
     {
@@ -39,12 +39,17 @@ internal unsafe class BlockFaceBuffer(GpuDevice device) : IDisposable
         Count = count;
     }
 
-    private static SDL_GPUBuffer* CreateBuffer(uint capacity, GpuDevice device)
+    private static SDL_GPUBuffer* CreateBuffer(uint capacity, IGpuBufferDevice device)
     {
+        if (capacity == 0)
+        {
+            throw new ArgumentException("Capacity must be greater than zero.");
+        }
+        
         SDL_GPUBufferCreateInfo vertexBufferInfo = new()
         {
             usage = SDL_GPUBufferUsageFlags.SDL_GPU_BUFFERUSAGE_VERTEX,
-            size = capacity * (uint)sizeof(VoxelFace)
+            size = checked(capacity * (uint)sizeof(VoxelFace))
         };
 
         var buffer = device.CreateBuffer(&vertexBufferInfo);

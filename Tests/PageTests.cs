@@ -1,151 +1,227 @@
+using SDL;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.Rendering;
 
 namespace Tests;
 
-public class PageTests
+public unsafe class PageTests
 {
     [Fact]
-    public void AllocationCopiesAllFaceWordsAndExposesOnlyTheRequestedCount()
+    public void PageCreatesFixedBuffersInRecordUnitsAndAllocationsShareThem()
     {
-        var page = new Page(8);
-        var source = CreateFaces(3, 10);
+        var device = new FakeBufferDevice();
+        using var page = new Page(8, 4, device);
+        var source = CreateFaces(3);
         var expected = source.ToArray();
 
         Assert.True(page.IsEmpty);
-        var allocation = Allocate(page, source);
+        Assert.Equal(8u, page.FaceCapacity);
+        Assert.Equal(4u, page.SlotCapacity);
+        Assert.Collection(device.Created,
+            buffer =>
+            {
+                Assert.Equal(8u * 16, buffer.Bytes);
+                Assert.Equal(SDL_GPUBufferUsageFlags.SDL_GPU_BUFFERUSAGE_VERTEX, buffer.Usage);
+            },
+            buffer =>
+            {
+                Assert.Equal(4u * 48, buffer.Bytes);
+                Assert.Equal(SDL_GPUBufferUsageFlags.SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, buffer.Usage);
+            });
 
-        Assert.Same(page, allocation.Page);
-        Assert.Equal(8u, page.Capacity);
-        Assert.Equal(3u, allocation.Count);
-        Assert.Equal(4u, allocation.Capacity);
+        var first = Allocate(page, source);
+        var second = Allocate(page, source);
+
+        Assert.Same(page, first.Page);
+        Assert.Equal(3u, first.CpuAllocation.Count);
+        Assert.Equal(4u, first.CpuAllocation.Capacity);
+        Assert.Equal(0u, first.CpuAllocation.First);
+        Assert.Equal(4u, second.CpuAllocation.First);
+        Assert.NotEqual(first.SlotId, second.SlotId);
+        Assert.Equal(2, page.AllocationCount);
         Assert.False(page.IsEmpty);
-        AssertFacesEqual(expected, source);
-        AssertFacesEqual(expected, page.GetFaces(allocation));
+        Assert.Equal(expected, source);
+        Assert.Equal(2, device.Created.Count);
+        Assert.Equal(8L * 16, page.FaceBuffer.CapacityBytes);
+        Assert.Equal(4L * 48, page.SlotBuffer.CapacityBytes);
+    }
 
-        source[0] = default;
-        source[1].Uint2 = 0;
-        AssertFacesEqual(expected, page.GetFaces(allocation));
+    [Theory]
+    [InlineData(1u)]
+    [InlineData(2u)]
+    [InlineData(4u)]
+    public void SlotExhaustionStopsAtPageLimitDespiteFreeFaceSpaceAndReleasedIdsAreReused(uint slots)
+    {
+        var device = new FakeBufferDevice();
+        using var page = new Page(8, slots, device);
+        var allocations = new List<GpuAllocation>();
+
+        for (uint id = 0; id < slots; id++)
+        {
+            var allocation = Allocate(page, CreateFaces(1));
+            Assert.Equal(id, allocation.SlotId);
+            allocations.Add(allocation);
+        }
+
+        Assert.False(page.TryAllocate(CreateFaces(1), out var unavailable));
+        Assert.Null(unavailable);
+        Assert.Equal((int)slots, page.AllocationCount);
+
+        var original = allocations[0];
+        page.Release(original);
+        var replacement = Allocate(page, CreateFaces(1));
+        Assert.Equal(original.SlotId, replacement.SlotId);
+        Assert.Equal(original.CpuAllocation.First, replacement.CpuAllocation.First);
+        Assert.Throws<InvalidOperationException>(() => page.Release(original));
+        Assert.Equal((int)slots, page.AllocationCount);
     }
 
     [Fact]
-    public void FailedRequestsAndRangeReusePreserveNeighborsAndEmptyState()
+    public void EntireSixteenBitSlotIdRangeIsAvailable()
     {
-        var page = new Page(8);
+        var device = new FakeBufferDevice();
+        using var page = new Page(1u << 16, 1u << 16, device);
+        var face = CreateFaces(1);
 
-        Assert.False(page.TryAllocate([], out var empty));
-        Assert.Null(empty);
-        Assert.False(page.TryAllocate(CreateFaces(9, 10), out var oversized));
-        Assert.Null(oversized);
-        Assert.True(page.IsEmpty);
+        for (uint id = 0; id <= ushort.MaxValue; id++)
+        {
+            Assert.True(page.TryAllocate(face, out var allocation));
+            Assert.Equal(id, allocation.SlotId);
+        }
 
-        var firstFaces = CreateFaces(3, 20);
-        var neighborFaces = CreateFaces(3, 40);
-        var first = Allocate(page, firstFaces);
-        var neighbor = Allocate(page, neighborFaces);
-
-        Assert.False(page.TryAllocate(CreateFaces(1, 60), out var exhausted));
+        Assert.Equal(65_536, page.AllocationCount);
+        Assert.False(page.TryAllocate(face, out var exhausted));
         Assert.Null(exhausted);
-        AssertFacesEqual(firstFaces, page.GetFaces(first));
-        AssertFacesEqual(neighborFaces, page.GetFaces(neighbor));
+        Assert.Equal(2, device.Created.Count);
+    }
 
-        page.Release(first);
-        Assert.False(page.IsEmpty);
-        var replacementFaces = CreateFaces(3, 80);
-        var replacement = Allocate(page, replacementFaces);
+    [Fact]
+    public void FailedRangeRequestsReturnTheirSlotIdsAndPreserveLiveRanges()
+    {
+        var device = new FakeBufferDevice();
+        using var page = new Page(8, 2, device);
 
-        Assert.Equal(first.First, replacement.First);
-        AssertFacesEqual(replacementFaces, page.GetFaces(replacement));
-        AssertFacesEqual(neighborFaces, page.GetFaces(neighbor));
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            Assert.False(page.TryAllocate([], out var empty));
+            Assert.Null(empty);
+            Assert.False(page.TryAllocate(CreateFaces(9), out var oversized));
+            Assert.Null(oversized);
+        }
 
-        page.Release(neighbor);
-        Assert.False(page.IsEmpty);
-        page.Release(replacement);
         Assert.True(page.IsEmpty);
+        var wholePage = Allocate(page, CreateFaces(8));
+        Assert.Equal(0u, wholePage.SlotId);
 
-        var wholePageFaces = CreateFaces(8, 100);
-        var wholePage = Allocate(page, wholePageFaces);
-        Assert.Equal(0u, wholePage.First);
-        AssertFacesEqual(wholePageFaces, page.GetFaces(wholePage));
+        // A second slot is available, but the face allocator is full.
+        Assert.False(page.TryAllocate(CreateFaces(1), out var full));
+        Assert.Null(full);
+        Assert.Equal(1, page.AllocationCount);
+
         page.Release(wholePage);
         Assert.True(page.IsEmpty);
+        var first = Allocate(page, CreateFaces(1));
+        var second = Allocate(page, CreateFaces(1));
+        Assert.Equal(new uint[] { 0, 1 }, new[] { first.SlotId, second.SlotId }.Order().ToArray());
+        Assert.Equal(2, page.AllocationCount);
     }
 
     [Fact]
-    public void ReadsAndReleasesRejectInvalidHandlesWithoutChangingLiveStorage()
+    public void InvalidWrappersCannotReleaseAnotherAllocationOrDuplicateItsSlot()
     {
-        var page = new Page(8);
-        var faces = CreateFaces(3, 10);
-        var original = Allocate(page, faces);
-        var otherPage = new Page(8);
-        var foreign = Allocate(otherPage, CreateFaces(3, 20));
-        var fabricated = new CpuAllocation(page, original.Capacity, original.First, original.Count);
+        var device = new FakeBufferDevice();
+        using var page = new Page(8, 2, device);
+        using var otherPage = new Page(8, 2, device);
+        var original = Allocate(page, CreateFaces(3));
+        var foreign = Allocate(otherPage, CreateFaces(3));
+        var fabricated = new GpuAllocation(page, original.SlotId, original.CpuAllocation);
+        var wrongSlot = new GpuAllocation(page, 1, original.CpuAllocation);
 
-        Assert.Throws<ArgumentNullException>(() => { page.GetFaces(null!); });
         Assert.Throws<ArgumentNullException>(() => page.Release(null!));
-        AssertRejected(page, foreign);
-        AssertRejected(page, fabricated);
-        AssertFacesEqual(faces, page.GetFaces(original));
-        AssertFacesEqual(CreateFaces(3, 20), otherPage.GetFaces(foreign));
-        Assert.False(page.IsEmpty);
+        Assert.Throws<InvalidOperationException>(() => page.Release(foreign));
+        Assert.Throws<InvalidOperationException>(() => page.Release(fabricated));
+        Assert.Throws<InvalidOperationException>(() => page.Release(wrongSlot));
+        Assert.Equal(1, page.AllocationCount);
+        Assert.Equal(1, otherPage.AllocationCount);
 
         page.Release(original);
         Assert.True(page.IsEmpty);
-        AssertRejected(page, original);
+        Assert.Throws<InvalidOperationException>(() => page.Release(original));
+        var replacement = Allocate(page, CreateFaces(3));
+        Assert.Equal(original.SlotId, replacement.SlotId);
+        Assert.Equal(original.CpuAllocation.First, replacement.CpuAllocation.First);
+        Assert.Throws<InvalidOperationException>(() => page.Release(original));
 
-        var replacementFaces = CreateFaces(3, 40);
-        var replacement = Allocate(page, replacementFaces);
-        Assert.Equal(original.First, replacement.First);
-        AssertRejected(page, original);
-        Assert.False(page.IsEmpty);
-        AssertFacesEqual(replacementFaces, page.GetFaces(replacement));
+        var neighbor = Allocate(page, CreateFaces(3));
+        Assert.NotEqual(replacement.SlotId, neighbor.SlotId);
+        Assert.Equal(2, page.AllocationCount);
         page.Release(replacement);
+        page.Release(neighbor);
         Assert.True(page.IsEmpty);
     }
 
-    [Fact]
-    public void ConstructorRejectsInvalidAndUnrepresentableCapacities()
+    [Theory]
+    [InlineData(0u)]
+    [InlineData(12u)]
+    [InlineData(1u << 28)]
+    [InlineData(1u << 31)]
+    public void InvalidFaceCapacitiesAreRejectedBeforeCreatingBuffers(uint capacity)
     {
-        foreach (uint capacity in new uint[] { 0, 12, 1u << 31 })
-        {
-            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new Page(capacity));
-            Assert.Equal("capacity", exception.ParamName);
-            Assert.Equal(capacity, Assert.IsType<uint>(exception.ActualValue));
-        }
+        var device = new FakeBufferDevice();
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new Page(capacity, 1, device));
+        Assert.Equal("faceCapacity", exception.ParamName);
+        Assert.Empty(device.Created);
     }
 
-    private static CpuAllocation Allocate(Page page, ReadOnlySpan<VoxelFace> faces)
+    [Theory]
+    [InlineData(0u)]
+    [InlineData(65_537u)]
+    [InlineData(uint.MaxValue)]
+    public void InvalidSlotCapacitiesAreRejectedBeforeCreatingBuffers(uint capacity)
+    {
+        var device = new FakeBufferDevice();
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new Page(8, capacity, device));
+        Assert.Equal("slotCapacity", exception.ParamName);
+        Assert.Empty(device.Created);
+    }
+
+    [Fact]
+    public void SlotBufferCreationFailureReleasesFaceBufferAndPropagates()
+    {
+        var device = new FakeBufferDevice { FailOnCreation = 2 };
+        var exception = Assert.Throws<InvalidOperationException>(() => new Page(8, 2, device));
+        Assert.Equal("Injected buffer creation failure.", exception.Message);
+        var faceBuffer = Assert.Single(device.Created);
+        Assert.Contains(faceBuffer.Handle, device.Released);
+        Assert.Equal(0, device.LiveCount);
+    }
+
+    [Fact]
+    public void DisposalReleasesBothBuffersExactlyOnceEvenWithOutstandingAllocations()
+    {
+        var device = new FakeBufferDevice();
+        var page = new Page(8, 2, device);
+        Allocate(page, CreateFaces(3));
+
+        page.Dispose();
+        page.Dispose();
+
+        Assert.Equal(2, device.Released.Count);
+        Assert.Equal(0, device.LiveCount);
+        Assert.Equal(0L, device.LiveBytes);
+    }
+
+    private static GpuAllocation Allocate(Page page, ReadOnlySpan<VoxelFace> faces)
     {
         Assert.True(page.TryAllocate(faces, out var allocation));
-        return Assert.IsType<CpuAllocation>(allocation);
+        return Assert.IsType<GpuAllocation>(allocation);
     }
 
-    private static VoxelFace[] CreateFaces(int count, uint seed)
+    private static VoxelFace[] CreateFaces(int count) => Enumerable.Range(0, count).Select(index => new VoxelFace
     {
-        return Enumerable.Range(0, count).Select(index => new VoxelFace
-        {
-            Uint0 = 0x12340000u + seed + (uint)index,
-            Uint1 = 0x89AB0000u + seed + (uint)index,
-            Uint2 = 0xFEDC0000u + seed + (uint)index,
-            Uint3 = 0x80000000u + seed + (uint)index
-        }).ToArray();
-    }
-
-    private static void AssertFacesEqual(ReadOnlySpan<VoxelFace> expected, ReadOnlySpan<VoxelFace> actual)
-    {
-        Assert.Equal(expected.Length, actual.Length);
-        for (int index = 0; index < expected.Length; index++)
-        {
-            Assert.Equal(expected[index].Uint0, actual[index].Uint0);
-            Assert.Equal(expected[index].Uint1, actual[index].Uint1);
-            Assert.Equal(expected[index].Uint2, actual[index].Uint2);
-            Assert.Equal(expected[index].Uint3, actual[index].Uint3);
-        }
-    }
-
-    private static void AssertRejected(Page page, CpuAllocation allocation)
-    {
-        Assert.Throws<InvalidOperationException>(() => { page.GetFaces(allocation); });
-        Assert.Throws<InvalidOperationException>(() => page.Release(allocation));
-    }
+        Uint0 = 0x12340000u + (uint)index,
+        Uint1 = 0x89AB0000u + (uint)index,
+        Uint2 = 0xFEDC0000u + (uint)index,
+        Uint3 = 0x80000000u + (uint)index
+    }).ToArray();
 }

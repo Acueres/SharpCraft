@@ -32,6 +32,7 @@ internal unsafe class Renderer : IDisposable
     private readonly DebugPanelState debugState = new();
     private readonly GpuTextEngine textEngine;
 
+    private readonly SubmissionTracker submissionTracker;
     private readonly GpuUploader uploader;
     private readonly FrameProfiler profiler;
 
@@ -70,7 +71,9 @@ internal unsafe class Renderer : IDisposable
         crosshairTexture = assetServer.CrosshairTexture;
         var debugFont = assetServer.GetDebugFont(DefaultFontSize);
 
-        uploader = new GpuUploader(this.device, profiler);
+        submissionTracker = new SubmissionTracker(device);
+
+        uploader = new GpuUploader(this.device, submissionTracker, profiler);
 
         textEngine = new GpuTextEngine(device);
 
@@ -79,13 +82,20 @@ internal unsafe class Renderer : IDisposable
             benchmark);
         if (options.Scene.HasValue) debugState.OpenBenchmarks();
 
-        frameManager = new FrameManager(this.device, window, profiler);
+        frameManager = new FrameManager(this.device, window, submissionTracker, profiler);
         depthBuffer = new DepthBuffer(this.device, width, height);
 
-        voxelRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader, meshSink, profiler);
+        voxelRenderer = new VoxelFaceRenderer(device, uploader, textureArray, cubeShader, meshSink, submissionTracker,
+            profiler);
         spriteRenderer = new SpriteRenderer(device, uploader, spriteShader);
 
         RescaleUi(width, height);
+    }
+
+    public void BeginFrame()
+    {
+        submissionTracker.PollCompleted();
+        voxelRenderer.ReleaseRetired();
     }
 
     public void Update()
@@ -93,9 +103,9 @@ internal unsafe class Renderer : IDisposable
         voxelRenderer.ProcessMeshUpdates();
     }
 
-    public void UpdateWorld(Camera camera, ChunkVolume volume)
+    public void UpdateWorld(Camera camera)
     {
-        voxelRenderer.Update(volume, camera);
+        voxelRenderer.Update(camera);
     }
 
     public void UpdateUi(Camera camera)
@@ -124,7 +134,13 @@ internal unsafe class Renderer : IDisposable
         }
 
         camera.SetViewport(frame.Width, frame.Height);
-        RescaleUi(frame.Width, frame.Height);
+        bool rescaled = RescaleUi(frame.Width, frame.Height);
+
+        if (rescaled)
+        {
+            UpdateWorld(camera);
+        }
+
         Draw(frame, camera);
     }
 
@@ -236,13 +252,13 @@ internal unsafe class Renderer : IDisposable
         spriteRenderer.Upload();
     }
 
-    private void RescaleUi(uint newWidth, uint newHeight)
+    private bool RescaleUi(uint newWidth, uint newHeight)
     {
         if (newWidth == 0 || newHeight == 0)
-            return;
+            return false;
 
         if (newWidth == currentWidth && newHeight == currentHeight)
-            return;
+            return false;
 
         float rawScale = Math.Min((float)newWidth / defaultWidth, (float)newHeight / defaultHeight);
         uiScale = Math.Max(0.75f, rawScale);
@@ -257,6 +273,8 @@ internal unsafe class Renderer : IDisposable
 
         currentWidth = newWidth;
         currentHeight = newHeight;
+
+        return true;
     }
 
     private static Matrix4x4 BuildMvp(Camera camera)
@@ -277,6 +295,8 @@ internal unsafe class Renderer : IDisposable
         if (disposed) return;
 
         device.WaitIdle();
+        
+        submissionTracker.PollCompleted();
         
         detailedReport.Dispose();
         debugOverlay.Dispose();

@@ -3,36 +3,50 @@ using SharpCraft.SharpMath;
 
 namespace SharpCraft.Graphics.Resources;
 
-internal class Arena
+internal unsafe class Arena : IDisposable
 {
     public int PageCount => pages.Count;
     public int ActiveAllocations => pages.Sum(p => p.AllocationCount);
-
-    private readonly uint pageCapacity;
+    public long TotalCapacityBytes => pages.Count * (pageFaceCapacity * sizeof(VoxelFace) + pageSlotCapacity *  sizeof(SlotRecord));
+    
+    private readonly uint pageFaceCapacity;
+    private readonly uint pageSlotCapacity;
+    
     private readonly List<Page> pages = [];
 
-    public Arena(uint capacity)
+    private readonly IGpuBufferDevice device;
+
+    public Arena(uint faceCapacity, uint slotCapacity, IGpuBufferDevice device)
     {
-        if (!MathUtilities.IsPowerOfTwo(capacity))
+        if (!MathUtilities.IsPowerOfTwo(faceCapacity))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(capacity),
-                capacity,
-                "Page capacity must be a positive power of two.");
+                nameof(faceCapacity),
+                faceCapacity,
+                "Page face capacity must be a positive power of two.");
         }
         
-        if (capacity > Array.MaxLength)
+        long faceBufferCapacity = checked(faceCapacity * sizeof(VoxelFace));
+        if (faceBufferCapacity > uint.MaxValue)
         {
-            throw new ArgumentOutOfRangeException(nameof(capacity),
-                capacity, "Page capacity must be less than array length limit.");
+            throw new ArgumentOutOfRangeException(nameof(faceCapacity),
+                faceCapacity, "Page face capacity must fit into uint.");
+        }
+        
+        if (slotCapacity is > ushort.MaxValue + 1 or < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(slotCapacity),
+                slotCapacity, "Page slot capacity must fit into ushort.");
         }
 
-        pageCapacity = capacity;
+        pageFaceCapacity = faceCapacity;
+        pageSlotCapacity = slotCapacity;
+        this.device = device;
     }
 
-    public List<CpuAllocation> Allocate(ReadOnlySpan<VoxelFace> faces)
+    public List<GpuAllocation> Allocate(ReadOnlySpan<VoxelFace> faces)
     {
-        List<CpuAllocation> allocations = [];
+        List<GpuAllocation> allocations = [];
 
         int start = 0;
         try
@@ -40,7 +54,7 @@ internal class Arena
             while (start < faces.Length)
             {
                 // Prioritize allocating large contiguous chunks
-                var slice = faces.Slice(start, Math.Min(faces.Length - start, (int)pageCapacity));
+                var slice = faces.Slice(start, Math.Min(faces.Length - start, (int)pageFaceCapacity));
 
                 start += slice.Length;
 
@@ -58,7 +72,7 @@ internal class Arena
                 if (allocated) continue;
 
                 // Allocate a new page.
-                var newPage = new Page(pageCapacity);
+                var newPage = new Page(pageFaceCapacity, pageSlotCapacity, device);
                 if (newPage.TryAllocate(slice, out var allocation2))
                 {
                     pages.Add(newPage);
@@ -81,7 +95,7 @@ internal class Arena
         return allocations;
     }
 
-    public void Release(CpuAllocation allocation)
+    public void Release(GpuAllocation allocation)
     {
         ArgumentNullException.ThrowIfNull(allocation);
         
@@ -105,10 +119,27 @@ internal class Arena
         {
             if (!p.IsEmpty) return false;
 
-            if (emptyPagePreserved) return true;
+            if (emptyPagePreserved)
+            {
+                p.Dispose();
+                return true;
+            }
             
             emptyPagePreserved = true;
             return false;
         });
+    }
+
+    private bool disposed;
+    public void Dispose()
+    {
+        if (disposed) return;
+
+        foreach (var page in pages)
+        {
+            page.Dispose();
+        }
+        
+        disposed = true;
     }
 }
