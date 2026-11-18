@@ -18,6 +18,7 @@ internal sealed class DetailedReport : IDisposable
     [
         "Main work (before limiter)", "Frame limiter", "World / scheduler", "  Completion handling",
         "Renderer incl. UI", "  Culling", "  Face-list assembly", "  Terrain upload total", "    Upload staging (all)",
+        "      Transfer buffer wait",
         "    Upload commands (all)", "  Scene commands", "Submit (all commands)", "Swapchain acquire",
         "UI prepare / upload"
     ];
@@ -228,6 +229,9 @@ internal sealed class DetailedReport : IDisposable
             $"Uploads, latest sampled frame: {r.UploadJobs} jobs / {(r.TerrainUploadBytes + r.UiUploadBytes) / 1024.0:0.00} KiB"));
         rows.Add(F(
             $"Upload average: terrain {profile.TerrainUploadBytesPerFrame / 1024:0.00} / UI {profile.UiUploadBytesPerFrame / 1024:0.00} KiB/frame"));
+        rows.Add(F(
+            $"Transfer buffer wait: {profile.Timings.TransferBufferWaitMilliseconds:0.000} ms/frame | {profile.TransferBufferWaitsPerFrame:0.00} waits/frame (250ms average)"));
+        rows.Add("Transfer buffer wait is included in upload staging time.");
         rows.Add("Upload queue: N/A (immediate submission; no upload scheduler)");
         rows.Add("");
         rows.Add($"Tracked persistent resources: {MiB(g.TotalBytes)}");

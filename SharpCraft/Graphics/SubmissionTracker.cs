@@ -52,4 +52,17 @@ internal unsafe class SubmissionTracker(GpuDevice device)
             CompletedId = submission.Id;
         }
     }
+
+    public void WaitForCompletion(ulong submissionId)
+    {
+        var submission = pending.Single(s => s.Id == submissionId);
+        
+        SDL_GPUFence** fences = stackalloc SDL_GPUFence*[1];
+        fences[0] = (SDL_GPUFence*)submission.Fence;
+
+        if (!SDL_WaitForGPUFences(device.Handle, false, fences, 1))
+        {
+            SdlRuntime.Throw("Waiting for GPU fences failed");
+        }
+    }
 }

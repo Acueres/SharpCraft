@@ -15,6 +15,7 @@ internal struct CpuTimings
     public double TerrainUploadMilliseconds;
     public double CompletionMilliseconds;
     public double UploadStagingMilliseconds;
+    public double TransferBufferWaitMilliseconds;
     public double UploadCommandsMilliseconds;
     public double CommandRecordingMilliseconds;
     public double SubmitMilliseconds;
@@ -32,6 +33,7 @@ internal struct CpuTimings
         CpuMetric.Assembly => AssemblyMilliseconds,
         CpuMetric.TerrainUpload => TerrainUploadMilliseconds,
         CpuMetric.Staging => UploadStagingMilliseconds,
+        CpuMetric.TransferBufferWait => TransferBufferWaitMilliseconds,
         CpuMetric.UploadCommands => UploadCommandsMilliseconds,
         CpuMetric.Recording => CommandRecordingMilliseconds,
         CpuMetric.Submit => SubmitMilliseconds,
@@ -44,7 +46,7 @@ internal struct CpuTimings
 internal enum CpuMetric
 {
     Work, Limiter, World, Completions, Renderer, Culling, Assembly, TerrainUpload,
-    Staging, UploadCommands, Recording, Submit, Acquire, Ui, Count
+    Staging, TransferBufferWait, UploadCommands, Recording, Submit, Acquire, Ui, Count
 }
 
 internal struct RenderStatistics
@@ -63,6 +65,7 @@ internal struct RenderStatistics
     public uint SubmittedOpaqueFaces;
     public uint SubmittedTransparentFaces;
     public int UploadJobs;
+    public int TransferBufferWaits;
     public int SkippedFrames;
 }
 
@@ -91,5 +94,6 @@ internal readonly record struct FrameProfile(
     StreamingStatistics Streaming,
     double TerrainUploadBytesPerFrame,
     double UiUploadBytesPerFrame,
+    double TransferBufferWaitsPerFrame,
     double MainThreadAllocatedBytesPerFrame,
     GpuResourceUsage GpuResources);

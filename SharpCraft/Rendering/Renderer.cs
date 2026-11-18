@@ -5,7 +5,6 @@ using SharpCraft.Graphics.Resources;
 using SharpCraft.Platform;
 using SharpCraft.SharpMath;
 using SharpCraft.Rendering.Text;
-using SharpCraft.World.WorldStreaming;
 using SharpCraft.View;
 using SharpCraft.Input;
 using SharpCraft.World.Meshing;
@@ -298,6 +297,7 @@ internal unsafe class Renderer : IDisposable
         
         submissionTracker.PollCompleted();
         
+        uploader.Dispose();
         detailedReport.Dispose();
         debugOverlay.Dispose();
         textEngine.Dispose();

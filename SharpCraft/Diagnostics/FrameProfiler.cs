@@ -36,6 +36,7 @@ internal sealed class FrameProfiler : IDisposable
     private double elapsedMilliseconds;
     private long terrainUploadBytes;
     private long uiUploadBytes;
+    private long transferBufferWaits;
     private long allocatedBytes;
 
     public CpuTimings Timings;
@@ -53,6 +54,7 @@ internal sealed class FrameProfiler : IDisposable
         Rendering.SubmittedOpaqueFaces = 0;
         Rendering.SubmittedTransparentFaces = 0;
         Rendering.UploadJobs = 0;
+        Rendering.TransferBufferWaits = 0;
         Rendering.SkippedFrames = 0;
         Rendering.TerrainDrawCalls = 0;
         Rendering.UiDrawCalls = 0;
@@ -86,6 +88,7 @@ internal sealed class FrameProfiler : IDisposable
         elapsedMilliseconds += frameMilliseconds;
         terrainUploadBytes += Rendering.TerrainUploadBytes;
         uiUploadBytes += Rendering.UiUploadBytes;
+        transferBufferWaits += Rendering.TransferBufferWaits;
         allocatedBytes += mainThreadAllocatedBytes;
         totals.WorkMilliseconds += Timings.WorkMilliseconds;
         totals.LimiterMilliseconds += Timings.LimiterMilliseconds;
@@ -95,6 +98,7 @@ internal sealed class FrameProfiler : IDisposable
         totals.AssemblyMilliseconds += Timings.AssemblyMilliseconds;
         totals.CompletionMilliseconds += Timings.CompletionMilliseconds;
         totals.UploadStagingMilliseconds += Timings.UploadStagingMilliseconds;
+        totals.TransferBufferWaitMilliseconds += Timings.TransferBufferWaitMilliseconds;
         totals.UploadCommandsMilliseconds += Timings.UploadCommandsMilliseconds;
         totals.CommandRecordingMilliseconds += Timings.CommandRecordingMilliseconds;
         totals.SubmitMilliseconds += Timings.SubmitMilliseconds;
@@ -126,6 +130,7 @@ internal sealed class FrameProfiler : IDisposable
                 TerrainUploadMilliseconds = totals.TerrainUploadMilliseconds * scale,
                 CompletionMilliseconds = totals.CompletionMilliseconds * scale,
                 UploadStagingMilliseconds = totals.UploadStagingMilliseconds * scale,
+                TransferBufferWaitMilliseconds = totals.TransferBufferWaitMilliseconds * scale,
                 UploadCommandsMilliseconds = totals.UploadCommandsMilliseconds * scale,
                 CommandRecordingMilliseconds = totals.CommandRecordingMilliseconds * scale,
                 SubmitMilliseconds = totals.SubmitMilliseconds * scale,
@@ -136,6 +141,7 @@ internal sealed class FrameProfiler : IDisposable
             Streaming,
             terrainUploadBytes * scale,
             uiUploadBytes * scale,
+            transferBufferWaits * scale,
             allocatedBytes * scale,
             readGpuResources());
 
@@ -144,6 +150,7 @@ internal sealed class FrameProfiler : IDisposable
         elapsedMilliseconds = 0;
         terrainUploadBytes = 0;
         uiUploadBytes = 0;
+        transferBufferWaits = 0;
         allocatedBytes = 0;
     }
     private void ReadMemory()

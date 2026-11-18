@@ -3,7 +3,6 @@ using SharpCraft.Graphics;
 using SharpCraft.Diagnostics;
 using SharpCraft.Graphics.Resources;
 using SharpCraft.World.Chunks;
-using SharpCraft.World.WorldStreaming;
 using SharpCraft.SharpMath;
 using SharpCraft.View;
 using SharpCraft.World.Meshing;
@@ -226,18 +225,10 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     private void Upload(GpuAllocation allocation, ReadOnlySpan<VoxelFace> faces, SlotRecord slotRecord)
     {
         long started = Stopwatch.GetTimestamp();
-        Span<VoxelFace> transfer = new VoxelFace[allocation.CpuAllocation.Count];
-        
-        for (int i = 0; i < allocation.CpuAllocation.Count; i++)
-        {
-            var face = faces[i];
-            face.SetSlotId((ushort)allocation.SlotId);
-            transfer[i] = face;
-        }
-        
-        uploader.Upload(allocation.Page.SlotBuffer, slotRecord, allocation.SlotId);
-        uploader.Upload(allocation.Page.FaceBuffer, transfer, allocation.CpuAllocation.First);
-        
+
+        uploader.Upload(allocation.Page.FaceBuffer, faces, allocation.CpuAllocation.First,
+            allocation.Page.SlotBuffer, slotRecord, allocation.SlotId);
+
         profiler.Timings.TerrainUploadMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
