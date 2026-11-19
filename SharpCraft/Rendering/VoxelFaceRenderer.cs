@@ -27,11 +27,12 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     private const float LocalCenter = Chunk.Last * 0.5f;
     private const float Radius = Chunk.HalfSize * MathUtilities.SquareRootOfThree;
 
-    private const uint pageFaceCapacity = 1 << 23;
-    private const uint pageSlotCapacity = 1 << 15;
+    private const uint PageFaceCapacity = 1 << 23;
+    private const uint PageSlotCapacity = 1 << 15;
+    private const uint MaxUploadFacesPerFrame = 1 << 17;
     
-    private readonly Arena opaqueArena = new(pageFaceCapacity, pageSlotCapacity, device);
-    private readonly Arena transparentArena = new(pageFaceCapacity, pageSlotCapacity, device);
+    private readonly Arena opaqueArena = new(PageFaceCapacity, PageSlotCapacity, device);
+    private readonly Arena transparentArena = new(PageFaceCapacity, PageSlotCapacity, device);
     
     private readonly Dictionary<Vec3<int>, MeshEntry> meshCache = [];
     private readonly Queue<Retirement> retirements = [];
@@ -97,12 +98,21 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
         profiler.Rendering.TransparentFaces = transparentCount;
     }
 
-    public void ProcessMeshUpdates()
+    public bool ProcessMeshUpdates()
     {
+        uint uploadedFaceCount = 0;
+        bool cacheChanged = false;
         long started = Stopwatch.GetTimestamp();
-        
-        while (meshSink.ReadMesh(out var meshUpdate))
+
+        while (meshSink.TryPeekMesh(out var meshUpdate))
         {
+            var updateFaceCount = meshUpdate.Opaque.Length + meshUpdate.Transparent.Length;
+
+            if (updateFaceCount + uploadedFaceCount > MaxUploadFacesPerFrame)
+                break;
+
+            if (!meshSink.TryDequeueMesh()) continue;
+
             bool entryExists = meshCache.TryGetValue(meshUpdate.Index, out var meshEntry);
 
             if (meshUpdate.State == MeshUpdateState.Obsolete)
@@ -111,6 +121,7 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
 
                 meshCache.Remove(meshUpdate.Index);
                 RetireMesh(meshEntry!);
+                cacheChanged = true;
                 continue;
             }
 
@@ -147,9 +158,13 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
                 meshCache[meshUpdate.Index] = new MeshEntry(opaqueAllocations, transparentAllocations,
                     (uint)meshUpdate.Opaque.Length, (uint)meshUpdate.Transparent.Length);
 
+                uploadedFaceCount += (uint)updateFaceCount;
+
+                cacheChanged = true;
+
                 // Retired payload remains counted until its allocation is released
                 profiler.Rendering.TerrainUsedBytes +=
-                    ((long)meshUpdate.Opaque.Length + meshUpdate.Transparent.Length) * sizeof(VoxelFace)
+                    ((long)updateFaceCount) * sizeof(VoxelFace)
                     + ((long)opaqueAllocations.Count + transparentAllocations.Count) * sizeof(SlotRecord);
             }
             catch
@@ -157,7 +172,7 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
                 ReleaseAllocations(opaqueAllocations, transparentAllocations);
                 throw;
             }
-            
+
             if (entryExists)
             {
                 RetireMesh(meshEntry!);
@@ -166,9 +181,11 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
 
         opaqueArena.ReclaimMemory();
         transparentArena.ReclaimMemory();
-        
+
         profiler.Rendering.TerrainBufferBytes = opaqueArena.TotalCapacityBytes + transparentArena.TotalCapacityBytes;
         profiler.Timings.RendererMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
+        return cacheChanged;
     }
 
     public void ReleaseRetired()

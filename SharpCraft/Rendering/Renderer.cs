@@ -97,9 +97,9 @@ internal unsafe class Renderer : IDisposable
         voxelRenderer.ReleaseRetired();
     }
 
-    public void Update()
+    public bool Update()
     {
-        voxelRenderer.ProcessMeshUpdates();
+        return voxelRenderer.ProcessMeshUpdates();
     }
 
     public void UpdateWorld(Camera camera)

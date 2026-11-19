@@ -178,9 +178,9 @@ internal unsafe class App : IDisposable
                 camera.SetViewpoint(viewpoint);
             }
 
-            renderer.Update();
+            bool rendererUpdate = renderer.Update();
             
-            if (controllerUpdate || worldUpdate)
+            if (controllerUpdate || worldUpdate || rendererUpdate)
             {
                 long updateStarted = Stopwatch.GetTimestamp();
                 renderer.UpdateWorld(camera);

@@ -20,15 +20,20 @@ internal class MeshSink
         meshes.Enqueue(removeEntry);
     }
     
-    public bool ReadMesh([MaybeNullWhen(false)] out MeshUpdate result)
+    public bool TryPeekMesh([MaybeNullWhen(false)] out MeshUpdate result)
     {
         result = null;
         
-        if (meshes.TryDequeue(out result))
+        if (meshes.TryPeek(out result))
         {
             return true;
         }
 
         return false;
+    }
+
+    public bool TryDequeueMesh()
+    {
+        return meshes.TryDequeue(out _);
     }
 }
