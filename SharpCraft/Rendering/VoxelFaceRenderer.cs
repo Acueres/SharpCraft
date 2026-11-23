@@ -36,6 +36,7 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
     
     private readonly Dictionary<Vec3<int>, MeshEntry> meshCache = [];
     private readonly Queue<Retirement> retirements = [];
+    private long retiringBytes;
     
     private readonly List<GpuAllocation> visibleOpaqueAllocations = [];
     private readonly List<GpuAllocation> visibleTransparentAllocations = [];
@@ -172,11 +173,6 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
                 uploadedFaceCount += (uint)updateFaceCount;
 
                 cacheChanged = true;
-
-                // Retired payload remains counted until its allocation is released
-                profiler.Rendering.TerrainUsedBytes +=
-                    ((long)updateFaceCount) * sizeof(VoxelFace)
-                    + ((long)opaqueAllocations.Count + transparentAllocations.Count) * sizeof(SlotRecord);
             }
             catch
             {
@@ -193,7 +189,11 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
         opaqueArena.ReclaimMemory();
         transparentArena.ReclaimMemory();
 
-        profiler.Rendering.TerrainBufferBytes = opaqueArena.TotalCapacityBytes + transparentArena.TotalCapacityBytes;
+        profiler.TerrainMemory = new TerrainMemoryStatistics(
+            opaqueArena.GetStatistics(), transparentArena.GetStatistics(),
+            retirements.Count, retiringBytes,
+            meshSink.QueuedUpdates, meshSink.QueuedFaces * sizeof(VoxelFace),
+            uploader.StagingBuffersInFlight, uploader.StagingBufferCount, uploader.StagingReservedBytes);
         profiler.Timings.RendererMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
 
         return cacheChanged;
@@ -215,8 +215,7 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
             
             retirements.Dequeue();
             retirement.Arena.Release(retirement.Allocation);
-            profiler.Rendering.TerrainUsedBytes -=
-                retirement.Allocation.CpuAllocation.Count * sizeof(VoxelFace) + sizeof(SlotRecord);
+            retiringBytes -= ReservedBytes(retirement.Allocation);
         }
 
         profiler.Timings.RendererMilliseconds += Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -228,14 +227,20 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
         {
             var retirement = new Retirement(opaqueAllocation, opaqueArena, submissionTracker.LastSubmittedId);
             retirements.Enqueue(retirement);
+            retiringBytes += ReservedBytes(opaqueAllocation);
         }
 
         foreach (var transparentAllocation in meshEntry.TransparentAllocations)
         {
             var retirement = new Retirement(transparentAllocation, transparentArena, submissionTracker.LastSubmittedId);
             retirements.Enqueue(retirement);
+            retiringBytes += ReservedBytes(transparentAllocation);
         }
     }
+
+    // Space returned to the arena once the GPU is done with it
+    private static long ReservedBytes(GpuAllocation allocation) =>
+        allocation.CpuAllocation.Capacity * sizeof(VoxelFace) + sizeof(SlotRecord);
 
     private void ReleaseAllocations(List<GpuAllocation> opaqueAllocations, List<GpuAllocation> transparentAllocations)
     {

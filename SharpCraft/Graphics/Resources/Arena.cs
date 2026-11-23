@@ -7,8 +7,9 @@ internal unsafe class Arena : IDisposable
 {
     public int PageCount => pages.Count;
     public int ActiveAllocations => pages.Sum(p => p.AllocationCount);
-    public long TotalCapacityBytes => pages.Count * (pageFaceCapacity * sizeof(VoxelFace) + pageSlotCapacity *  sizeof(SlotRecord));
-    
+    public long TotalCapacityBytes => pages.Count * PageBytes;
+    public long PageBytes => (long)pageFaceCapacity * sizeof(VoxelFace) + (long)pageSlotCapacity * sizeof(SlotRecord);
+
     private readonly uint pageFaceCapacity;
     private readonly uint pageSlotCapacity;
     
@@ -109,6 +110,25 @@ internal unsafe class Arena : IDisposable
         allocationPage.Release(allocation);
     }
 
+    public ArenaStatistics GetStatistics()
+    {
+        long usedSlots = 0, requested = 0, reserved = 0, free = 0;
+        uint largest = 0;
+        int allocations = 0;
+        foreach (var page in pages)
+        {
+            usedSlots += page.UsedSlots;
+            requested += page.RequestedFaces;
+            reserved += page.ReservedFaces;
+            free += page.FreeFaces;
+            largest = Math.Max(largest, page.LargestFreeBlock);
+            allocations += page.AllocationCount;
+        }
+
+        return new ArenaStatistics(pages.Count, TotalCapacityBytes, allocations,
+            usedSlots, (long)pages.Count * pageSlotCapacity, requested, reserved, free, largest);
+    }
+
     public void ReclaimMemory()
     {
         if (pages.Count <= 1) return;
@@ -143,3 +163,15 @@ internal unsafe class Arena : IDisposable
         disposed = true;
     }
 }
+
+// Face counts are records; requested vs. reserved shows power-of-two rounding loss
+internal readonly record struct ArenaStatistics(
+    int Pages,
+    long CapacityBytes,
+    int Allocations,
+    long UsedSlots,
+    long SlotCapacity,
+    long RequestedFaces,
+    long ReservedFaces,
+    long FreeFaces,
+    long LargestFreeBlock);

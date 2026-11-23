@@ -27,6 +27,11 @@ internal unsafe class GpuUploader : IDisposable
     private const uint TransferCapacityBytes = 1 << 19;
     private const byte TransferBufferCount = 64;
 
+    public int StagingBufferCount => TransferBufferCount;
+    public long StagingReservedBytes => (long)TransferBufferCount * TransferCapacityBytes;
+    // Accurate only after RecycleBuffers has run for the current frame
+    public int StagingBuffersInFlight => inflightBuffers.Count;
+
     public GpuUploader(GpuDevice device, SubmissionTracker submissionTracker, FrameProfiler profiler)
     {
         this.device = device;

@@ -12,6 +12,12 @@ internal unsafe class Page : IDisposable
     public bool IsEmpty => allocator.AllocationCount == 0;
     public int AllocationCount => allocator.AllocationCount;
 
+    public uint UsedSlots => currentSlotId - (uint)freeSlotIds.Count;
+    public uint RequestedFaces => allocator.RequestedRecords;
+    public uint ReservedFaces => allocator.ReservedRecords;
+    public uint FreeFaces => allocator.FreeRecords;
+    public uint LargestFreeBlock => allocator.LargestFreeBlock;
+
     public BlockFaceBuffer FaceBuffer => faceBuffer;
     public SlotRecordBuffer SlotBuffer => slotBuffer;
     

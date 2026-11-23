@@ -53,28 +53,23 @@ last 256 frames and refresh at roughly 250 ms intervals. Compact means and
 upload/allocation averages retain their 250 ms interval semantics. No GPU query,
 readback, forced collection, or per-frame memory/driver inspection is added.
 
-1. **Frame / CPU**: mean/min/P95/max wall time for main work, limiter, world,
-   completion handling, renderer, culling, face assembly, terrain upload,
-   upload staging, upload commands, scene commands, submission, swapchain
-   acquisition, and UI preparation/upload. Nested scopes overlap and cannot be
-   summed. A zero in an intermittently executed scope includes idle frames.
-   Managed heap, process private bytes, cumulative GC collection counts and
-   approximate cumulative all-thread allocations refresh once a second.
-2. **Streaming**: approximate queued/running counts, workers, successful jobs/sec,
-   cumulative success/failure/skip counts, result backlog, rejected stale results,
-   queue age, and mean/P95/max duration/wait. Last 128 finished jobs form service
-   statistics; last 128 started jobs form queue-wait statistics. Job service time
-   includes publishing into result/relight channels and its backpressure. Startup
-   bulk generation is excluded. Worker timing is not part of CPU frame budget.
-3. **Renderer / resources**: resident/visible chunks, face-list sizes, actual faces
-   submitted (zero on skipped render frames), terrain/UI draws, submitted upload
-   jobs and bytes, persistent tracked buffers/textures, and whole face-buffer
-   requested/reserved bytes and capacity slack. Activity counters show the latest
-   completed refresh frame; upload averages cover the interval. SDL_ttf atlas
-   uploads remain internal, so upload and resource totals exclude them.
-4. **Benchmarks**: deterministic scene/seed/radius/path, warmup and measurement
-   state, and the completed run's mean/P95/max frame duration, main work,
-   upload/allocation averages and skipped frames. The summary stays visible.
+1. **Frame / CPU**: mean/min/P95/max main-thread wall time per scope. Indented
+   rows are nested in the row above, so values overlap and cannot be summed;
+   "(all)" scopes cover terrain and UI. Below: managed heap, process private
+   bytes, main-thread allocation per frame, cumulative GC counts and allocation.
+2. **Streaming**: per stage queue depth, running/workers, jobs/s and cumulative
+   outcomes; job duration (last 128 finished) and queue wait P95 (last 128
+   started). The last row shows main-thread backlogs held back by the pipeline
+   tick budget: results, fresh chunks, deletions, and discarded stale results.
+3. **Renderer**: chunks, draws, drawn faces and skipped frames; upload activity,
+   queued mesh updates with their payload, staging pool peak in flight over the
+   interval against its reservation, and allocations waiting for GPU retirement.
+   The arena table shows, per opaque/transparent arena: page count and bytes,
+   used slots, requested faces vs. power-of-two rounded capacity (packing
+   efficiency), and free faces with the largest free block (fragmentation).
+   Retiring allocations still count as requested until released.
+4. **Benchmarks**: scene, run state and the run summary; in interactive mode only
+   the command-line hint.
 
 The installed SDL GPU binding does **not** expose timestamp queries. GPU durations
 are explicitly unavailable; CPU command time is never relabeled as GPU time.
@@ -82,11 +77,6 @@ are explicitly unavailable; CPU command time is never relabeled as GPU time.
 SDL debug groups for external captures and future asynchronous timestamp hooks.
 Full Phase 0 GPU timestamps still require backend/API support. Advanced pipeline
 statistics, vendor utilization/memory queries and profiler integrations are deferred.
-
-Indirect commands/list construction (Phase 3) and slot/page/arena fragmentation
-and deferred-free counters (Phase 2) are explicitly **N/A**. The current renderer
-has face buffers and immediate upload submissions, so it has no upload queue or
-paged allocator to inspect.
 
 ## Reproducible Phase 0 worlds
 

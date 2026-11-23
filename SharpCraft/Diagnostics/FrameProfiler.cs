@@ -38,10 +38,12 @@ internal sealed class FrameProfiler : IDisposable
     private long uiUploadBytes;
     private long transferBufferWaits;
     private long allocatedBytes;
+    private int stagingPeak;
 
     public CpuTimings Timings;
     public RenderStatistics Rendering;
     public StreamingStatistics Streaming;
+    public TerrainMemoryStatistics TerrainMemory;
     public FrameProfile Snapshot { get; private set; }
     public FrameSample LatestFrame { get; private set; }
 
@@ -90,6 +92,7 @@ internal sealed class FrameProfiler : IDisposable
         uiUploadBytes += Rendering.UiUploadBytes;
         transferBufferWaits += Rendering.TransferBufferWaits;
         allocatedBytes += mainThreadAllocatedBytes;
+        stagingPeak = Math.Max(stagingPeak, TerrainMemory.StagingBuffersInFlight);
         totals.WorkMilliseconds += Timings.WorkMilliseconds;
         totals.LimiterMilliseconds += Timings.LimiterMilliseconds;
         totals.WorldMilliseconds += Timings.WorldMilliseconds;
@@ -143,7 +146,8 @@ internal sealed class FrameProfiler : IDisposable
             uiUploadBytes * scale,
             transferBufferWaits * scale,
             allocatedBytes * scale,
-            readGpuResources());
+            readGpuResources(),
+            TerrainMemory with { StagingBuffersInFlight = stagingPeak });
 
         totals = default;
         sampleCount = 0;
@@ -152,6 +156,7 @@ internal sealed class FrameProfiler : IDisposable
         uiUploadBytes = 0;
         transferBufferWaits = 0;
         allocatedBytes = 0;
+        stagingPeak = 0;
     }
     private void ReadMemory()
     {

@@ -14,13 +14,24 @@ internal sealed class DetailedReport : IDisposable
 {
     private static readonly string[] PageNames = ["FRAME / CPU", "STREAMING", "RENDERER / RESOURCES", "BENCHMARKS"];
 
-    private static readonly string[] CpuNames =
+    // Display order; indentation marks scopes nested in the row above. "(all)" covers terrain and UI
+    private static readonly (CpuMetric Metric, string Name)[] CpuRowOrder =
     [
-        "Main work (before limiter)", "Frame limiter", "World / scheduler", "  Completion handling",
-        "Renderer incl. UI", "  Culling", "  Face-list assembly", "  Terrain upload total", "    Upload staging (all)",
-        "      Transfer buffer wait",
-        "    Upload commands (all)", "  Scene commands", "Submit (all commands)", "Swapchain acquire",
-        "UI prepare / upload"
+        (CpuMetric.Work, "Main work"),
+        (CpuMetric.Limiter, "Frame limiter"),
+        (CpuMetric.World, "World tick"),
+        (CpuMetric.Completions, "  Pipeline results"),
+        (CpuMetric.Renderer, "Renderer incl. UI"),
+        (CpuMetric.Culling, "  Culling"),
+        (CpuMetric.Assembly, "  Transparent sort"),
+        (CpuMetric.TerrainUpload, "  Terrain upload"),
+        (CpuMetric.Recording, "  Scene commands"),
+        (CpuMetric.Ui, "  UI prepare / upload"),
+        (CpuMetric.Acquire, "  Swapchain acquire"),
+        (CpuMetric.Submit, "  Submit (all)"),
+        (CpuMetric.Staging, "  Upload staging (all)"),
+        (CpuMetric.TransferBufferWait, "    Transfer buffer wait"),
+        (CpuMetric.UploadCommands, "  Upload commands (all)")
     ];
 
     private readonly FrameProfiler profiler;
@@ -104,7 +115,17 @@ internal sealed class DetailedReport : IDisposable
     }
 
     private static string F(FormattableString value) => value.ToString(CultureInfo.InvariantCulture);
-    private static string MiB(double bytes) => F($"{bytes / 1048576:0.00} MiB");
+    private static string N(long count) => CompactProfileText.Count((ulong)Math.Max(0, count));
+
+    private static string Size(double bytes) => bytes switch
+    {
+        >= 1L << 30 => F($"{bytes / (1L << 30):0.00} GiB"),
+        >= 1L << 20 => F($"{bytes / (1L << 20):0.0} MiB"),
+        >= 1L << 10 => F($"{bytes / (1L << 10):0.0} KiB"),
+        _ => F($"{bytes:0} B")
+    };
+
+    private static string Percent(long part, long whole) => whole == 0 ? "-" : F($"{part * 100.0 / whole:0}%");
 
     private void Rebuild()
     {
@@ -113,7 +134,7 @@ internal sealed class DetailedReport : IDisposable
         headers[0].Set(font, Fit($"SharpCraft detailed report | {PageNames[state.Page]} | Shift+F3 close"));
         headers[1].Set(font,
             Fit(F(
-                $"{(frame.Mean > 0 ? 1000 / frame.Mean : 0):0.0} FPS | Frame {frame.Mean:0.00} ms | P95 {frame.P95:0.00} | Max {frame.Maximum:0.00} | {frame.Count} samples")));
+                $"{(frame.Mean > 0 ? 1000 / frame.Mean : 0):0.0} FPS | frame {frame.Mean:0.00} ms | P95 {frame.P95:0.00} | max {frame.Maximum:0.00}")));
         headers[2].Set(font,
             Fit(F(
                 $"{options.Scene?.ToString() ?? "Interactive"} | Radius {options.Radius} | CPU cap {(options.FpsLimit == 0 ? "off" : $"{options.FpsLimit} FPS")} / {device.PresentationMode} | XYZ {position.X:0.0}, {position.Y:0.0}, {position.Z:0.0}")));
@@ -122,8 +143,7 @@ internal sealed class DetailedReport : IDisposable
         headers[3].Set(font,
             Fit(historyCount == 0
                 ? "Waiting for frame samples..."
-                : F(
-                    $"Frame history #{history[0].Id}..#{history[historyCount - 1].Id} | scale 0..{chartMaximum:0.0} ms | line 16.67 ms")));
+                : F($"Last {historyCount} frames | scale 0..{chartMaximum:0.0} ms | line 16.67 ms")));
 
         rows.Clear();
         switch (state.Page)
@@ -159,121 +179,95 @@ internal sealed class DetailedReport : IDisposable
 
     private void CpuRows()
     {
-        rows.Add("CPU wall time, ms / frame             Mean      Min      P95      Max");
-        for (int i = 0; i < (int)CpuMetric.Count; i++)
+        rows.Add("CPU ms / frame                  Mean      Min      P95      Max");
+        foreach (var (metric, name) in CpuRowOrder)
         {
-            var s = profiler.Statistics((CpuMetric)i);
-            rows.Add(F($"{CpuNames[i],-35} {s.Mean,8:0.000} {s.Minimum,8:0.000} {s.P95,8:0.000} {s.Maximum,8:0.000}"));
+            var s = profiler.Statistics(metric);
+            rows.Add(F($"{name,-27} {s.Mean,8:0.000} {s.Minimum,8:0.000} {s.P95,8:0.000} {s.Maximum,8:0.000}"));
         }
 
         var memory = profiler.Memory;
         rows.Add("");
-        rows.Add(F($"Managed heap {MiB(memory.ManagedBytes)} | Process private {MiB(memory.ProcessBytes)}"));
         rows.Add(F(
-            $"Main-thread allocations {profiler.Snapshot.MainThreadAllocatedBytesPerFrame / 1024:0.00} KiB/frame (250ms average)"));
+            $"Memory   heap {Size(memory.ManagedBytes)} | private {Size(memory.ProcessBytes)} | main thread {Size(profiler.Snapshot.MainThreadAllocatedBytesPerFrame)}/frame"));
         rows.Add(F(
-            $"GC collections since launch: G0 {memory.Gen0Collections} / G1 {memory.Gen1Collections} / G2 {memory.Gen2Collections}"));
-        rows.Add($"All-thread allocations since launch: {MiB(memory.TotalAllocatedBytes)} (approximate)");
-        rows.Add("Scopes overlap: world includes completions; renderer includes its subscopes.");
-        rows.Add("Upload scopes include terrain and UI; worker and GPU time are separate.");
-        rows.Add("CPU wall time can include driver waits. These numbers are not GPU durations.");
+            $"GC       G0 {memory.Gen0Collections} | G1 {memory.Gen1Collections} | G2 {memory.Gen2Collections} | {Size(memory.TotalAllocatedBytes)} allocated since launch"));
     }
 
     private void StreamingRows(StreamingStatistics streaming)
     {
-        rows.Add("Stage        Queue  Running/Workers    Done/s     Completed  Failed  Skipped");
+        rows.Add("Stage        Queue  Run/Wk   Done/s    Completed  Failed  Skipped");
         JobRow("Generation", streaming.GenerationQueued, streaming.Generation);
         JobRow("Lighting", streaming.LightingQueued, streaming.Lighting);
         JobRow("Meshing", streaming.MeshingQueued, streaming.Meshing);
-        rows.Add(F(
-            $"Results awaiting main thread: {streaming.ResultsQueued} | Stale results discarded: {streaming.StaleResults}"));
         rows.Add("");
-        rows.Add("Job duration / queue wait, ms          Mean      P95      Max      Oldest queued");
+        rows.Add("Job ms         Mean      P95      Max  Wait P95   Oldest");
         JobDuration("Generation", streaming.Generation);
         JobDuration("Lighting", streaming.Lighting);
         JobDuration("Meshing", streaming.Meshing);
         rows.Add("");
-        rows.Add("Durations: last 128 finished jobs. Queue wait: last 128 started jobs.");
-        rows.Add("Duration includes result/relight publishing and any channel backpressure.");
-        rows.Add("Queues exclude running jobs; concurrent readings are approximate.");
-        rows.Add("Completed counts successful execution, even if later rejected as stale.");
-        rows.Add("Startup bulk generation is excluded from worker statistics.");
+        rows.Add(F(
+            $"Main thread  results {streaming.ResultsQueued} | fresh {streaming.FreshBacklog} | deletions {streaming.DeletionBacklog} | stale {streaming.StaleResults:N0}"));
     }
 
     private void JobRow(string name, int queued, JobStatistics s) => rows.Add(
-        F(
-            $"{name,-11} {queued,6} {s.Running,5}/{s.Workers,-7} {s.PerSecond,9:0.0} {s.Completed,13} {s.Failed,7} {s.Skipped,8}"));
+        F($"{name,-11} {queued,6} {s.Running + "/" + s.Workers,7} {s.PerSecond,8:0.0} {s.Completed,12:N0} {s.Failed,7} {s.Skipped,8}"));
 
-    private void JobDuration(string name, JobStatistics s)
-    {
-        rows.Add(F(
-            $"{name + " job",-35} {s.Duration.Mean,8:0.000} {s.Duration.P95,8:0.000} {s.Duration.Maximum,8:0.000} {s.OldestQueuedMilliseconds,12:0.0}"));
-        rows.Add(F(
-            $"{name + " queue wait",-35} {s.QueueWait.Mean,8:0.000} {s.QueueWait.P95,8:0.000} {s.QueueWait.Maximum,8:0.000}"));
-    }
+    private void JobDuration(string name, JobStatistics s) => rows.Add(
+        F($"{name,-11} {s.Duration.Mean,8:0.000} {s.Duration.P95,8:0.000} {s.Duration.Maximum,8:0.000} {s.QueueWait.P95,9:0.0} {s.OldestQueuedMilliseconds,8:0.0}"));
 
     private void RendererRows(FrameProfile profile)
     {
         var r = profile.Rendering;
         var g = profile.GpuResources;
-        rows.Add($"Device: {device.DeviceName} ({device.DriverName})");
-        rows.Add($"GPU opaque / transparent timings: {device.TimingStatus}");
+        var t = profile.TerrainMemory;
+        rows.Add($"Device      {device.DeviceName} ({device.DriverName})");
+        rows.Add(F($"Chunks      {r.ResidentChunks:N0} resident | {r.VisibleChunks:N0} visible"));
+        rows.Add(F($"Draws       {r.TerrainDrawCalls:N0} terrain | {r.UiDrawCalls} UI | {r.SkippedFrames} skipped frames"));
+        rows.Add(F($"Faces       {N(r.SubmittedOpaqueFaces)} opaque | {N(r.SubmittedTransparentFaces)} transparent drawn"));
         rows.Add("");
-        rows.Add(F($"Chunks resident / visible: {r.ResidentChunks:N0} / {r.VisibleChunks:N0} (current terrain path)"));
-        rows.Add(F($"Face list opaque / transparent: {r.OpaqueFaces:N0} / {r.TransparentFaces:N0}"));
         rows.Add(F(
-            $"Faces submitted, latest sampled frame: {r.SubmittedOpaqueFaces:N0} / {r.SubmittedTransparentFaces:N0}"));
+            $"Uploads     {r.UploadJobs} jobs, {Size(r.TerrainUploadBytes + r.UiUploadBytes)} last frame | avg terrain {Size(profile.TerrainUploadBytesPerFrame)}, UI {Size(profile.UiUploadBytesPerFrame)}"));
+        rows.Add(F($"Mesh queue  {t.QueuedMeshUpdates:N0} updates, {Size(t.QueuedMeshBytes)}"));
         rows.Add(F(
-            $"Draws terrain / UI: {r.TerrainDrawCalls} / {r.UiDrawCalls} | Skipped swapchain frame: {r.SkippedFrames}"));
-        rows.Add(F(
-            $"Uploads, latest sampled frame: {r.UploadJobs} jobs / {(r.TerrainUploadBytes + r.UiUploadBytes) / 1024.0:0.00} KiB"));
-        rows.Add(F(
-            $"Upload average: terrain {profile.TerrainUploadBytesPerFrame / 1024:0.00} / UI {profile.UiUploadBytesPerFrame / 1024:0.00} KiB/frame"));
-        rows.Add(F(
-            $"Transfer buffer wait: {profile.Timings.TransferBufferWaitMilliseconds:0.000} ms/frame | {profile.TransferBufferWaitsPerFrame:0.00} waits/frame (250ms average)"));
-        rows.Add("Transfer buffer wait is included in upload staging time.");
-        rows.Add("Upload queue: N/A (immediate submission; no upload scheduler)");
+            $"Staging     peak {t.StagingBuffersInFlight}/{t.StagingBufferCount} in flight · {Size(t.StagingReservedBytes)} reserved | waits {profile.TransferBufferWaitsPerFrame:0.00}/frame, {profile.Timings.TransferBufferWaitMilliseconds:0.000} ms"));
+        rows.Add(F($"Retiring    {t.RetiringAllocations:N0} allocations, {Size(t.RetiringBytes)}"));
         rows.Add("");
-        rows.Add($"Tracked persistent resources: {MiB(g.TotalBytes)}");
-        rows.Add(F(
-            $"Buffers: {g.BufferCount} / {MiB(g.BufferBytes)} | Textures: {g.TextureCount} / {MiB(g.TextureBytes)}"));
-        rows.Add($"Terrain requested / reserved: {MiB(r.TerrainUsedBytes)} / {MiB(r.TerrainBufferBytes)}");
-        rows.Add(F(
-            $"Terrain capacity utilization: {(r.TerrainBufferBytes == 0 ? 0 : r.TerrainUsedBytes * 100.0 / r.TerrainBufferBytes):0.0}% | Unused {MiB(r.TerrainBufferBytes - r.TerrainUsedBytes)}"));
-        rows.Add("Tracked bytes exclude driver overhead, staging, cycling, swapchain and SDL_ttf atlases.");
+        rows.Add("Arena            Opaque                  Transparent");
+        ArenaRow("Pages", t, a => F($"{a.Pages} · {Size(a.CapacityBytes)}"));
+        ArenaRow("Slots", t, a => F($"{a.UsedSlots:N0} / {a.SlotCapacity:N0}"));
+        ArenaRow("Faces / rounded", t, a => $"{N(a.RequestedFaces)} / {N(a.ReservedFaces)} · {Percent(a.RequestedFaces, a.ReservedFaces)}");
+        ArenaRow("Free (largest)", t, a => $"{N(a.FreeFaces)} ({N(a.LargestFreeBlock)})");
         rows.Add("");
-        rows.Add("Indirect commands / list construction: N/A (Phase 3)");
-        rows.Add("Slots / pages / fragmentation / deferred frees: N/A (Phase 2)");
-        rows.Add("Capacity slack above describes whole face buffers, not an arena allocator.");
+        rows.Add(F(
+            $"GPU tracked {Size(g.TotalBytes)} | {g.BufferCount} buffers {Size(g.BufferBytes)} | {g.TextureCount} textures {Size(g.TextureBytes)}"));
     }
+
+    private void ArenaRow(string name, TerrainMemoryStatistics t, Func<ArenaStatistics, string> value) =>
+        rows.Add($"{name,-16} {value(t.Opaque),-23} {value(t.Transparent)}");
 
     private void BenchmarkRows()
     {
-        rows.Add("Phase 0 presets: A Exposure | B Merge-friendly | C Seeded terrain");
+        const string cli = "CLI  --benchmark exposure|merge|terrain --seed N --radius N --path rotate|travel --fps 0";
+        if (!options.Scene.HasValue)
+        {
+            rows.Add(F($"Interactive | radius {options.Radius}. Start a run from the command line:"));
+            rows.Add(cli);
+            return;
+        }
+
         rows.Add(F(
-            $"Scene: {options.Scene?.ToString() ?? "none (interactive)"} | Seed: {options.Seed} | Chunk radius: {options.Radius}"));
+            $"Scene       {options.Scene} | seed {options.Seed} | radius {options.Radius} | path {options.Path}"));
         rows.Add(F(
-            $"Camera: {options.Path} | Warmup: {options.WarmupSeconds:0.0}s | Measurement: {options.MeasureSeconds:0.0}s"));
-        rows.Add(F(
-            $"Status: {benchmark.Phase} | Remaining {benchmark.RemainingSeconds:0.0}s | Measured frames {benchmark.Frames:N0}"));
+            $"Run         {benchmark.Phase} | {benchmark.RemainingSeconds:0.0} s left | {benchmark.Frames:N0} frames | warmup {options.WarmupSeconds:0.0} s, measure {options.MeasureSeconds:0.0} s"));
         rows.Add("");
         rows.Add(F(
-            $"Frame mean / P95 (~0.1ms bins) / max: {benchmark.MeanMilliseconds:0.000} / {benchmark.P95Milliseconds:0.0} / {benchmark.MaximumMilliseconds:0.000} ms"));
+            $"Frame ms    mean {benchmark.MeanMilliseconds:0.000} | P95 {benchmark.P95Milliseconds:0.0} | max {benchmark.MaximumMilliseconds:0.000}"));
+        rows.Add(F($"Main work   {benchmark.MeanWorkMilliseconds:0.000} ms/frame | {benchmark.SkippedFrames} skipped frames"));
         rows.Add(F(
-            $"Main work: {benchmark.MeanWorkMilliseconds:0.000} ms/frame | Skipped swapchain frames: {benchmark.SkippedFrames}"));
-        rows.Add(F(
-            $"Uploads: {benchmark.UploadBytesPerFrame / 1024:0.00} KiB/frame | Main-thread allocation: {benchmark.AllocatedBytesPerFrame / 1024:0.00} KiB/frame"));
-        rows.Add("P95 at/above 1000ms is shown as Infinity (histogram overflow).");
+            $"Per frame   uploads {Size(benchmark.UploadBytesPerFrame)} | main-thread alloc {Size(benchmark.AllocatedBytesPerFrame)}"));
         rows.Add("");
-        rows.Add("Run from the command line; restart with the same options to compare commits:");
-        rows.Add("--benchmark exposure --seed 1337 --radius 4 --path rotate --fps 0");
-        rows.Add("--benchmark merge --seed 1337 --radius 4 --path rotate --fps 0");
-        rows.Add("--benchmark terrain --seed 1337 --radius 4 --path travel --fps 0");
-        rows.Add("Repeat terrain at radii 2, 4, 8. Travel moves +X at 8 blocks/sec.");
-        rows.Add("Loading is excluded. Sampling starts after warmup; whole boundary frames are kept.");
-        rows.Add("Report overhead is part of the measurement. Keep UI, resolution and cap identical.");
-        rows.Add("Terrain uses the current sandstone/lighting path; content grows with worldgen.");
-        rows.Add("Fine detail, vegetation and dynamic stress presets belong to later phases.");
+        rows.Add(cli);
     }
 
     public void Draw(SpriteRenderer renderer)

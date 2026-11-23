@@ -6,7 +6,26 @@ namespace SharpCraft.Graphics.Resources;
 internal class CpuAllocator
 {
     public int AllocationCount => allocations.Count;
-    
+
+    // Records requested by callers vs. their power-of-two rounded capacity
+    public uint RequestedRecords { get; private set; }
+    public uint ReservedRecords { get; private set; }
+    public uint FreeRecords => totalCapacity - ReservedRecords;
+
+    public uint LargestFreeBlock
+    {
+        get
+        {
+            uint largest = 0;
+            foreach (var (capacity, blocks) in freeBlocksByCapacity)
+            {
+                if (blocks.Count > 0 && capacity > largest) largest = capacity;
+            }
+
+            return largest;
+        }
+    }
+
     private readonly record struct FreeBlock(uint FirstRecord);
     
     private readonly uint totalCapacity;
@@ -55,6 +74,8 @@ internal class CpuAllocator
 
         allocation = new CpuAllocation(fittingCapacity, block.FirstRecord, count);
         allocations.Add(allocation);
+        RequestedRecords += count;
+        ReservedRecords += fittingCapacity;
 
         return true;
     }
@@ -69,6 +90,9 @@ internal class CpuAllocator
         {
             throw new InvalidOperationException("Allocation is not active in this CPU allocator.");
         }
+
+        RequestedRecords -= allocation.Count;
+        ReservedRecords -= allocation.Capacity;
 
         CoalesceBlocks(allocation.First, allocation.Capacity);
     }

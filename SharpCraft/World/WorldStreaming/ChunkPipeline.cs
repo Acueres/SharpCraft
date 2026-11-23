@@ -154,7 +154,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         Lighting = lightingProfile.Snapshot(Oldest(pendingLighting, lightChannel)),
         Meshing = meshingProfile.Snapshot(Oldest(pendingMeshing, meshChannel)),
         ResultsQueued = resultChannel.Reader.Count,
-        StaleResults = staleResults
+        StaleResults = staleResults,
+        FreshBacklog = freshQueue.Count,
+        DeletionBacklog = markedForDeletionQueue.Count + pendingDeletion.Count
     };
 
     private static double Oldest(Queue<WorkItem> pending, Channel<WorkItem> channel)

@@ -1,4 +1,8 @@
 using SharpCraft.Graphics;
+using SharpCraft.Graphics.Resources;
+using SharpCraft.Rendering;
+
+using System.Runtime.CompilerServices;
 
 namespace SharpCraft.Diagnostics;
 
@@ -59,9 +63,6 @@ internal struct RenderStatistics
     public int UiDrawCalls;
     public long TerrainUploadBytes;
     public long UiUploadBytes;
-    public long TerrainUsedBytes;
-    // Explicit face-buffer capacity, not total driver/VRAM consumption
-    public long TerrainBufferBytes;
     public uint SubmittedOpaqueFaces;
     public uint SubmittedTransparentFaces;
     public int UploadJobs;
@@ -76,6 +77,26 @@ internal readonly record struct StreamingStatistics(int GenerationQueued, int Li
     public JobStatistics Meshing { get; init; }
     public int ResultsQueued { get; init; }
     public long StaleResults { get; init; }
+    // Main-thread queues throttled by the pipeline tick budget
+    public int FreshBacklog { get; init; }
+    public int DeletionBacklog { get; init; }
+}
+
+// Renderer-side terrain memory gauges. Snapshots replace StagingBuffersInFlight with the interval peak
+internal readonly record struct TerrainMemoryStatistics(
+    ArenaStatistics Opaque,
+    ArenaStatistics Transparent,
+    int RetiringAllocations,
+    long RetiringBytes,
+    int QueuedMeshUpdates,
+    long QueuedMeshBytes,
+    int StagingBuffersInFlight,
+    int StagingBufferCount,
+    long StagingReservedBytes)
+{
+    public long CapacityBytes => Opaque.CapacityBytes + Transparent.CapacityBytes;
+    public long RequestedBytes =>
+        (Opaque.RequestedFaces + Transparent.RequestedFaces) * Unsafe.SizeOf<VoxelFace>();
 }
 
 internal readonly record struct DurationStatistics(int Count, double Mean, double Minimum, double P95, double Maximum);
@@ -96,4 +117,5 @@ internal readonly record struct FrameProfile(
     double UiUploadBytesPerFrame,
     double TransferBufferWaitsPerFrame,
     double MainThreadAllocatedBytesPerFrame,
-    GpuResourceUsage GpuResources);
+    GpuResourceUsage GpuResources,
+    TerrainMemoryStatistics TerrainMemory);

@@ -94,6 +94,7 @@ internal unsafe class Renderer : IDisposable
     public void BeginFrame()
     {
         submissionTracker.PollCompleted();
+        uploader.RecycleBuffers();
         voxelRenderer.ReleaseRetired();
     }
 

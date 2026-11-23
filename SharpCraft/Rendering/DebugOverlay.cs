@@ -70,7 +70,8 @@ internal sealed class DebugOverlay : IDisposable
         systems.SetValue(2, FormattableString.Invariant($"{profile.Timings.WorkMilliseconds:0.0} ms"));
         gpu.SetValue(1, FormattableString.Invariant($"{profile.GpuResources.TotalBytes / 1048576.0:0.0} MiB"));
         gpu.SetValue(2, CompactProfileText.Count((ulong)rendering.OpaqueFaces + rendering.TransparentFaces));
-        gpu.SetValue(3, FormattableString.Invariant($"{rendering.TerrainUsedBytes / 1048576.0:0.0} / {rendering.TerrainBufferBytes / 1048576.0:0.0} MiB"));
+        var terrain = profile.TerrainMemory;
+        gpu.SetValue(3, FormattableString.Invariant($"{terrain.RequestedBytes / 1048576.0:0.0} / {terrain.CapacityBytes / 1048576.0:0.0} MiB"));
         gpu.SetValue(4, FormattableString.Invariant($"{profile.TerrainUploadBytesPerFrame / 1024:0.0} KiB/frame"));
         displayedRevision = profile.Revision;
     }
