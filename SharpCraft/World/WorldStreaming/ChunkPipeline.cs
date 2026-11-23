@@ -3,6 +3,7 @@ using SharpCraft.World.Blocks;
 using SharpCraft.World.Chunks;
 using SharpCraft.World.Meshing;
 using SharpCraft.World.Generation;
+using SharpCraft.World.Lighting;
 using SharpCraft.Diagnostics;
 using SharpCraft.Rendering;
 
@@ -14,8 +15,28 @@ namespace SharpCraft.World.WorldStreaming;
 
 internal class ChunkPipeline : IDisposable, IAsyncDisposable
 {
-    private const int ChunkBudget = 500;
+    private const int ChannelCapacity = 512;
     
+    private const double TickBudgetMilliseconds = 2.0;
+    
+    private const int MaxItemsPerPhase = ChannelCapacity * 2;
+
+    private const int MinRelights = 16;
+    private const int MinResults = 16;
+    private const int MinMarks = 64;
+    private const int MinDeletions = 64;
+    private const int MinFresh = 16;
+    private const int MinFlush = 16;
+    
+    private const int StrandedScanPerTick = 256;
+
+    private static readonly Vec3<int>[] NeighborOffsets =
+    [
+        new(-1, 0, 0), new(1, 0, 0),
+        new(0, -1, 0), new(0, 1, 0),
+        new(0, 0, -1), new(0, 0, 1)
+    ];
+
     private readonly JobProfiler generationProfile = new();
     private readonly JobProfiler lightingProfile = new();
     private readonly JobProfiler meshingProfile = new();
@@ -31,46 +52,51 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     private readonly CancellationTokenSource cts = new();
 
     private readonly ConcurrentDictionary<Vec3<int>, ChunkRecord> registry = [];
+
+    private readonly Queue<Vec3<int>> freshQueue = [];
+    private readonly Queue<Vec3<int>> markedForDeletionQueue = [];
+
     private readonly Queue<WorkItem> pendingGeneration = [];
     private readonly Queue<WorkItem> pendingLighting = [];
     private readonly Queue<WorkItem> pendingMeshing = [];
+
     private readonly HashSet<Vec3<int>> pendingDeletion = [];
     private readonly Queue<Vec3<int>> deletionQueue = [];
+    
+    private IEnumerator<KeyValuePair<Vec3<int>, ChunkRecord>>? strandedScan;
 
-    private const int StrandedCleanupPeriodTicks = 500;
-
-    private int ticksSinceLastStrandedCleanup;
+    private long tickDeadline;
 
     private readonly Channel<WorkItem> genChannel = Channel.CreateBounded<WorkItem>(
-        new BoundedChannelOptions(ChunkBudget)
+        new BoundedChannelOptions(ChannelCapacity)
         {
             SingleReader = false,
             SingleWriter = true
         });
 
     private readonly Channel<WorkItem> lightChannel = Channel.CreateBounded<WorkItem>(
-        new BoundedChannelOptions(ChunkBudget)
+        new BoundedChannelOptions(ChannelCapacity)
         {
             SingleReader = false,
             SingleWriter = true
         });
 
     private readonly Channel<WorkItem> meshChannel = Channel.CreateBounded<WorkItem>(
-        new BoundedChannelOptions(ChunkBudget)
+        new BoundedChannelOptions(ChannelCapacity)
         {
             SingleReader = false,
             SingleWriter = true
         });
 
     private readonly Channel<WorkResult> resultChannel = Channel.CreateBounded<WorkResult>(
-        new BoundedChannelOptions(ChunkBudget)
+        new BoundedChannelOptions(ChannelCapacity)
         {
             SingleReader = true,
             SingleWriter = false
         });
 
     private readonly Channel<RelightRequest> relightChannel = Channel.CreateBounded<RelightRequest>(
-        new BoundedChannelOptions(ChunkBudget)
+        new BoundedChannelOptions(ChannelCapacity)
         {
             SingleReader = true,
             SingleWriter = false
@@ -108,11 +134,17 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     public void Schedule(List<Vec3<int>> toGenerate, List<Vec3<int>> toRemove)
     {
-        MarkForDeletion(toRemove);
-        ProcessFresh(toGenerate);
-    }
+        foreach (var id in toRemove)
+        {
+            markedForDeletionQueue.Enqueue(id);
+        }
 
-    // Approximate concurrent queue depths; executing jobs are intentionally excluded
+        foreach (var id in toGenerate)
+        {
+            freshQueue.Enqueue(id);
+        }
+    }
+    
     public StreamingStatistics GetStatistics() => new(
         pendingGeneration.Count + genChannel.Reader.Count,
         pendingLighting.Count + lightChannel.Reader.Count,
@@ -135,21 +167,30 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     public bool Tick()
     {
+        long tickStarted = Stopwatch.GetTimestamp();
+        tickDeadline = tickStarted + (long)(TickBudgetMilliseconds * Stopwatch.Frequency / 1000.0);
+        
+        MarkForDeletion();
+
         long completionStarted = Stopwatch.GetTimestamp();
         int chunksMeshed = DrainResults();
         CompletionMilliseconds = Stopwatch.GetElapsedTime(completionStarted).TotalMilliseconds;
-
+        
         Flush();
+        ProcessFresh();
 
         int chunksDeleted = ProcessDeletion();
 
-        if (++ticksSinceLastStrandedCleanup >= StrandedCleanupPeriodTicks)
-        {
-            ClearStrandedRecords();
-            ticksSinceLastStrandedCleanup = 0;
-        }
+        ScanStrandedRecords();
 
         return chunksMeshed > 0 || chunksDeleted > 0;
+    }
+
+    private bool BudgetExhausted(int processed, int minimum)
+    {
+        if (processed >= MaxItemsPerPhase) return true;
+        if (processed < minimum) return false;
+        return Stopwatch.GetTimestamp() >= tickDeadline;
     }
 
     public void AddToRegistry(Chunk chunk, ChunkStage stage)
@@ -169,12 +210,16 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
     {
         int chunksMeshed = 0;
 
-        while (relightChannel.Reader.TryRead(out var relightRequest))
+        for (int processed = 0;
+             !BudgetExhausted(processed, MinRelights) && relightChannel.Reader.TryRead(out var relightRequest);
+             processed++)
         {
             ProcessRelightRequest(relightRequest);
         }
 
-        while (resultChannel.Reader.TryRead(out var result))
+        for (int processed = 0;
+             !BudgetExhausted(processed, MinResults) && resultChannel.Reader.TryRead(out var result);
+             processed++)
         {
             if (result is { JobType: JobType.Meshing, Status: ResultStatus.Success })
             {
@@ -228,12 +273,17 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             {
                 case JobType.Generation:
                     record.Chunk = result.Chunk;
-                    record.Chunk!.EnsureLight();
+                    record.Chunk!.EnsureLight(); // The worker already allocated it
                     volume.Add(record.Chunk!);
                     record.Stage = ChunkStage.Generated;
                     break;
                 case JobType.Lighting:
-                    record.Stage = ChunkStage.Lit;
+                    // A relight that changed nothing in this chunk keeps the existing mesh.
+                    // Neighbor-boundary changes that do affect it arrive as NeedsRemesh instead.
+                    if (record.Stage < ChunkStage.Lit || (result.LightChanged && !record.Chunk!.IsEmpty))
+                    {
+                        record.Stage = ChunkStage.Lit;
+                    }
                     break;
                 case JobType.Meshing:
                     record.Stage = ChunkStage.Meshed;
@@ -253,9 +303,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
             if (record.Chunk is not null && result.JobType is JobType.Lighting or JobType.Generation)
             {
-                foreach (var n in record.Chunk.GetNeighborIndexes())
+                foreach (var offset in NeighborOffsets)
                 {
-                    TryDispatch(n);
+                    TryDispatch(result.Index + offset);
                 }
             }
         }
@@ -269,19 +319,20 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         }
     }
 
-    private void TryDispatch(Vec3<int> index)
+    /// Returns false if the target channel is full
+    private bool TryDispatch(Vec3<int> index)
     {
         if (!volume.IsWithinActiveVolume(index))
-            return;
+            return true;
 
         if (!registry.TryGetValue(index, out var record))
-            return;
+            return true;
 
         if (!record.Flags.HasFlag(ChunkFlags.Wanted))
-            return;
+            return true;
 
         if (record.InFlight != null)
-            return;
+            return true;
 
         JobType? job = record.Stage switch
         {
@@ -301,27 +352,48 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         }
 
         if (job is null)
-            return;
+            return true;
 
         // Generation jobs are dispatched separately as a special case
         if (job == JobType.Generation)
         {
-            Dispatch(record, index, JobType.Generation, new NeighborSet());
-            return;
+            return Dispatch(record, index, JobType.Generation, new NeighborSet());
         }
 
         if (record.Chunk is null)
-            return;
+            return true;
+
+        // Empty chunks have no geometry and need no neighbors
+        if (job == JobType.Meshing && record.Chunk.IsEmpty)
+        {
+            CompleteEmptyMesh(record, index);
+            return true;
+        }
 
         bool allNeighborsExist = TryCollectNeighbors(record.Chunk, out var neighbors, out var records);
 
         if (job == JobType.Meshing && !(allNeighborsExist && AllNeighborsLit(records)))
-            return;
+            return true;
 
-        Dispatch(record, index, job.Value, neighbors);
+        return Dispatch(record, index, job.Value, neighbors);
     }
 
-    private void Dispatch(ChunkRecord record, Vec3<int> index, JobType job, in NeighborSet neighbors)
+    private void CompleteEmptyMesh(ChunkRecord record, Vec3<int> index)
+    {
+        bool firstMesh = record.Stage < ChunkStage.Meshed;
+
+        record.Dirty &= ~ChunkDirty.NeedsRemesh;
+        record.Stage = ChunkStage.Meshed;
+        record.Chunk!.IsReady = true;
+
+        // The renderer drops any existing entry for a zero-face update
+        if (!firstMesh)
+        {
+            meshSink.AddMesh(new MeshUpdate(index, MeshUpdateState.Updated, [], []));
+        }
+    }
+
+    private bool Dispatch(ChunkRecord record, Vec3<int> index, JobType job, in NeighborSet neighbors)
     {
         record.InFlight = job;
         var work = new WorkItem(index, record.Version, record.Chunk, neighbors);
@@ -339,11 +411,12 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 record.Dirty &= ~ChunkDirty.NeedsRelight;
             else if (job == JobType.Meshing)
                 record.Dirty &= ~ChunkDirty.NeedsRemesh;
+
+            return true;
         }
-        else
-        {
-            pending.Enqueue(work);
-        }
+
+        pending.Enqueue(work);
+        return false;
     }
 
     private void ProcessRelightRequest(RelightRequest request)
@@ -352,18 +425,30 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         if (!record.Flags.HasFlag(ChunkFlags.Wanted)) return;
         if (record.Chunk is null) return;
 
+        // A neighbor's boundary light changed. Faces of this chunk sample that boundary,
+        // so a non-empty chunk needs a remesh even if its own light map ends up unchanged
         record.Dirty |= ChunkDirty.NeedsRelight;
+        if (!record.Chunk.IsEmpty)
+        {
+            record.Dirty |= ChunkDirty.NeedsRemesh;
+        }
+
         TryDispatch(request.Index);
     }
 
-    private void MarkForDeletion(List<Vec3<int>> toRemove)
+    private void MarkForDeletion()
     {
-        foreach (var id in toRemove)
+        for (int processed = 0;
+             !BudgetExhausted(processed, MinMarks) && markedForDeletionQueue.TryDequeue(out var id);
+             processed++)
         {
             if (!registry.TryGetValue(id, out var record))
                 continue;
 
             if (record.Flags.HasFlag(ChunkFlags.DeleteRequested))
+                continue;
+
+            if (volume.IsWithinActiveVolume(id))
                 continue;
 
             pendingDeletion.Add(id);
@@ -376,16 +461,24 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     private int ProcessDeletion()
     {
-        if (pendingDeletion.Count == 0) return 0;
-
-        foreach (var id in pendingDeletion)
+        // Refill only once the previous batch is fully handled, so nothing is queued twice.
+        // Entries skipped below stay in pendingDeletion and are picked up by a later refill
+        if (deletionQueue.Count == 0)
         {
-            deletionQueue.Enqueue(id);
+            if (pendingDeletion.Count == 0) return 0;
+
+            foreach (var id in pendingDeletion)
+            {
+                if (deletionQueue.Count >= MaxItemsPerPhase) break;
+                deletionQueue.Enqueue(id);
+            }
         }
 
         int chunksDeleted = 0;
 
-        while (deletionQueue.TryDequeue(out var id))
+        for (int processed = 0;
+             !BudgetExhausted(processed, MinDeletions) && deletionQueue.TryDequeue(out var id);
+             processed++)
         {
             if (!registry.TryGetValue(id, out var record)
                 || record.Flags.HasFlag(ChunkFlags.Wanted))
@@ -415,23 +508,32 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         return chunksDeleted;
     }
 
-    private void ClearStrandedRecords()
+    private void ScanStrandedRecords()
     {
-        foreach (var (id, record) in registry)
+        strandedScan ??= registry.GetEnumerator();
+
+        for (int i = 0; i < StrandedScanPerTick; i++)
         {
+            if (!strandedScan.MoveNext())
+            {
+                strandedScan.Dispose();
+                strandedScan = null;
+                return;
+            }
+
+            var (id, record) = strandedScan.Current;
             if (record.Chunk is null && record.InFlight is null && !volume.IsWithinActiveVolume(id))
             {
                 registry.TryRemove(id, out _);
-                Console.WriteLine($"Cleared stranded record {id}");
             }
         }
     }
 
     private bool AnyNeighborInFlight(Chunk chunk)
     {
-        foreach (var nIdx in chunk.GetNeighborIndexes())
+        foreach (var offset in NeighborOffsets)
         {
-            if (!registry.TryGetValue(nIdx, out var nRecord))
+            if (!registry.TryGetValue(chunk.Index + offset, out var nRecord))
                 continue;
 
             if (!nRecord.Flags.HasFlag(ChunkFlags.Wanted))
@@ -464,7 +566,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
     private void FlushQueue(Queue<WorkItem> pending, JobType job)
     {
-        for (int i = 0; i < ChunkBudget; i++)
+        for (int processed = 0; !BudgetExhausted(processed, MinFlush); processed++)
         {
             if (!pending.TryDequeue(out var item))
                 break;
@@ -479,15 +581,20 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             if (record.Version != item.Version && !record.Flags.HasFlag(ChunkFlags.Wanted))
                 continue;
 
-            TryDispatch(item.Index);
+            bool channelWriteSuccessful = TryDispatch(item.Index);
+            if (!channelWriteSuccessful) break;
         }
     }
 
-    private void ProcessFresh(List<Vec3<int>> toGenerate)
+    private void ProcessFresh()
     {
-        foreach (var index in toGenerate)
+        for (int processed = 0;
+             !BudgetExhausted(processed, MinFresh) && freshQueue.TryDequeue(out var id);
+             processed++)
         {
-            if (!registry.TryGetValue(index, out var record))
+            if (!volume.IsWithinActiveVolume(id)) continue;
+
+            if (!registry.TryGetValue(id, out var record))
             {
                 record = new ChunkRecord
                 {
@@ -496,7 +603,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     Flags = ChunkFlags.Wanted
                 };
 
-                registry[index] = record;
+                registry[id] = record;
             }
             else
             {
@@ -513,7 +620,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                 }
             }
 
-            TryDispatch(index);
+            bool channelWriteSuccessful = TryDispatch(id);
+            if (!channelWriteSuccessful) break;
         }
     }
 
@@ -525,7 +633,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             var result = new WorkResult(item.Index, item.Version, JobType.Generation, ResultStatus.Skip, null, null,null);
             try
             {
-                result.Chunk = chunkGenerator.GenerateChunk(item.Index);
+                var chunk = chunkGenerator.GenerateChunk(item.Index);
+                chunk.EnsureLight();
+                result.Chunk = chunk;
                 result.Status = ResultStatus.Success;
             }
             catch (Exception ex) when (ex is not (TaskCanceledException or OperationCanceledException))
@@ -556,6 +666,9 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
                     continue;
                 }
 
+                // Seeding and flooding share a thread-local scratch queue and must stay free of awaits
+                ChunkLight.ResetThreadScratch();
+
                 if (chunkGenerator.IsSunlight(chunk))
                 {
                     chunk.Light!.SeedSkylight();
@@ -568,7 +681,8 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
 
                 chunk.Light!.SeedNeighborsLight(neighborSet.Value);
 
-                FacesState changed = chunk.Light!.Flood();
+                FacesState changed = chunk.Light!.Flood(out bool lightChanged);
+                result.LightChanged = lightChanged;
 
                 if (changed.ZPos)
                     await relightChannel.Writer.WriteAsync(new RelightRequest(index + new Vec3<int>(0, 0, 1)), ct);
@@ -702,6 +816,7 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
             Console.WriteLine($"Worker faulted during disposal: {ex}");
         }
 
+        strandedScan?.Dispose();
         cts.Dispose();
 
         GC.SuppressFinalize(this);
@@ -719,8 +834,12 @@ internal class ChunkPipeline : IDisposable, IAsyncDisposable
         ResultStatus Status,
         Chunk? Chunk,
         MeshingResult? Mesh,
-        Exception? Exception);
-    
+        Exception? Exception)
+    {
+        // Lighting only: whether the flood changed any value in this chunk's light map
+        public bool LightChanged { get; set; }
+    }
+
     private record struct MeshingResult(VoxelFace[] Opaque, VoxelFace[] Transparent);
 
     private record struct RelightRequest(Vec3<int> Index);

@@ -25,7 +25,7 @@ internal unsafe class GpuUploader : IDisposable
     private readonly Queue<TransferBuffer> inflightBuffers = [];
     
     private const uint TransferCapacityBytes = 1 << 19;
-    private const byte TransferBufferCount = 2;
+    private const byte TransferBufferCount = 64;
 
     public GpuUploader(GpuDevice device, SubmissionTracker submissionTracker, FrameProfiler profiler)
     {

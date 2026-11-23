@@ -8,22 +8,32 @@ namespace SharpCraft.World.WorldStreaming;
 internal sealed class ChunkVolume
 {
     //Number of chunks from the center chunk to the edge of the chunk area
-    private readonly int apothem;
+    private readonly uint apothem;
 
     private readonly ConcurrentDictionary<Vec3<int>, Chunk> chunks = [];
     private readonly ConcurrentDictionary<Vec2<int>, int> columnCounts = [];
     private readonly Vec3<sbyte>[] proximityIndexes;
+    private readonly Vec3<sbyte>[] boundaryIndexes;
 
     private Vec3<int> center;
+    private Vec3<int> previousCenter;
 
-    public ChunkVolume(int apothem)
+    public ChunkVolume(uint apothem)
     {
         this.apothem = apothem;
         proximityIndexes = BuildProximityIndexes();
+        boundaryIndexes = BuildBoundaryIndexes();
+    }
+    
+    public void InitCenter(Vec3<int> pos)
+    {
+        previousCenter = pos;
+        center = pos;
     }
 
     public void SetCenter(Vec3<int> pos)
     {
+        previousCenter = center;
         center = pos;
     }
 
@@ -69,27 +79,86 @@ internal sealed class ChunkVolume
 
     public List<Vec3<int>> CollectIndexesForGeneration()
     {
-        List<Vec3<int>> scheduledForGeneration = [];
+        var dCenter = center - previousCenter;
+
+        if (Math.Max(Math.Abs(dCenter.X), Math.Max(Math.Abs(dCenter.Y), Math.Abs(dCenter.Z))) == 1)
+        {
+            return CollectBoundaryIndexesForGeneration();
+        }
+
+        return CollectFullIndexesForGeneration();
+    }
+
+    private List<Vec3<int>> CollectFullIndexesForGeneration()
+    {
+        List<Vec3<int>> result = [];
         foreach (var proximityIndex in proximityIndexes)
         {
             Vec3<int> index = center + proximityIndex.Into<int>();
             if (!chunks.ContainsKey(index))
             {
-                scheduledForGeneration.Add(index);
+                result.Add(index);
             }
         }
 
-        return scheduledForGeneration;
+        return result;
+    }
+
+    private List<Vec3<int>> CollectBoundaryIndexesForGeneration()
+    {
+        List<Vec3<int>> result = [];
+        foreach (var boundaryIndex in boundaryIndexes)
+        {
+            Vec3<int> index = center + boundaryIndex.Into<int>();
+            if (!IsWithinPreviousActiveVolume(index))
+            {
+                result.Add(index);
+            }
+        }
+
+        return result;
     }
 
     public List<Vec3<int>> CollectIndexesForRemoval()
     {
-        IEnumerable<Vec3<int>> activeChunks =
-            from i in proximityIndexes
-            select i.Into<int>() + center;
+        var dCenter = center - previousCenter;
+        
+        if (Math.Max(Math.Abs(dCenter.X), Math.Max(Math.Abs(dCenter.Y), Math.Abs(dCenter.Z))) == 1)
+        {
+            return CollectBoundaryIndexesForRemoval();
+        }
+        
+        return CollectFullIndexesForRemoval();
+    }
+    
+    private List<Vec3<int>> CollectBoundaryIndexesForRemoval()
+    {
+        List<Vec3<int>> result = [];
+        foreach (var boundaryIndex in boundaryIndexes)
+        {
+            Vec3<int> index = previousCenter + boundaryIndex.Into<int>();
+            if (!IsWithinActiveVolume(index))
+            {
+                result.Add(index);
+            }
+        }
 
-        var toRemove = chunks.Keys.Except(activeChunks).ToList();
-        return toRemove;
+        return result;
+    }
+    
+    private List<Vec3<int>> CollectFullIndexesForRemoval()
+    {
+        List<Vec3<int>> result = [];
+        foreach (var proximityIndex in proximityIndexes)
+        {
+            Vec3<int> index = previousCenter + proximityIndex.Into<int>();
+            if (!IsWithinActiveVolume(index))
+            {
+                result.Add(index);
+            }
+        }
+
+        return result;
     }
 
     public bool IsWithinActiveVolume(in Vec3<int> pos)
@@ -97,6 +166,14 @@ internal sealed class ChunkVolume
         int dx = Math.Abs(pos.X - center.X);
         int dy = Math.Abs(pos.Y - center.Y);
         int dz = Math.Abs(pos.Z - center.Z);
+        return Math.Max(dx, Math.Max(dy, dz)) <= apothem;
+    }
+    
+    private bool IsWithinPreviousActiveVolume(in Vec3<int> pos)
+    {
+        int dx = Math.Abs(pos.X - previousCenter.X);
+        int dy = Math.Abs(pos.Y - previousCenter.Y);
+        int dz = Math.Abs(pos.Z - previousCenter.Z);
         return Math.Max(dx, Math.Max(dy, dz)) <= apothem;
     }
 
@@ -111,7 +188,6 @@ internal sealed class ChunkVolume
             {
                 // last one in the column
                 if (columnCounts.TryRemove(new KeyValuePair<Vec2<int>, int>(col, count))) break;
-                // if someone changed it, re-read and retry
             }
             else
             {
@@ -123,12 +199,37 @@ internal sealed class ChunkVolume
     private Vec3<sbyte>[] BuildProximityIndexes()
     {
         List<Vec3<sbyte>> indexes = [];
-        for (int x = -apothem; x <= apothem; x++)
+        for (int x = -(int)apothem; x <= apothem; x++)
         {
-            for (int y = -apothem; y <= apothem; y++)
+            for (int y = -(int)apothem; y <= apothem; y++)
             {
-                for (int z = -apothem; z <= apothem; z++)
+                for (int z = -(int)apothem; z <= apothem; z++)
                 {
+                    Vec3<sbyte> index = new((sbyte)x, (sbyte)y, (sbyte)z);
+                    indexes.Add(index);
+                }
+            }
+        }
+
+        indexes = [.. indexes.OrderBy(index => index.ManhattanDistance)];
+
+        return indexes.ToArray();
+    }
+    
+    private Vec3<sbyte>[] BuildBoundaryIndexes()
+    {
+        List<Vec3<sbyte>> indexes = [];
+        for (int x = -(int)apothem; x <= apothem; x++)
+        {
+            for (int y = -(int)apothem; y <= apothem; y++)
+            {
+                for (int z = -(int)apothem; z <= apothem; z++)
+                {
+                    if (Math.Max(Math.Abs(x), Math.Max(Math.Abs(y), Math.Abs(z))) < apothem)
+                    {
+                        continue;
+                    }
+                    
                     Vec3<sbyte> index = new((sbyte)x, (sbyte)y, (sbyte)z);
                     indexes.Add(index);
                 }

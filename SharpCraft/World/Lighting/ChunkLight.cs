@@ -7,9 +7,17 @@ namespace SharpCraft.World.Lighting;
 internal class ChunkLight(Chunk chunk)
 {
     private readonly LightValue[,,] map = new LightValue[Chunk.Size, Chunk.Size, Chunk.Size];
-    private readonly Queue<LightNode> wavefront = new();
+    
+    [ThreadStatic]
+    private static Queue<LightNode>? scratchWavefront;
+
+    private static Queue<LightNode> Wavefront => scratchWavefront ??= new Queue<LightNode>(1024);
 
     private FacesState boundaryChanged;
+    private bool anyChanged;
+
+    /// Discards leftovers from an interrupted seed/flood sequence on this thread
+    public static void ResetThreadScratch() => scratchWavefront?.Clear();
 
     public LightValue Get(int x, int y, int z) => map[x, y, z];
 
@@ -84,15 +92,27 @@ internal class ChunkLight(Chunk chunk)
         Admit(incoming, localX, localY, localZ);
     }
     
-    public FacesState Flood()
+    /// Returns the faces whose boundary values improved; lightChanged reports whether
+    /// any value in this chunk changed since the last flood
+    public FacesState Flood(out bool lightChanged)
     {
-        while (wavefront.TryDequeue(out LightNode node))
+        var wavefront = Wavefront;
+        try
         {
-            Propagate(node.X, node.Y, node.Z);
+            while (wavefront.TryDequeue(out LightNode node))
+            {
+                Propagate(node.X, node.Y, node.Z);
+            }
+        }
+        finally
+        {
+            wavefront.Clear();
         }
 
         FacesState changed = boundaryChanged;
+        lightChanged = anyChanged;
         boundaryChanged = default;
+        anyChanged = false;
         return changed;
     }
     
@@ -101,7 +121,8 @@ internal class ChunkLight(Chunk chunk)
         if (!map[x, y, z].Compare(value, out LightValue merged)) return;
 
         map[x, y, z] = merged;
-        wavefront.Enqueue(new LightNode(merged, x, y, z));
+        anyChanged = true;
+        Wavefront.Enqueue(new LightNode(merged, x, y, z));
 
         if (x == 0) boundaryChanged.XNeg = true;
         else if (x == Chunk.Last) boundaryChanged.XPos = true;

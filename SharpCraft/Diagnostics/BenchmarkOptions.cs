@@ -6,7 +6,7 @@ internal enum BenchmarkScene { Exposure, Merge, Terrain }
 internal enum BenchmarkPath { Stationary, Rotate, Travel }
 
 internal sealed record BenchmarkOptions(BenchmarkScene? Scene = null, int Seed = 1337,
-    int Radius = 8, BenchmarkPath Path = BenchmarkPath.Rotate, double WarmupSeconds = 5,
+    uint Radius = 20, BenchmarkPath Path = BenchmarkPath.Rotate, double WarmupSeconds = 5,
     double MeasureSeconds = 20, uint FpsLimit = 60)
 {
     public static BenchmarkOptions ForScene(BenchmarkScene scene) => new(Scene: scene, Radius: 4, FpsLimit: 0);
@@ -25,7 +25,7 @@ internal sealed record BenchmarkOptions(BenchmarkScene? Scene = null, int Seed =
             {
                 "--benchmark" => options with { Scene = ParseEnum<BenchmarkScene>(value) },
                 "--seed" => options with { Seed = int.Parse(value, CultureInfo.InvariantCulture) },
-                "--radius" => options with { Radius = int.Parse(value, CultureInfo.InvariantCulture) },
+                "--radius" => options with { Radius = uint.Parse(value, CultureInfo.InvariantCulture) },
                 "--path" => options with { Path = ParseEnum<BenchmarkPath>(value) },
                 "--warmup" => options with { WarmupSeconds = double.Parse(value, CultureInfo.InvariantCulture) },
                 "--seconds" => options with { MeasureSeconds = double.Parse(value, CultureInfo.InvariantCulture) },
@@ -50,7 +50,7 @@ internal sealed record BenchmarkOptions(BenchmarkScene? Scene = null, int Seed =
     {
         if (Scene.HasValue && !Enum.IsDefined(Scene.Value)) throw new ArgumentException("Unknown benchmark scene");
         if (!Enum.IsDefined(Path)) throw new ArgumentException("Unknown benchmark camera path");
-        if (Radius is < 1 or > 16) throw new ArgumentException("Radius must be 1..16 chunks");
+        if (Radius is < 1 or > 100) throw new ArgumentException("Radius must be 1..100 chunks");
         if (!double.IsFinite(WarmupSeconds) || WarmupSeconds < 0 || WarmupSeconds > 600 ||
             !double.IsFinite(MeasureSeconds) || MeasureSeconds <= 0 || MeasureSeconds > 600)
             throw new ArgumentException("Warmup must be 0..600 seconds; measurement must be >0..600 seconds");

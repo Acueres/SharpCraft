@@ -1,6 +1,7 @@
 ﻿using SharpCraft.SharpMath;
 
 using System.Numerics;
+using SharpCraft.World.Chunks;
 
 namespace SharpCraft.View;
 
@@ -18,9 +19,12 @@ internal class Camera
     
     private uint viewportWidth;
     private uint viewportHeight;
+    private readonly uint radius;
 
-    public Camera(in Viewpoint viewpoint, uint viewportWidth, uint viewportHeight)
+    public Camera(in Viewpoint viewpoint, uint viewportWidth, uint viewportHeight, uint radius)
     {
+        this.radius = radius;
+        
         View = Matrix4x4.CreateLookAt(
             Vector3.Zero,
             viewpoint.Direction,
@@ -65,11 +69,15 @@ internal class Camera
         viewportWidth = width;
         viewportHeight = height;
 
+        float aspect = (float)width / height;
+        const float near = 0.1f;
+        float far = (radius + 1) * Chunk.Size * MathF.Sqrt(2f) + Chunk.Size;
+        
         Projection = Matrix4x4.CreatePerspectiveFieldOfView(
             float.DegreesToRadians(70),
-            (float)width / height,
-            0.1f,
-            200f
+            aspect,
+            near,
+            far
         );
         
         Frustum = new Frustum(View * Projection);

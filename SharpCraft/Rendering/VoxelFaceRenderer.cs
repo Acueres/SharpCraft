@@ -124,6 +124,17 @@ internal unsafe class VoxelFaceRenderer(GpuDevice device, GpuUploader uploader,
                 cacheChanged = true;
                 continue;
             }
+            
+            if (updateFaceCount == 0)
+            {
+                if (entryExists)
+                {
+                    meshCache.Remove(meshUpdate.Index);
+                    RetireMesh(meshEntry!);
+                    cacheChanged = true;
+                }
+                continue;
+            }
 
             var opaqueAllocations = new List<GpuAllocation>();
             var transparentAllocations = new List<GpuAllocation>();

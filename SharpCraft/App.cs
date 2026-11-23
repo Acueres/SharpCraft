@@ -63,7 +63,6 @@ internal unsafe class App : IDisposable
     private readonly BenchmarkRun benchmark;
 
     private readonly WorldLoader worldLoader;
-    private readonly ChunkVolume volume;
 
     public App(BenchmarkOptions? options = null)
     {
@@ -100,11 +99,11 @@ internal unsafe class App : IDisposable
         );*/
         activeViewController = new ObserverViewController(initialViewpoint);
 
-        camera = new Camera(initialViewpoint, DefaultWidth, DefaultHeight);
+        camera = new Camera(initialViewpoint, DefaultWidth, DefaultHeight, options.Radius);
 
         frameLimiter = options.FpsLimit == 0 ? null : new FrameLimiter(options.FpsLimit);
 
-        volume = new ChunkVolume(options.Radius);
+        var volume = new ChunkVolume(options.Radius);
         var chunkGenerator = new ChunkGenerator(blockRegistry,
             options.Scene.HasValue ? new BenchmarkTerrain(options.Scene.Value, options.Seed) : null);
         var chunkMesher = new ChunkMesher(blockRegistry);
@@ -112,6 +111,7 @@ internal unsafe class App : IDisposable
         
         worldLoader = new WorldLoader(initialViewpoint.Index, volume, chunkGenerator, chunkMesher, meshSink);
         worldLoader.BulkGenerate();
+        worldLoader.Start();
         
         renderer = new Renderer(DefaultWidth, DefaultHeight, window, device, assetServer, meshSink, profiler,
             options, benchmark);
@@ -165,13 +165,12 @@ internal unsafe class App : IDisposable
             long worldStarted = Stopwatch.GetTimestamp();
             
             bool worldUpdate = worldLoader.Tick();
+            worldLoader.Recenter(activeViewController.GetIndex());
             profiler.Streaming = worldLoader.GetStatistics();
             profiler.Timings.CompletionMilliseconds = worldLoader.CompletionMilliseconds;
             profiler.Timings.WorldMilliseconds = Stopwatch.GetElapsedTime(worldStarted).TotalMilliseconds;
             bool controllerUpdate = activeViewController.Update(input, time);
             
-            worldLoader.Recenter(activeViewController.GetIndex());
-
             if (controllerUpdate)
             {
                 var viewpoint = activeViewController.GetViewpoint();
@@ -208,10 +207,11 @@ internal unsafe class App : IDisposable
     public void Dispose()
     {
         if (disposed) return;
-
+        
         worldLoader.Dispose();
+        
         device.WaitIdle();
-
+        
         renderer.Dispose();
         assetServer.Dispose();
 

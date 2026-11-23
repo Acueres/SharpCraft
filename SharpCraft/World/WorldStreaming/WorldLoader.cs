@@ -16,9 +16,17 @@ internal class WorldLoader(
     ChunkMesher chunkMesher,
     MeshSink meshSink) : IDisposable
 {
+    private const int MaxChunkDistance = 12;
+    
     private readonly ChunkPipeline pipeline = new(volume, chunkGenerator, chunkMesher, meshSink);
 
     private Vec3<int> center = initialCenter;
+
+    public void Start()
+    {
+        var indexesForGeneration = volume.CollectIndexesForGeneration();
+        pipeline.Schedule(indexesForGeneration, []);
+    }
 
     public void Recenter(Vec3<int> newCenter)
     {
@@ -44,18 +52,18 @@ internal class WorldLoader(
     // Use to generate chunks in bulk
     public void BulkGenerate()
     {
-        volume.SetCenter(center);
+        volume.InitCenter(center);
 
         ConcurrentBag<Chunk> generatedChunks = [];
-        var indexesForGeneration = volume.CollectIndexesForGeneration();
-        
+        var indexesForGeneration = CapIndexesForGeneration(volume.CollectIndexesForGeneration(), center);
+
         Parallel.ForEach(indexesForGeneration, index =>
         {
             Chunk chunk = chunkGenerator.GenerateChunk(index);
             volume.Add(chunk);
             generatedChunks.Add(chunk);
         });
-        
+
         Dictionary<Vec3<int>, NeighborSet> neighbors = [];
         foreach (var chunk in generatedChunks)
         {
@@ -96,15 +104,15 @@ internal class WorldLoader(
         {
             bulkLight.SeedBlockLights(chunk);
         }
-        
+
         bulkLight.Flood();
 
         Parallel.ForEach(readyChunks, chunk =>
         {
             var n = neighbors[chunk.Index];
-            
+
             var (opaque, transparent) = chunkMesher.Build(chunk, n);
-            
+
             var meshUpdate = new MeshUpdate(chunk.Index, MeshUpdateState.Updated, opaque, transparent);
             meshSink.AddMesh(meshUpdate);
 
@@ -113,8 +121,18 @@ internal class WorldLoader(
         });
     }
 
-    //public ReliefType GetReliefType(int cx, int cz, int bx, int bz) => chunkGenerator.GetReliefType(cx, cz, bx, bz);
+    private static List<Vec3<int>> CapIndexesForGeneration(List<Vec3<int>> indexesForGeneration, Vec3<int> center)
+    {
+        return indexesForGeneration.Where(index =>
+        {
+            var relativeIndex = center - index;
+            relativeIndex = new Vec3<int>(Math.Abs(relativeIndex.X), Math.Abs(relativeIndex.Y), Math.Abs(relativeIndex.Z));
+            return relativeIndex is { X: < MaxChunkDistance, Y: < MaxChunkDistance, Z: < MaxChunkDistance };
+        }).ToList();
+    }
 
+    //public ReliefType GetReliefType(int cx, int cz, int bx, int bz) => chunkGenerator.GetReliefType(cx, cz, bx, bz);
+    
     // Disposal
     private bool disposed;
 
