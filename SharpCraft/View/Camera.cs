@@ -1,7 +1,7 @@
 ﻿using SharpCraft.SharpMath;
+using SharpCraft.World.Chunks;
 
 using System.Numerics;
-using SharpCraft.World.Chunks;
 
 namespace SharpCraft.View;
 
@@ -62,24 +62,20 @@ internal class Camera
     {
         if (width == 0 || height == 0)
             return;
-        
+
         if (width == viewportWidth && height == viewportHeight)
             return;
-        
+
         viewportWidth = width;
         viewportHeight = height;
 
         float aspect = (float)width / height;
         const float near = 0.1f;
         float far = (radius + 1) * Chunk.Size * MathF.Sqrt(2f) + Chunk.Size;
-        
-        Projection = Matrix4x4.CreatePerspectiveFieldOfView(
-            float.DegreesToRadians(70),
-            aspect,
-            near,
-            far
-        );
-        
+        float fov = float.DegreesToRadians(70);
+
+        Projection = MathUtilities.ReverseZPerspective(fov, aspect, near, far);
+
         Frustum = new Frustum(View * Projection);
         UpdateOccurred = true;
     }

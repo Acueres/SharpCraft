@@ -6,7 +6,7 @@ internal enum BenchmarkScene { Exposure, Merge, Terrain }
 internal enum BenchmarkPath { Stationary, Rotate, Travel }
 
 internal sealed record BenchmarkOptions(BenchmarkScene? Scene = null, int Seed = 1337,
-    uint Radius = 20, BenchmarkPath Path = BenchmarkPath.Rotate, double WarmupSeconds = 5,
+    uint Radius = 32, BenchmarkPath Path = BenchmarkPath.Rotate, double WarmupSeconds = 5,
     double MeasureSeconds = 20, uint FpsLimit = 60)
 {
     public static BenchmarkOptions ForScene(BenchmarkScene scene) => new(Scene: scene, Radius: 4, FpsLimit: 0);

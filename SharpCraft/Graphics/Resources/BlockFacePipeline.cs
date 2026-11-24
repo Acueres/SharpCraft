@@ -33,7 +33,7 @@ internal unsafe class BlockFacePipeline : IDisposable
         {
             enable_depth_test = true,
             enable_depth_write = true,
-            compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS
+            compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_GREATER_OR_EQUAL
         };
 
         var pipeline = new BlockFacePipeline(device, vertexShader, fragmentShader, &blendState, &depthStencilState);
@@ -66,7 +66,7 @@ internal unsafe class BlockFacePipeline : IDisposable
         {
             enable_depth_test = true,
             enable_depth_write = false,
-            compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_LESS
+            compare_op = SDL_GPUCompareOp.SDL_GPU_COMPAREOP_GREATER_OR_EQUAL
         };
 
         var pipeline = new BlockFacePipeline(device, vertexShader, fragmentShader, &blendState, &depthStencilState);
@@ -173,7 +173,7 @@ internal unsafe class BlockFacePipeline : IDisposable
                 num_color_targets = 1,
 
                 has_depth_stencil_target = true,
-                depth_stencil_format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D24_UNORM
+                depth_stencil_format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D32_FLOAT
             }
         };
 

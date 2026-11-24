@@ -52,7 +52,7 @@ internal unsafe class DepthBuffer : IDisposable
         SDL_GPUTextureCreateInfo depthTextureInfo = new()
         {
             type = SDL_GPUTextureType.SDL_GPU_TEXTURETYPE_2D,
-            format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D24_UNORM,
+            format = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
             usage = SDL_GPUTextureUsageFlags.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
             width = width,
             height = height,

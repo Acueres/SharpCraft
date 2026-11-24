@@ -198,7 +198,7 @@ internal unsafe class Renderer : IDisposable
         {
             texture = depthBuffer.Handle,
 
-            clear_depth = 1.0f,
+            clear_depth = 0.0f,
             load_op = SDL_GPULoadOp.SDL_GPU_LOADOP_CLEAR,
             store_op = SDL_GPUStoreOp.SDL_GPU_STOREOP_DONT_CARE,
 
