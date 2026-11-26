@@ -18,4 +18,6 @@ Coverage includes:
 - arena growth from either range or slot exhaustion, oversized stream allocation
   order, live handles during reclamation, one warm reserve, and buffer disposal;
 - record-count-to-byte conversion, overflow checks, and capacity accounting;
-- managed face, slot, and camera layouts plus slot-ID stamping.
+- managed face, slot, and camera layouts plus slot-ID stamping;
+- volume startup, entering/leaving boundaries, diagonal moves, teleportation,
+  and consecutive moves before generation finishes, with duplicate checks.
